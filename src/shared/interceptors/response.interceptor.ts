@@ -24,7 +24,7 @@ export interface TResponse<T> {
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> {
   intercept(context: ExecutionContext, next: CallHandler): Observable<TResponse<T>> {
-    const startTime = Date.now(); // Start time
+    const startTime = Date.now();
     return next.handle().pipe(
       map((res: unknown) => this.responseHandler(res, context, startTime)),
       catchError((err: HttpException) =>
@@ -33,7 +33,6 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
     );
   }
 
-  // Handles success response
   responseHandler(res: any, context: ExecutionContext, startTime: number): TResponse<T> {
     const ctx = context.switchToHttp();
     const response = ctx.getResponse();
@@ -51,7 +50,6 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
     };
   }
 
-  // Handles error response
   errorHandler(exception: any, context: ExecutionContext, startTime: number): any {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest<Request>();
@@ -64,10 +62,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
     if (exception instanceof BadRequestException) {
       if (typeof message === 'object') {
         const responseMsr = message.map((data: any) => {
-          const issues = {
-            field: '',
-            errors: [],
-          };
+          const issues = { field: '', errors: [] };
           if (data?.constraints) {
             issues.field = data.property;
             for (const key of Object.keys(data.constraints)) {

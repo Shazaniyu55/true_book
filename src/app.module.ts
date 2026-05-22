@@ -1,14 +1,25 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+
 import configSchema from '@config/schema.config';
 import common from '@config/common.config';
 import typeorm from '@config/typeorm.config';
 import { Broker } from '@broker/broker';
-import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { CoreModule } from '@modules/core/core.module';
-import { ExampleModule } from '@modules/example/example.module';
+import { AuthModule } from '@modules/auth/auth.module';
+import { DriverModule } from '@modules/driver/driver.module';
+import { PassengerModule } from '@modules/passenger/passenger.module';
+import { AgentModule } from '@modules/agent/agent.module';
+import { AdminModule } from '@modules/admin/admin.module';
+import { NotificationModule } from '@modules/notification/notification.module';
+import { WebhookModule } from '@modules/webhook/webhook.module';
+import { ContactSupportModule } from '@modules/contact-support/contact-support.module';
+import { SharedAppModule } from '@modules/shared/shared.module';
 
 @Module({
   imports: [
@@ -23,8 +34,18 @@ import { ExampleModule } from '@modules/example/example.module';
       useFactory: async (configService: ConfigService) => configService.get('typeorm'),
     }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
+    EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     CoreModule,
-    ExampleModule,
+    AuthModule,
+    DriverModule,
+    PassengerModule,
+    AgentModule,
+    AdminModule,
+    NotificationModule,
+    WebhookModule,
+    ContactSupportModule,
+    SharedAppModule,
   ],
   controllers: [],
   providers: [

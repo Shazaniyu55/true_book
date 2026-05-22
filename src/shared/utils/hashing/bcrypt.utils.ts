@@ -1,21 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { HashingUtil } from './hashing.utils';
-import { compare, hash, hashpw } from 'bcrypt';
-import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
+
+const SALT_ROUNDS = 12;
 
 @Injectable()
 export class BcryptHashingUtil implements HashingUtil {
-  constructor(private readonly configService: ConfigService) {}
-
   async hash(value: string | Buffer): Promise<string> {
-    return await hash(value, Number(this.configService.get<number>('common.bcryptSaltRounds')));
+    return bcrypt.hash(value as string, SALT_ROUNDS);
   }
 
   async compare(value: string | Buffer, encrypted: string): Promise<boolean> {
-    return await compare(value, encrypted);
-  }
-
-  async hashpw(value: string | Buffer): Promise<string> {
-    return await hashpw(value, Number(this.configService.get<number>('common.bcryptSaltRounds')));
+    return bcrypt.compare(value as string, encrypted);
   }
 }

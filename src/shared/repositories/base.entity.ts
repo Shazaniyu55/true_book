@@ -6,7 +6,6 @@ import {
   UpdateDateColumn,
   Column,
 } from 'typeorm';
-
 import { IsDateString, IsOptional } from 'class-validator';
 import { Exclude } from 'class-transformer';
 
@@ -15,16 +14,10 @@ export abstract class BaseEntity extends TypeOrmBaseEntity {
   @PrimaryGeneratedColumn({ type: 'integer' })
   id: number;
 
-  @CreateDateColumn({
-    type: 'timestamp with time zone',
-    default: () => 'CURRENT_TIMESTAMP',
-  })
+  @CreateDateColumn({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @UpdateDateColumn({
-    type: 'timestamp with time zone',
-    default: () => 'CURRENT_TIMESTAMP',
-  })
+  @UpdateDateColumn({ type: 'timestamp with time zone', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
 
   @IsOptional()

@@ -7,6 +7,10 @@ export class RandomnessUtil {
     return customAlphabet(alphabet, length)();
   }
 
+  generateOtp(length = 6): string {
+    return this.generateRandomStringWithAlphabet('1234567890', length);
+  }
+
   generateRandomNumberString(length = 6): string {
     return this.generateRandomStringWithAlphabet('1234567890', length);
   }
@@ -19,14 +23,17 @@ export class RandomnessUtil {
     return this.generateRandomStringWithAlphabet('ABCDEFGHIJKLMNPQRSTUVWXYZ123456789', length);
   }
 
+  generateBookingCode(length = 6): string {
+    return this.generateRandomStringWithAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', length);
+  }
+
   generateSecureToken(n = 40): string {
     const alphabet = 'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghijklmnpqrstuvwxyz123456789';
     return this.generateRandomStringWithAlphabet(alphabet, n);
   }
 
-  generateSecureString(n = 8): string {
-    const alphabet =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_-+=<>?/[]{}|';
-    return this.generateRandomStringWithAlphabet(alphabet, n);
+  generateReference(prefix = 'TRB', length = 16): string {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    return `${prefix}-${this.generateRandomStringWithAlphabet(alphabet, length)}`;
   }
 }

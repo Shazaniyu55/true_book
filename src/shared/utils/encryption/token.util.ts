@@ -7,23 +7,11 @@ import cryptoRandomString from 'crypto-random-string';
 export class TokenGeneratorUtil {
   constructor(private readonly configService: ConfigService) {}
 
-  generateReference(
-    refType: string,
-    length = this.configService.get<number>('common.auth.defaultRandomStringLength'),
-  ): string {
-    /**
-     * Returns a 32 character unique string. Matches the length of MD5, which is unique enough for non-crypto purposes.
-     */
-    return `${refType}${cryptoRandomString({
-      length,
-      characters: this.configService.get<string>('common.auth.defaultRandomStringCharacters'),
-    })}`;
+  generateReference(refType: string, length = 16): string {
+    return `${refType}${cryptoRandomString({ length, characters: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' })}`;
   }
 
   getUniqueString(prefix: string): string {
-    /**
-     * Returns a 32 character unique string. Matches the length of MD5, which is unique enough for non-crypto purposes.
-     */
     return `${prefix}${uniqueString()}`;
   }
 }

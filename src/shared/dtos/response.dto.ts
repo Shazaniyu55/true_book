@@ -4,7 +4,7 @@ export const failedResponseDto = (path: string = null, message: any = null) => (
   message: message ?? 'Internal server error',
   path: path ?? '/',
   duration: 84,
-  timestamp: 1753179285183,
+  timestamp: Date.now(),
 });
 
 export const successResponseDto = (path: string, message: string = null, result: any = null) => ({
@@ -13,8 +13,8 @@ export const successResponseDto = (path: string, message: string = null, result:
   message: message ?? 'Request successful',
   result: result ?? {},
   path: path ?? '/',
-  duration: 15713,
-  timestamp: 1753018892095,
+  duration: 15,
+  timestamp: Date.now(),
 });
 
 export const badRequestResponseDto = (
@@ -25,13 +25,8 @@ export const badRequestResponseDto = (
   statusCode: 400,
   success: false,
   message: message ?? 'Bad request',
-  errors: errors ?? [
-    {
-      field: 'fieldname',
-      errors: ['fieldname must be an .......', 'fieldname should not be empty'],
-    },
-  ],
+  errors: errors ?? [{ field: 'fieldname', errors: ['fieldname must be ...'] }],
   path: path ?? '/',
   duration: 84,
-  timestamp: 1753179285183,
+  timestamp: Date.now(),
 });

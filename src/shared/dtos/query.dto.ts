@@ -1,8 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-
 import { Transform, Type } from 'class-transformer';
 import { IsEnum, IsNumber, IsOptional } from 'class-validator';
-
 import { IQuery, Order } from '../interface/query.interface';
 
 export class QueryDto implements IQuery {
@@ -23,8 +21,8 @@ export class QueryDto implements IQuery {
   @IsEnum(Order)
   order?: Order;
 
-  @ApiProperty({ required: false, type: 'object', description: 'Filter parameters as an object' })
+  @ApiProperty({ required: false })
   @IsOptional()
-  @Type(() => Object)
+  @Type(() => String)
   search?: string;
 }

@@ -1,5 +1,3 @@
-// src/types/enums/index.ts
-
 export enum UserRole {
   PASSENGER = 'passenger',
   DRIVER = 'driver',
@@ -103,14 +101,6 @@ export enum TransactionType {
   DEBIT = 'debit',
   REFUND = 'refund',
   PAYOUT = 'payout',
-}
-
-export enum QueueName {
-  MAIL = 'mail',
-  NOTIFICATION = 'notification',
-  PAYMENT = 'payment',
-  WEBHOOK = 'webhook',
-  TRIP_STATUS = 'trip_status',
 }
 
 export enum AppPlatform {

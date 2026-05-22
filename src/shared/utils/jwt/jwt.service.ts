@@ -2,45 +2,28 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService as NestJwtService } from '@nestjs/jwt';
 
-export interface JwtPayload {
-  [key: string]: any;
-}
-
-export interface JwtSignOptions {
-  expiresIn?: string | number;
-}
+export interface JwtPayload { [key: string]: any; }
 
 @Injectable()
-export class JwtService {
-  private readonly secret: string;
-  private readonly defaultExpiresIn: string | number;
-  private readonly logger = new Logger(JwtService.name);
+export class JwtUtilService {
+  private readonly logger = new Logger(JwtUtilService.name);
 
   constructor(
     private readonly jwtService: NestJwtService,
     private readonly configService: ConfigService,
-  ) {
-    this.secret = this.configService.get<string>('common.auth.jwt.secret');
-    this.defaultExpiresIn = Number(this.configService.get<string>('common.auth.jwt.expiry')) * 60;
-  }
+  ) {}
 
-  /**
-   * Sign a JWT token with payload
-   */
-  sign(payload: JwtPayload, options?: JwtSignOptions): string {
+  sign(payload: JwtPayload, options?: { expiresIn?: string | number }): string {
     return this.jwtService.sign(payload, {
-      secret: this.secret,
-      expiresIn: options?.expiresIn || this.defaultExpiresIn,
+      secret: this.configService.get<string>('common.auth.jwt.accessSecret'),
+      expiresIn: options?.expiresIn || this.configService.get<string>('common.auth.jwt.accessExpiresIn') || '15m',
     });
   }
 
-  /**
-   * Verify and decode a JWT token
-   */
   verify<T extends object = JwtPayload>(token: string): T {
     try {
       return this.jwtService.verify<T>(token, {
-        secret: this.secret,
+        secret: this.configService.get<string>('common.auth.jwt.accessSecret'),
       });
     } catch (error) {
       this.logger.error(error);
@@ -48,9 +31,6 @@ export class JwtService {
     }
   }
 
-  /**
-   * Decode a token without verifying (use cautiously)
-   */
   decode<T extends object = JwtPayload>(token: string): T | null {
     return this.jwtService.decode<T>(token);
   }
