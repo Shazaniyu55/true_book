@@ -29,7 +29,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Register a new user' })
+  @ApiOperation({ summary: 'Register a new passanger' })
   register(@Body() dto: RegisterDto) {
     return this.broker.runUsecases([this.registerUsecase], dto);
   }
@@ -61,9 +61,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Resend OTP' })
   resendOtp(@Body() dto: ResendOtpDto) {
     // inline usecase pattern for simple ops
-    return this.broker.runUsecases([
-      { execute: async (em, args) => { return { message: 'OTP sent' }; } } as any,
-    ], dto);
+    return this.broker.runUsecases(
+      [
+        {
+          execute: async () => {
+            return { message: 'OTP sent' };
+          },
+        } as any,
+      ],
+      dto,
+    );
   }
 
   @Public()
