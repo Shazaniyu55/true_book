@@ -23,7 +23,7 @@ import { vaultEncrypt, vaultDecrypt } from './vault';
  * Key ID for column-level encryption.
  * Uses VAULT_TRANSIT_COLUMN_KEY for PII (phone, email, name).
  */
-const KEY_ID = () => process.env.VAULT_TRANSIT_COLUMN_KEY;
+// const KEY_ID = () => process.env.VAULT_TRANSIT_COLUMN_KEY;
 
 /**
  * Encrypts a plaintext string → Buffer stored as Postgres bytea.
@@ -39,7 +39,7 @@ const KEY_ID = () => process.env.VAULT_TRANSIT_COLUMN_KEY;
  * @returns Buffer ready for Postgres bytea storage
  */
 export async function encryptColumn(plaintext: string): Promise<Buffer> {
-  return vaultEncrypt(plaintext, KEY_ID());
+  return vaultEncrypt(plaintext);
 }
 
 /**
@@ -49,7 +49,7 @@ export async function encryptColumn(plaintext: string): Promise<Buffer> {
  * @returns Decrypted plaintext
  */
 export async function decryptColumn(cipherBuffer: Buffer): Promise<string> {
-  return vaultDecrypt(cipherBuffer, KEY_ID());
+  return vaultDecrypt(cipherBuffer);
 }
 
 /**
