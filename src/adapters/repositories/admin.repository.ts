@@ -11,11 +11,16 @@ import { DocumentVerification } from '@modules/core/entities/document-verificati
 import { Coupon } from '@modules/core/entities/coupon.entity';
 import { Passenger } from '@modules/core/entities/passenger.entity';
 import { PaystackAdapter } from '@adapters/payment/paystack/paystack.adapter';
-import { CouponStatus, CouponType, DocumentStatus, KycStatus, PayoutStatus, UserStatus } from 'src/types/enums';
+import {
+  CouponStatus,
+  CouponType,
+  DocumentStatus,
+  KycStatus,
+  PayoutStatus,
+  UserStatus,
+} from 'src/types/enums';
 import { Role } from '@modules/core/entities/role.entity';
-import { AdminListQueryDto } from '@modules/admin/dtos/admin.dto';
 import { PagedDto } from '@shared/interface/paged.interface';
-
 
 @Injectable()
 export class AdminRepository extends Repository<Admin> {
@@ -39,25 +44,21 @@ export class AdminRepository extends Repository<Admin> {
 
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
-
   ) {
     super(adminRepository.target, adminRepository.manager, adminRepository.queryRunner);
   }
 
+  async createAdmin(data: Partial<Admin>, entityManager?: EntityManager): Promise<Admin> {
+    const manager = entityManager || this.entityManager;
+    const user = manager.create(Admin, data);
+    return manager.save(Admin, user);
+  }
 
-    async createAdmin(data: Partial<Admin>, entityManager?: EntityManager): Promise<Admin> {
-      const manager = entityManager || this.entityManager;
-      const user = manager.create(Admin, data);
-      return manager.save(Admin, user);
-    }
+  async findByEmail(email: string): Promise<Admin> {
+    return this.findOne({ where: { email: email.toLowerCase() } });
+  }
 
-
-      async findByEmail(email: string): Promise<Admin> {
-        return this.findOne({ where: { email: email.toLowerCase() } });
-      }
-    
-
-// ─── Dashboard ───────────────────────────────────────────────────────────────
+  // ─── Dashboard ───────────────────────────────────────────────────────────────
 
   async getDashboardStats() {
     const [
@@ -99,34 +100,39 @@ export class AdminRepository extends Repository<Admin> {
 
   // ─── User Management ─────────────────────────────────────────────────────────
 
-  async listUsers(query: { page?: number; limit?: number; search?: string; role?: string }): Promise<PagedDto<any>> {
-  const { page = 1, limit = 20, search, role } = query;
-  const skip = (page - 1) * limit;
+  async listUsers(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+  }): Promise<PagedDto<any>> {
+    const { page = 1, limit = 20, search, role } = query;
+    const skip = (page - 1) * limit;
 
-  const where: any = { deletedAt: null };
-  if (search) where.email = ILike(`%${search}%`);
-  if (role) where.role = role;
+    const where: any = { deletedAt: null };
+    if (search) where.email = ILike(`%${search}%`);
+    if (role) where.role = role;
 
-  const [data, total] = await this.userRepo.findAndCount({
-    where,
-    skip,
-    take: limit,
-    order: { createdAt: 'DESC' },
-  });
+    const [data, total] = await this.userRepo.findAndCount({
+      where,
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    });
 
-  const pagedDto = new PagedDto();
-  pagedDto.data = data;
-  pagedDto.meta = {
-    page,
-    limit,
-    count: data.length,
-    previousPage: page > 1 ? page - 1 : false,
-    nextPage: skip + limit < total ? page + 1 : false,
-    pageCount: Math.ceil(total / limit),
-    totalRecords: total,
-  };
-  return pagedDto;
-}
+    const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+    return pagedDto;
+  }
 
   async getUser(id: number) {
     const user = await this.userRepo.findOne({ where: { id } });
@@ -187,7 +193,8 @@ export class AdminRepository extends Repository<Admin> {
 
   private async recalculateDriverKyc(driverId: number) {
     const allDocs = await this.docRepo.find({ where: { driverId } });
-    const allApproved = allDocs.length > 0 && allDocs.every((d) => d.status === DocumentStatus.APPROVED);
+    const allApproved =
+      allDocs.length > 0 && allDocs.every((d) => d.status === DocumentStatus.APPROVED);
 
     if (allApproved) {
       await this.driverRepo.update(driverId, { kycStatus: KycStatus.COMPLETED });
@@ -224,7 +231,11 @@ export class AdminRepository extends Repository<Admin> {
 
   // ─── Payout Management ───────────────────────────────────────────────────────
 
-  async listPayouts(query: { page?: number; limit?: number; status?: string }): Promise<PagedDto<any>> {
+  async listPayouts(query: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<PagedDto<any>> {
     const { page = 1, limit = 20, status } = query;
     const skip = (page - 1) * limit;
     const where: any = {};
@@ -238,18 +249,18 @@ export class AdminRepository extends Repository<Admin> {
       order: { createdAt: 'DESC' },
     });
 
-      const pagedDto = new PagedDto();
-  pagedDto.data = data;
-  pagedDto.meta = {
-    page,
-    limit,
-    count: data.length,
-    previousPage: page > 1 ? page - 1 : false,
-    nextPage: skip + limit < total ? page + 1 : false,
-    pageCount: Math.ceil(total / limit),
-    totalRecords: total,
-  };
-  return pagedDto;
+    const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+    return pagedDto;
 
     //return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
@@ -277,7 +288,7 @@ export class AdminRepository extends Repository<Admin> {
     });
 
     // 2. Initiate transfer
-    const { transfer_code,  } = await this.paystackAdapter.initiatePayout({
+    const { transfer_code } = await this.paystackAdapter.initiatePayout({
       recipient_code,
       amount: payout.amount,
       reason: payout.reason || 'Driver payout',
@@ -383,22 +394,14 @@ export class AdminRepository extends Repository<Admin> {
     return this.bookingRepo.save(booking);
   }
 
- reviewDocument(docId: number, approve: boolean, reason: string, email: string) {
-    return approve
-      ? this.approveDocument(docId, email)
-      : this.rejectDocument(docId, reason, email);
+  reviewDocument(docId: number, approve: boolean, reason: string, email: string) {
+    return approve ? this.approveDocument(docId, email) : this.rejectDocument(docId, reason, email);
   }
 
-  getBooking(id: number) {  
+  getBooking(id: number) {
     return this.bookingRepo.findOne({
       where: { id },
       relations: ['trip', 'passenger', 'passenger.user'],
     });
-
   }
-
-
-
-
-
 }
