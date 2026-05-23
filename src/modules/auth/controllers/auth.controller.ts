@@ -13,8 +13,10 @@ import { LoginUsecase } from '../usecases/login.usecase';
 import { VerifyOtpUsecase } from '../usecases/verify-otp.usecase';
 import { ForgotPasswordUsecase } from '../usecases/forgot-password.usecase';
 import { ResetPasswordUsecase } from '../usecases/reset-password.usecase';
+import { ServiceName } from '@shared/decorators/servicename.decorators';
 
 @ApiTags('Auth')
+@ServiceName('auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1')
 export class AuthController {

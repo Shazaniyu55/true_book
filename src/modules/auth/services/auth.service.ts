@@ -2,7 +2,6 @@ import { BadRequestException, ConflictException, Injectable, UnauthorizedExcepti
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { EntityManager } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { UserRepository } from '@adapters/repositories/user.repository';
 import { PassengerRepository } from '@adapters/repositories/passenger.repository';
 import { DriverRepository } from '@adapters/repositories/driver.repository';
@@ -12,6 +11,7 @@ import { UserRole, UserStatus } from '../../../types/enums';
 import { getOtpExpiry, isOtpExpired } from '@shared/utils/helpers/common.utils';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
+import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +22,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly randomnessUtil: RandomnessUtil,
+    private readonly hashingUtil: HashingUtil,
+    
   ) {}
 
   async register(dto: RegisterDto, entityManager?: EntityManager): Promise<User> {
@@ -31,7 +33,7 @@ export class AuthService {
     const existingPhone = await this.userRepository.findByPhone(dto.phone);
     if (existingPhone) throw new ConflictException('Phone number already in use');
 
-    const hashedPassword = await bcrypt.hash(dto.password, 12);
+    const hashedPassword = await this.hashingUtil.hash(dto.password);
     const referralCode = this.randomnessUtil.generateRandomStringWithNumbers(8);
     const otp = this.randomnessUtil.generateOtp();
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
@@ -64,7 +66,7 @@ export class AuthService {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+    const isPasswordValid = await this.hashingUtil.compare(dto.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
     if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
@@ -117,7 +119,7 @@ export class AuthService {
     if (user.otpCode !== otp) throw new BadRequestException('Invalid OTP');
     if (isOtpExpired(user.otpExpiresAt)) throw new BadRequestException('OTP has expired');
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = await this.hashingUtil.hash(newPassword);
     await this.userRepository.updateUser(
       user.id,
       { password: hashedPassword, otpCode: null, otpExpiresAt: null },

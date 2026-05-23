@@ -21,6 +21,10 @@ import { WebhookModule } from '@modules/webhook/webhook.module';
 import { ContactSupportModule } from '@modules/contact-support/contact-support.module';
 import { SharedAppModule } from '@modules/shared/shared.module';
 
+// Kill Switch (global)
+import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
+
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -36,6 +40,10 @@ import { SharedAppModule } from '@modules/shared/shared.module';
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
+
+    // Kill Switch — must come before feature modules
+    KillSwitchModule,
+
     CoreModule,
     AuthModule,
     DriverModule,

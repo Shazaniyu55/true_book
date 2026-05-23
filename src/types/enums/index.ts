@@ -5,6 +5,13 @@ export enum UserRole {
   AGENT = 'agent',
 }
 
+export enum PermissionLevel {
+  READ = 'read',
+  WRITE = 'write',
+  FULL = 'full',
+}
+
+
 export enum UserStatus {
   ACTIVE = 'active',
   INACTIVE = 'inactive',

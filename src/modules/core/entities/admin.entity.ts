@@ -3,6 +3,7 @@ import { Exclude } from 'class-transformer';
 import { BaseEntity } from '@shared/repositories/base.entity';
 import { UserRole, UserStatus } from '../../../types/enums';
 
+
 @Entity('admins')
 export class Admin extends BaseEntity {
   @Index({ unique: true })

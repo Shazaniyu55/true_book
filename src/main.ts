@@ -11,9 +11,13 @@ import * as cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 
 import { AppModule } from './app.module';
+import { KillSwitchGuard } from './modules/kill-switch/kill-switch.guard';
+import { loadSecretsFromVault } from './shared/vault/vaultSecrets';
 
 async function bootstrap() {
   dotenv.config();
+   //Load secrets from Vault (or env in local mode) — BEFORE app creation
+  await loadSecretsFromVault();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
   const { port, swaggerApiRoot } = configService.get('common');
@@ -56,6 +60,10 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
   // Enable global validation pipe
   app.useGlobalPipes(CustomFieldValidationPipe);
+
+  //Register Kill Switch as a global guard
+  const killSwitchGuard = app.get(KillSwitchGuard);
+  app.useGlobalGuards(killSwitchGuard);
 
   const swaggerOptions = new DocumentBuilder()
     .setTitle(`${PRODUCT_NAME} API Documentation`)

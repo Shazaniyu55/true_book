@@ -21,10 +21,13 @@ import { LoginUsecase } from './usecases/login.usecase';
 import { VerifyOtpUsecase } from './usecases/verify-otp.usecase';
 import { ForgotPasswordUsecase } from './usecases/forgot-password.usecase';
 import { ResetPasswordUsecase } from './usecases/reset-password.usecase';
+import { BcryptHashingUtil } from '@shared/utils/hashing/bcrypt.utils';
+import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
+import { Admin } from '@modules/core/entities/admin.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Driver, Passenger]),
+    TypeOrmModule.forFeature([ User, Driver, Passenger, Admin]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -43,6 +46,10 @@ import { ResetPasswordUsecase } from './usecases/reset-password.usecase';
     UserRepository,
     DriverRepository,
     PassengerRepository,
+     {
+          provide: HashingUtil,
+          useClass: BcryptHashingUtil,
+    },
     RandomnessUtil,
     RegisterUsecase,
     LoginUsecase,

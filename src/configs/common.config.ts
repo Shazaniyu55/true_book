@@ -27,6 +27,12 @@ export default registerAs('common', () => ({
     durationMinutes: toNumber(process.env.OTP_DURATION_MINUTES, 10),
   },
 
+   /** Kill switch codes — loaded from Vault in production */
+  killSwitch: {
+    deactivationCode: process.env.KILL_SWITCH_DEACTIVATION_CODE,
+    twoFaApprovalCode: process.env.KILL_SWITCH_2FA_APPROVAL_CODE,
+  },
+
   payment: {
     gateway: process.env.PAYMENT_GATEWAY || 'paystack',
     paystack: {
@@ -50,6 +56,11 @@ export default registerAs('common', () => ({
     },
   },
 
+    agent: {
+    commissionRate: toNumber(process.env.AGENT_COMMISSION_RATE, 5),
+  },
+
+
   database: {
     type: process.env.DATABASE_TYPE,
     host: process.env.DB_HOST,
@@ -59,6 +70,15 @@ export default registerAs('common', () => ({
     port: toNumber(process.env.DB_PORT),
     logging: process.env.DATABASE_LOGGING,
     retryAttempts: toNumber(process.env.DATABASE_RETRY_ATTEMPTS),
+  },
+
+   vault: {
+    enabled: process.env.VAULT_ENABLED === 'true',
+    addr: process.env.VAULT_ADDR,
+    token: process.env.VAULT_TOKEN,
+    transitKeyName: process.env.VAULT_TRANSIT_KEY_NAME,
+    transitColumnKey: process.env.VAULT_TRANSIT_COLUMN_KEY,
+    localKey: process.env.VAULT_LOCAL_KEY,
   },
 
   runtime: {
