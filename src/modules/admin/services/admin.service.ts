@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 
 import { Admin } from '@modules/core/entities/admin.entity';
 import { CreateAdminDto } from '../dtos/create-admin.dto';
@@ -17,59 +14,56 @@ import { JwtService } from '@nestjs/jwt';
 @Injectable()
 export class AdminService {
   constructor(
-   private readonly adminRepo: AdminRepository,
-   private readonly hashingUtil: HashingUtil,
-   private readonly jwtService: JwtService,
-   
-      private readonly configService: ConfigService,
-  
+    private readonly adminRepo: AdminRepository,
+    private readonly hashingUtil: HashingUtil,
+    private readonly jwtService: JwtService,
 
-  
+    private readonly configService: ConfigService,
   ) {}
 
-async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
-         const existingUser = await this.adminRepo.findByEmail(dto.email);
+  async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
+    const existingUser = await this.adminRepo.findByEmail(dto.email);
 
     if (existingUser) {
       throw new Error('Email already in use');
-     }
+    }
 
-     const hashedPassword = await this.hashingUtil.hash(dto.password);
-       const user = await this.adminRepo.createAdmin(
-           {
-             ...dto,
-             password: hashedPassword,
-             status: UserStatus.PENDING,
-           },
-           entityManager,
-         );
+    const hashedPassword = await this.hashingUtil.hash(dto.password);
+    const user = await this.adminRepo.createAdmin(
+      {
+        ...dto,
+        password: hashedPassword,
+        status: UserStatus.PENDING,
+      },
+      entityManager,
+    );
 
-        return user;
+    return user;
   }
 
-  async loginAdmin(dto: LoginAdminDto): Promise<{ user: Admin; accessToken: string; refreshToken: string }>  {
+  async loginAdmin(
+    dto: LoginAdminDto,
+  ): Promise<{ user: Admin; accessToken: string; refreshToken: string }> {
     const user = await this.adminRepo.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
     const isPasswordValid = await this.hashingUtil.compare(dto.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
-        if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
-    
-        if (user.status === UserStatus.SUSPENDED)
-          throw new UnauthorizedException('Your account has been suspended');
+    if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
 
-         const tokens = this.generateTokens(user);
+    if (user.status === UserStatus.SUSPENDED)
+      throw new UnauthorizedException('Your account has been suspended');
+
+    const tokens = this.generateTokens(user);
     return { user, ...tokens };
-    
-
   }
 
   async getDashboardStats() {
     return await this.adminRepo.getDashboardStats();
   }
 
- async listUsers(query: AdminListQueryDto) {
+  async listUsers(query: AdminListQueryDto) {
     return await this.adminRepo.listUsers(query);
   }
 
@@ -89,7 +83,7 @@ async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<A
     return await this.adminRepo.listPendingDocuments();
   }
 
-  async reviewDocument(documentId: number, approve: boolean, reason?: string, email?:string) {
+  async reviewDocument(documentId: number, approve: boolean, reason?: string, email?: string) {
     return await this.adminRepo.reviewDocument(documentId, approve, reason, email);
   }
 
@@ -97,12 +91,12 @@ async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<A
     return await this.adminRepo.approveDocument(documentId, email);
   }
 
-  async rejectDocument(documentId: number, reason: string, email:string) {
+  async rejectDocument(documentId: number, reason: string, email: string) {
     return await this.adminRepo.rejectDocument(documentId, reason, email);
   }
 
   async listTrips(query: AdminListQueryDto) {
-    return await this.adminRepo.listTrips(query); 
+    return await this.adminRepo.listTrips(query);
   }
 
   async getTrip(id: number) {
@@ -133,8 +127,8 @@ async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<A
     return await this.adminRepo.declinePayout(payoutId, reason, email);
   }
 
-  async listCoupons(query: AdminListQueryDto) {
-    return await this.adminRepo.listCoupons(query);
+  async listCoupons() {
+    return await this.adminRepo.listCoupons();
   }
 
   async createCoupon(dto: any) {
@@ -145,19 +139,16 @@ async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<A
     return await this.adminRepo.deactivateCoupon(couponId);
   }
 
-
-    generateTokens(user: Admin): { accessToken: string; refreshToken: string } {
-      const payload = { sub: user.id, email: user.email, role: user.role };
-      const accessToken = this.jwtService.sign(payload, {
-        secret: this.configService.get<string>('common.auth.jwt.accessSecret'),
-        expiresIn: this.configService.get<string>('common.auth.jwt.accessExpiresIn'),
-      });
-      const refreshToken = this.jwtService.sign(payload, {
-        secret: this.configService.get<string>('common.auth.jwt.refreshSecret'),
-        expiresIn: this.configService.get<string>('common.auth.jwt.refreshExpiresIn'),
-      });
-      return { accessToken, refreshToken };
-    }
-
-
+  generateTokens(user: Admin): { accessToken: string; refreshToken: string } {
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('common.auth.jwt.accessSecret'),
+      expiresIn: this.configService.get<string>('common.auth.jwt.accessExpiresIn'),
+    });
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('common.auth.jwt.refreshSecret'),
+      expiresIn: this.configService.get<string>('common.auth.jwt.refreshExpiresIn'),
+    });
+    return { accessToken, refreshToken };
+  }
 }

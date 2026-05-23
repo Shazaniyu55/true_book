@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Agent } from '@modules/core/entities/agent.entity';
@@ -80,13 +76,13 @@ export class AgentService {
       throw new BadRequestException(`Only ${availableSeats} seat(s) available`);
 
     // Resolve or create passenger
-    let passenger = await this.passengerRepo.findOne({
+    const passenger = await this.passengerRepo.findOne({
       where: { userId: dto.passengerUserId },
     });
     if (!passenger) throw new NotFoundException('Passenger not found');
 
     const totalAmount = trip.pricePerSeat * dto.seats;
-    const couponDiscount = await this.applyCouponDiscount(dto.couponCode, totalAmount);
+    const couponDiscount = await this.applyCouponDiscount(dto.couponCode);
     const amountPaid = totalAmount - couponDiscount;
     const bookingCode = this.randomnessUtil.generateBookingCode(8);
     const paymentReference = this.randomnessUtil.generateReference('AGENT-BKG');
@@ -139,10 +135,7 @@ export class AgentService {
 
   // ─── Commission ───────────────────────────────────────────────────────────────
 
-  async getCommissions(
-    userId: number,
-    query: { page?: number; limit?: number; status?: string },
-  ) {
+  async getCommissions(userId: number, query: { page?: number; limit?: number; status?: string }) {
     const agent = await this.getAgentByUserId(userId);
     const { page = 1, limit = 20, status } = query;
     const skip = (page - 1) * limit;
@@ -260,9 +253,7 @@ export class AgentService {
     return agent;
   }
 
-  private async applyCouponDiscount(
-    couponCode: string | undefined,
-  ): Promise<number> {
+  private async applyCouponDiscount(couponCode: string | undefined): Promise<number> {
     if (!couponCode) return 0;
     // Delegate to coupon service if available — simplified inline for now
     return 0;
