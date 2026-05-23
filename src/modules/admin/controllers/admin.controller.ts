@@ -49,18 +49,17 @@ export class AdminController {
   @ApiBody({ type: CreateAdminDto })
   @ApiResponse({ status: 200, description: 'Regusteration of admin successful.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
-   createAdmin(@Body() dto: CreateAdminDto) {
-    return  this.broker.runUsecases([this.createAdminUsecase],dto );
+  createAdmin(@Body() dto: CreateAdminDto) {
+    return this.broker.runUsecases([this.createAdminUsecase], dto);
   }
 
-  
   @Post('login')
   @ApiOperation({ summary: 'Login as an admin' })
   @ApiBody({ type: LoginAdminDto })
   @ApiResponse({ status: 200, description: 'Login successful.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
-   loginAdmin(@Body() dto: LoginAdminDto) {
-    return  this.broker.runUsecases([this.loginAdminUsecase],dto );
+  loginAdmin(@Body() dto: LoginAdminDto) {
+    return this.broker.runUsecases([this.loginAdminUsecase], dto);
   }
 
   // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -254,7 +253,7 @@ export class AdminController {
   listPayouts(@Query() query: AdminListQueryDto) {
     return this.adminService.listPayouts(query);
   }
-  
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
@@ -282,16 +281,16 @@ export class AdminController {
   }
 
   // ─── Coupons ─────────────────────────────────────────────────────────────────
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @AdminOnly()
-  @Get('coupons')
-  @ApiOperation({ summary: 'List all coupons' })
-  @ApiResponse({ status: 200, description: 'Coupons listed successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
-  listCoupons(@Query() query: AdminListQueryDto) {
-    return this.adminService.listCoupons(query);
-  }
+  // @ApiBearerAuth()
+  // @UseGuards(JwtAuthGuard, RolesGuard)
+  // @AdminOnly()
+  // @Get('coupons')
+  // @ApiOperation({ summary: 'List all coupons' })
+  // @ApiResponse({ status: 200, description: 'Coupons listed successfully.' })
+  // @ApiResponse({ status: 400, description: 'Bad Request.' })
+  // listCoupons(@Query() query: AdminListQueryDto) {
+  //   return this.adminService.listCoupons(query);
+  // }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
