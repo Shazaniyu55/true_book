@@ -18,14 +18,13 @@ export class NotificationController {
   @Post('create')
   @ApiOperation({ summary: 'create a new notification' })
   async create(@Body() dto: CreateNotificationDto, @AuthUser() user: any) {
-    console.log(user);
-    return this.createNotificationUseCase.execute(dto);
+    return this.createNotificationUseCase.execute(user.id, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'send push notification' })
   @Post('push')
-  async sendPush(@Body() body: any) {
-    return this.sendPushNotificationUseCase.execute(body);
+  async sendPush(@Body() body: any, @AuthUser() user: any) {
+    return this.sendPushNotificationUseCase.execute(user.id);
   }
 }

@@ -12,6 +12,8 @@ import { getOtpExpiry, isOtpExpired } from '@shared/utils/helpers/common.utils';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
+import { EmailService } from '@modules/email/email.service';
+import { ExpoService } from '@modules/notification/services/expo.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +25,9 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly randomnessUtil: RandomnessUtil,
     private readonly hashingUtil: HashingUtil,
+    private readonly emailService: EmailService,
+    private readonly expoService: ExpoService,
+    
     
   ) {}
 
@@ -36,6 +41,8 @@ export class AuthService {
     const hashedPassword = await this.hashingUtil.hash(dto.password);
     const referralCode = this.randomnessUtil.generateRandomStringWithNumbers(8);
     const otp = this.randomnessUtil.generateOtp();
+    await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
+    await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.role });
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
 
     const user = await this.userRepository.createUser(
@@ -57,6 +64,18 @@ export class AuthService {
     } else if (user.role === UserRole.DRIVER) {
       await this.driverRepository.createDriver({ userId: user.id }, entityManager);
     }
+
+     // SEND PUSH NOTIFICATION
+  if (user.fcmToken) {
+    await this.expoService.sendPushNotification(
+      user.fcmToken,
+      'Welcome',
+      `Your ${user.role} account was created successfully`,
+      {
+        userId: user.id,
+      },
+    );
+  }
 
     // TODO: Send OTP via notification service
     return user;
@@ -98,7 +117,7 @@ export class AuthService {
 
     const otp = this.randomnessUtil.generateOtp();
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
-
+    await this.emailService.sendOtp({ to: user.email, firstName: user.firstName, otp });
     await this.userRepository.updateUser(user.id, { otpCode: otp, otpExpiresAt }, entityManager);
     // TODO: send OTP via notification service
   }
@@ -109,6 +128,7 @@ export class AuthService {
 
     const otp = this.randomnessUtil.generateOtp();
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
+    await this.emailService.sendPasswordReset({ to: user.email, firstName: user.firstName, otp });
     await this.userRepository.updateUser(user.id, { otpCode: otp, otpExpiresAt }, entityManager);
     // TODO: send reset OTP via notification service
   }

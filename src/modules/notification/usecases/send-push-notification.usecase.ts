@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ExpoService } from '../services/expo.service';
 import { NotificationService } from '../services/notification.service';
-import { NotificationType } from '../../../types/enums';
 
 @Injectable()
 export class SendPushNotificationUseCase {
@@ -13,23 +12,18 @@ export class SendPushNotificationUseCase {
   async execute({
     userId,
     expoPushToken,
-    title,
-    body,
+     title,
+     body,
     data,
   }: {
     userId: number;
-    expoPushToken: string;
-    title: string;
-    body: string;
+     expoPushToken: string;
+     title: string;
+     body: string;
     data?: any;
   }) {
     // save notification in DB
-    const notification = await this.notificationService.createNotification({
-      userId,
-      title,
-      body: body,
-      type: NotificationType.TRIP_BOOKED,
-    });
+    const notification = await this.notificationService.createNotification(userId, data);
 
     // send push
     await this.expoService.sendPushNotification(expoPushToken, title, body, data);

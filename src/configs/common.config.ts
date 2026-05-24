@@ -33,6 +33,23 @@ export default registerAs('common', () => ({
     twoFaApprovalCode: process.env.KILL_SWITCH_2FA_APPROVAL_CODE,
   },
 
+    cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+  },
+ 
+   redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: toNumber(process.env.REDIS_PORT, 6379),
+    password: process.env.REDIS_PASSWORD,
+    db: toNumber(process.env.REDIS_DB, 0),
+  },
+ resend: {
+    apiKey: process.env.RESEND_API_KEY,
+    fromEmail: process.env.RESEND_FROM_EMAIL || 'Tru Booker <noreply@trubooker.ng>',
+  },
+
   payment: {
     gateway: process.env.PAYMENT_GATEWAY || 'paystack',
     paystack: {

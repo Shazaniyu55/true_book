@@ -10,6 +10,12 @@ import configSchema from '@config/schema.config';
 import common from '@config/common.config';
 import typeorm from '@config/typeorm.config';
 import { Broker } from '@broker/broker';
+
+// ─── Infrastructure modules (global) ─────────────────────────────────────────
+import { RedisCacheModule } from './modules/cache/redis-cache.module';
+import { EmailModule } from './modules/email/email.module';
+
+// ─── Feature modules ─────────────────────────────────────────────────────────
 import { CoreModule } from '@modules/core/core.module';
 import { AuthModule } from '@modules/auth/auth.module';
 import { DriverModule } from '@modules/driver/driver.module';
@@ -19,11 +25,7 @@ import { AdminModule } from '@modules/admin/admin.module';
 import { NotificationModule } from '@modules/notification/notification.module';
 import { WebhookModule } from '@modules/webhook/webhook.module';
 import { ContactSupportModule } from '@modules/contact-support/contact-support.module';
-import { SharedAppModule } from '@modules/shared/shared.module';
-
-// Kill Switch (global)
 import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
-
 
 @Module({
   imports: [
@@ -35,15 +37,21 @@ import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => configService.get('typeorm'),
+      useFactory: async (configService: ConfigService) =>
+        configService.get('typeorm'),
     }),
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
 
+    // ─── Global infrastructure ─────────────────────────────────────────────
+    RedisCacheModule,
+    EmailModule,
+
     // Kill Switch — must come before feature modules
     KillSwitchModule,
 
+    // ─── Feature modules ───────────────────────────────────────────────────
     CoreModule,
     AuthModule,
     DriverModule,
@@ -53,7 +61,7 @@ import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
     NotificationModule,
     WebhookModule,
     ContactSupportModule,
-    SharedAppModule,
+   
   ],
   controllers: [],
   providers: [

@@ -27,7 +27,7 @@ export default {
     CORS_WHITELIST: optionalString,
     SWAGGER_API_ROOT: requiredString,
 
-    // Database (matches reference: DB_* not DATABASE_*)
+    // Database
     DATABASE_TYPE: Joi.string().default('postgres'),
     DATABASE_LOGGING: Joi.boolean().default(false),
     DATABASE_RETRY_ATTEMPTS: Joi.number().default(DEFAULT_DATABASE_RETRY_ATTEMPTS),
@@ -60,6 +60,21 @@ export default {
 
     // OTP
     OTP_DURATION_MINUTES: Joi.number().default(10),
+
+    // ─── Cloudinary ────────────────────────────────────────────────────────────
+    CLOUDINARY_CLOUD_NAME: optionalString,
+    CLOUDINARY_API_KEY: optionalString,
+    CLOUDINARY_API_SECRET: optionalString,
+
+    // ─── Redis ─────────────────────────────────────────────────────────────────
+    REDIS_HOST: Joi.string().default('localhost'),
+    REDIS_PORT: Joi.number().default(6379),
+    REDIS_PASSWORD: optionalString,
+    REDIS_DB: Joi.number().default(0),
+
+    // ─── Resend (Email) ────────────────────────────────────────────────────────
+    RESEND_API_KEY: optionalString,
+    RESEND_FROM_EMAIL: optionalString,
 
     // Runtime (injected by container/shell)
     HOME: requiredString,

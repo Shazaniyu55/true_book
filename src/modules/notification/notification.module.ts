@@ -8,13 +8,16 @@ import { SendPushNotificationUseCase } from './usecases/send-push-notification.u
 import { CreateNotificationUseCase } from './usecases/create-notification.usecase';
 import { ExpoService } from './services/expo.service';
 import { Notification } from '@modules/core/entities/notification.entity';
+import { UserRepository } from '@adapters/repositories/user.repository';
+import { User } from '@modules/core/entities/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification])],
+  imports: [TypeOrmModule.forFeature([Notification, User])],
   controllers: [NotificationController],
   providers: [
     Broker,
     NotificationRepository,
+    UserRepository,
     NotificationService,
     ExpoService,
     CreateNotificationUseCase,

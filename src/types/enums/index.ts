@@ -3,6 +3,7 @@ export enum UserRole {
   DRIVER = 'driver',
   ADMIN = 'admin',
   AGENT = 'agent',
+  GUEST = 'guest',
 }
 
 export enum PermissionLevel {
@@ -113,4 +114,11 @@ export enum TransactionType {
 export enum AppPlatform {
   ANDROID = 'android',
   IOS = 'ios',
+}
+
+export enum ContactSupportStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  RESOLVED = 'resolved',
+  CLOSED = 'closed',
 }

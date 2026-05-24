@@ -10,6 +10,9 @@ import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 import { UserStatus } from 'src/types/enums';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { EmailService } from '@modules/email/email.service';
+import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
+import { getOtpExpiry } from '@shared/utils/helpers/common.utils';
 
 @Injectable()
 export class AdminService {
@@ -17,7 +20,8 @@ export class AdminService {
     private readonly adminRepo: AdminRepository,
     private readonly hashingUtil: HashingUtil,
     private readonly jwtService: JwtService,
-
+    private readonly emailService: EmailService,
+    private readonly randomnessUtil: RandomnessUtil,
     private readonly configService: ConfigService,
   ) {}
 
@@ -29,14 +33,24 @@ export class AdminService {
     }
 
     const hashedPassword = await this.hashingUtil.hash(dto.password);
+        const otp = this.randomnessUtil.generateOtp();
+        await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
+            await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.roleName });
+
+       const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
+        
     const user = await this.adminRepo.createAdmin(
       {
         ...dto,
         password: hashedPassword,
+        otpCode: otp,
+        otpExpiresAt,
         status: UserStatus.PENDING,
       },
       entityManager,
     );
+
+   
 
     return user;
   }

@@ -24,6 +24,7 @@ import { ResetPasswordUsecase } from './usecases/reset-password.usecase';
 import { BcryptHashingUtil } from '@shared/utils/hashing/bcrypt.utils';
 import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 import { Admin } from '@modules/core/entities/admin.entity';
+import { ExpoService } from '@modules/notification/services/expo.service';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { Admin } from '@modules/core/entities/admin.entity';
   providers: [
     Broker,
     AuthService,
+    ExpoService,
     JwtStrategy,
     UserRepository,
     DriverRepository,

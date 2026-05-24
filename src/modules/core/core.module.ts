@@ -12,6 +12,7 @@ import { Notification } from './entities/notification.entity';
 import { DocumentVerification } from './entities/document-verification.entity';
 import { Payout } from './entities/payout.entity';
 import { Coupon } from './entities/coupon.entity';
+import { ContactSupport } from './entities/contact-support.entity';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { Coupon } from './entities/coupon.entity';
       Booking,
       Notification,
       DocumentVerification,
+      ContactSupport,
       Payout,
       Coupon,
     ]),

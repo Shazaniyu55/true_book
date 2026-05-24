@@ -9,12 +9,17 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { AdminOnly } from '@shared/decorators/roles.decorator';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
-import { AdminService } from '../services/admin.service';
+import { Broker } from '@broker/broker';
 import { KillSwitchService } from '../../kill-switch/kill-switch.service';
 import { SkipKillSwitch } from '../../kill-switch/kill-switch.guard';
 import {
@@ -25,64 +30,133 @@ import {
   SuspendUserDto,
 } from '../dtos/admin.dto';
 import { CreateAdminDto } from '../dtos/create-admin.dto';
+import { LoginAdminDto } from '../dtos/login.dto';
 import { ToggleKillSwitchDto } from '../../kill-switch/kill-switch.dto';
-import { Broker } from '@broker/broker';
+
+// ─── Auth Usecases ───────────────────────────────────────────────────────────
 import { RegisterAdminUsecase } from '../usecases/create.usecase';
 import { LoginAdminUsecase } from '../usecases/login.usecase';
-import { LoginAdminDto } from '../dtos/login.dto';
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+import { GetDashboardUsecase } from '../usecases/getdashboard.usecase';
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+import { ListUsersUsecase } from '../usecases/listuser.usecase';
+import { GetUserUsecase } from '../usecases/getuser.usecase';
+import { SuspendUserUsecase } from '../usecases/suspenduser.usecase';
+import { ActivateUserUsecase } from '../usecases/activateuser.usecase';
+
+// ─── Documents ───────────────────────────────────────────────────────────────
+import {
+  ApproveDocumentUsecase,
+  ListPendingDocumentsUsecase,
+  RejectDocumentUsecase,
+} from '../usecases/document.usecase';
+
+// ─── Trips ───────────────────────────────────────────────────────────────────
+import { GetTripUsecase, ListTripsUsecase } from '../usecases/trip.usecase';
+
+// ─── Bookings ────────────────────────────────────────────────────────────────
+import {
+  GetBookingUsecase,
+  ListBookingsUsecase,
+  RefundBookingUsecase,
+} from '../usecases/booking.usecase';
+
+// ─── Payouts ─────────────────────────────────────────────────────────────────
+import {
+  ApprovePayoutUsecase,
+  DeclinePayoutUsecase,
+  ListPayoutsUsecase,
+} from '../usecases/payout.usecase';
+
+// ─── Coupons ─────────────────────────────────────────────────────────────────
+import {
+  CreateCouponUsecase,
+  DeactivateCouponUsecase,
+  ListCouponsUsecase,
+} from '../usecases/cupons.usecase';
 
 @ApiTags('Admin')
 @Controller('v1/admin')
 export class AdminController {
   constructor(
     private readonly broker: Broker,
-    private readonly createAdminUsecase: RegisterAdminUsecase,
-    private readonly loginAdminUsecase: LoginAdminUsecase,
-    private readonly adminService: AdminService,
     private readonly killSwitchService: KillSwitchService,
+
+    // Auth
+    private readonly registerAdminUsecase: RegisterAdminUsecase,
+    private readonly loginAdminUsecase: LoginAdminUsecase,
+
+    // Dashboard
+    private readonly getDashboardUsecase: GetDashboardUsecase,
+
+    // Users
+    private readonly listUsersUsecase: ListUsersUsecase,
+    private readonly getUserUsecase: GetUserUsecase,
+    private readonly suspendUserUsecase: SuspendUserUsecase,
+    private readonly activateUserUsecase: ActivateUserUsecase,
+
+    // Documents
+    private readonly listPendingDocumentsUsecase: ListPendingDocumentsUsecase,
+    private readonly approveDocumentUsecase: ApproveDocumentUsecase,
+    private readonly rejectDocumentUsecase: RejectDocumentUsecase,
+
+    // Trips
+    private readonly listTripsUsecase: ListTripsUsecase,
+    private readonly getTripUsecase: GetTripUsecase,
+
+    // Bookings
+    private readonly listBookingsUsecase: ListBookingsUsecase,
+    private readonly getBookingUsecase: GetBookingUsecase,
+    private readonly refundBookingUsecase: RefundBookingUsecase,
+
+    // Payouts
+    private readonly listPayoutsUsecase: ListPayoutsUsecase,
+    private readonly approvePayoutUsecase: ApprovePayoutUsecase,
+    private readonly declinePayoutUsecase: DeclinePayoutUsecase,
+
+    // Coupons
+    private readonly listCouponsUsecase: ListCouponsUsecase,
+    private readonly createCouponUsecase: CreateCouponUsecase,
+    private readonly deactivateCouponUsecase: DeactivateCouponUsecase,
   ) {}
 
-  // ─── Admin Management ────────────────────────────────────────────────────────
+  // ─── Auth ────────────────────────────────────────────────────────────────────
 
   @Post('create')
   @ApiOperation({ summary: 'Create a new admin' })
   @ApiBody({ type: CreateAdminDto })
-  @ApiResponse({ status: 200, description: 'Regusteration of admin successful.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   createAdmin(@Body() dto: CreateAdminDto) {
-    return this.broker.runUsecases([this.createAdminUsecase], dto);
+    return this.broker.runUsecases([this.registerAdminUsecase], dto);
   }
 
   @Post('login')
-  @ApiOperation({ summary: 'Login as an admin' })
+  @ApiOperation({ summary: 'Admin login' })
   @ApiBody({ type: LoginAdminDto })
-  @ApiResponse({ status: 200, description: 'Login successful.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   loginAdmin(@Body() dto: LoginAdminDto) {
     return this.broker.runUsecases([this.loginAdminUsecase], dto);
   }
 
   // ─── Dashboard ───────────────────────────────────────────────────────────────
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('dashboard')
   @ApiOperation({ summary: 'Platform dashboard statistics' })
-  @ApiResponse({ status: 200, description: ' successful.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   getDashboard() {
-    return this.adminService.getDashboardStats();
+    return this.broker.runUsecases([this.getDashboardUsecase], {});
   }
 
   // ─── Kill Switch ─────────────────────────────────────────────────────────────
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @SkipKillSwitch()
   @Get('kill-switch')
   @ApiOperation({ summary: 'Get kill switch status' })
-  @ApiResponse({ status: 200, description: ' successful.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   getKillSwitchStatus() {
     return this.killSwitchService.getStatus();
   }
@@ -93,8 +167,6 @@ export class AdminController {
   @SkipKillSwitch()
   @Post('kill-switch/activate')
   @ApiOperation({ summary: 'Activate kill switch — takes the API offline immediately' })
-  @ApiResponse({ status: 200, description: 'Kill switch activated successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   activateKillSwitch(@Body() dto: ToggleKillSwitchDto, @AuthUser() user: any) {
     return this.killSwitchService.activate(user.email, dto.deactivationCode, dto.reason);
   }
@@ -105,22 +177,19 @@ export class AdminController {
   @SkipKillSwitch()
   @Post('kill-switch/deactivate')
   @ApiOperation({ summary: 'Deactivate kill switch — requires deactivation code + 2FA' })
-  @ApiResponse({ status: 200, description: 'Kill switch deactivated successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   deactivateKillSwitch(@Body() dto: ToggleKillSwitchDto, @AuthUser() user: any) {
     return this.killSwitchService.deactivate(user.email, dto.deactivationCode, dto.twoFaCode);
   }
 
   // ─── Users ───────────────────────────────────────────────────────────────────
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('users')
   @ApiOperation({ summary: 'List all users' })
-  @ApiResponse({ status: 200, description: 'Users listed successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   listUsers(@Query() query: AdminListQueryDto) {
-    return this.adminService.listUsers(query);
+    return this.broker.runUsecases([this.listUsersUsecase], query);
   }
 
   @ApiBearerAuth()
@@ -128,10 +197,8 @@ export class AdminController {
   @AdminOnly()
   @Get('users/:id')
   @ApiOperation({ summary: 'Get user by ID' })
-  @ApiResponse({ status: 200, description: 'User retrieved successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   getUser(@Param('id', ParseIntPipe) id: number) {
-    return this.adminService.getUser(id);
+    return this.broker.runUsecases([this.getUserUsecase], { id });
   }
 
   @ApiBearerAuth()
@@ -139,10 +206,14 @@ export class AdminController {
   @AdminOnly()
   @Patch('users/:id/suspend')
   @ApiOperation({ summary: 'Suspend a user account' })
-  @ApiResponse({ status: 200, description: 'User suspended successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
-  suspendUser(@Param('id', ParseIntPipe) id: number, @Body() dto: SuspendUserDto) {
-    return this.adminService.suspendUser(id, dto.reason);
+  suspendUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SuspendUserDto,
+  ) {
+    return this.broker.runUsecases([this.suspendUserUsecase], {
+      id,
+      reason: dto.reason,
+    });
   }
 
   @ApiBearerAuth()
@@ -150,22 +221,19 @@ export class AdminController {
   @AdminOnly()
   @Patch('users/:id/activate')
   @ApiOperation({ summary: 'Activate a user account' })
-  @ApiResponse({ status: 200, description: 'User activated successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   activateUser(@Param('id', ParseIntPipe) id: number) {
-    return this.adminService.activateUser(id);
+    return this.broker.runUsecases([this.activateUserUsecase], { id });
   }
 
   // ─── KYC / Documents ─────────────────────────────────────────────────────────
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('documents/pending')
   @ApiOperation({ summary: 'List pending KYC documents' })
-  @ApiResponse({ status: 200, description: 'Pending documents listed successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   listPendingDocuments() {
-    return this.adminService.listPendingDocuments();
+    return this.broker.runUsecases([this.listPendingDocumentsUsecase], {});
   }
 
   @ApiBearerAuth()
@@ -173,10 +241,11 @@ export class AdminController {
   @AdminOnly()
   @Patch('documents/:id/approve')
   @ApiOperation({ summary: 'Approve a KYC document' })
-  @ApiResponse({ status: 200, description: 'Document approved successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   approveDocument(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
-    return this.adminService.approveDocument(id, user.email);
+    return this.broker.runUsecases([this.approveDocumentUsecase], {
+      id,
+      adminEmail: user.email,
+    });
   }
 
   @ApiBearerAuth()
@@ -184,14 +253,16 @@ export class AdminController {
   @AdminOnly()
   @Patch('documents/:id/reject')
   @ApiOperation({ summary: 'Reject a KYC document' })
-  @ApiResponse({ status: 200, description: 'Document rejected successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   rejectDocument(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: RejectDocumentDto,
     @AuthUser() user: any,
   ) {
-    return this.adminService.rejectDocument(id, dto.reason, user.email);
+    return this.broker.runUsecases([this.rejectDocumentUsecase], {
+      id,
+      reason: dto.reason,
+      adminEmail: user.email,
+    });
   }
 
   // ─── Trips ───────────────────────────────────────────────────────────────────
@@ -201,10 +272,8 @@ export class AdminController {
   @AdminOnly()
   @Get('trips')
   @ApiOperation({ summary: 'List all trips' })
-  @ApiResponse({ status: 200, description: 'Trips listed successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   listTrips(@Query() query: AdminListQueryDto) {
-    return this.adminService.listTrips(query);
+    return this.broker.runUsecases([this.listTripsUsecase], query);
   }
 
   @ApiBearerAuth()
@@ -212,10 +281,8 @@ export class AdminController {
   @AdminOnly()
   @Get('trips/:id')
   @ApiOperation({ summary: 'Get trip detail' })
-  @ApiResponse({ status: 200, description: 'Trip detail retrieved successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   getTrip(@Param('id', ParseIntPipe) id: number) {
-    return this.adminService.getTrip(id);
+    return this.broker.runUsecases([this.getTripUsecase], { id });
   }
 
   // ─── Bookings ────────────────────────────────────────────────────────────────
@@ -225,10 +292,17 @@ export class AdminController {
   @AdminOnly()
   @Get('bookings')
   @ApiOperation({ summary: 'List all bookings' })
-  @ApiResponse({ status: 200, description: 'Bookings listed successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   listBookings(@Query() query: AdminListQueryDto) {
-    return this.adminService.listBookings(query);
+    return this.broker.runUsecases([this.listBookingsUsecase], query);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @Get('bookings/:id')
+  @ApiOperation({ summary: 'Get booking detail' })
+  getBooking(@Param('id', ParseIntPipe) id: number) {
+    return this.broker.runUsecases([this.getBookingUsecase], { id });
   }
 
   @ApiBearerAuth()
@@ -236,22 +310,22 @@ export class AdminController {
   @AdminOnly()
   @Patch('bookings/:id/refund')
   @ApiOperation({ summary: 'Issue a refund for a booking' })
-  @ApiResponse({ status: 200, description: 'Refund issued successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   refundBooking(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
-    return this.adminService.refundBooking(id, user.email);
+    return this.broker.runUsecases([this.refundBookingUsecase], {
+      id,
+      adminEmail: user.email,
+    });
   }
 
   // ─── Payouts ─────────────────────────────────────────────────────────────────
+
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('payouts')
   @ApiOperation({ summary: 'List all payout requests' })
-  @ApiResponse({ status: 200, description: 'Payout requests listed successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   listPayouts(@Query() query: AdminListQueryDto) {
-    return this.adminService.listPayouts(query);
+    return this.broker.runUsecases([this.listPayoutsUsecase], query);
   }
 
   @ApiBearerAuth()
@@ -259,10 +333,11 @@ export class AdminController {
   @AdminOnly()
   @Patch('payouts/:id/approve')
   @ApiOperation({ summary: 'Approve and execute a payout via Paystack' })
-  @ApiResponse({ status: 200, description: 'Payout approved and executed successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   approvePayout(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
-    return this.adminService.approvePayout(id, user.email);
+    return this.broker.runUsecases([this.approvePayoutUsecase], {
+      id,
+      adminEmail: user.email,
+    });
   }
 
   @ApiBearerAuth()
@@ -270,37 +345,39 @@ export class AdminController {
   @AdminOnly()
   @Patch('payouts/:id/decline')
   @ApiOperation({ summary: 'Decline a payout request' })
-  @ApiResponse({ status: 200, description: 'Payout declined successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   declinePayout(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: DeclinePayoutDto,
     @AuthUser() user: any,
   ) {
-    return this.adminService.declinePayout(id, dto.reason, user.email);
+    return this.broker.runUsecases([this.declinePayoutUsecase], {
+      id,
+      reason: dto.reason,
+      adminEmail: user.email,
+    });
   }
 
   // ─── Coupons ─────────────────────────────────────────────────────────────────
-  // @ApiBearerAuth()
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @AdminOnly()
-  // @Get('coupons')
-  // @ApiOperation({ summary: 'List all coupons' })
-  // @ApiResponse({ status: 200, description: 'Coupons listed successfully.' })
-  // @ApiResponse({ status: 400, description: 'Bad Request.' })
-  // listCoupons(@Query() query: AdminListQueryDto) {
-  //   return this.adminService.listCoupons(query);
-  // }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @AdminOnly()
+  @Get('coupons')
+  @ApiOperation({ summary: 'List all coupons' })
+  listCoupons() {
+    return this.broker.runUsecases([this.listCouponsUsecase], {});
+  }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Post('coupons')
   @ApiOperation({ summary: 'Create a new coupon' })
-  @ApiResponse({ status: 201, description: 'Coupon created successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   createCoupon(@Body() dto: CreateCouponDto, @AuthUser() user: any) {
-    return this.adminService.createCoupon({ ...dto, adminId: user.id });
+    return this.broker.runUsecases([this.createCouponUsecase], {
+      ...dto,
+      adminId: user.id,
+    });
   }
 
   @ApiBearerAuth()
@@ -308,9 +385,7 @@ export class AdminController {
   @AdminOnly()
   @Patch('coupons/:id/deactivate')
   @ApiOperation({ summary: 'Deactivate a coupon' })
-  @ApiResponse({ status: 200, description: 'Coupon deactivated successfully.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
   deactivateCoupon(@Param('id', ParseIntPipe) id: number) {
-    return this.adminService.deactivateCoupon(id);
+    return this.broker.runUsecases([this.deactivateCouponUsecase], { id });
   }
 }
