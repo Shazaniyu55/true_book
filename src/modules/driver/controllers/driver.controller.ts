@@ -13,7 +13,7 @@ import {
   HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -36,6 +36,8 @@ import {
 } from '../dtos/create-driver.dto';
 import { DriverTripService } from '../services/driver.service';
 import { TripsService } from '@modules/trip/service/trip.service';
+import { Broker } from '@broker/broker';
+import { CreateDriverTripUseCase } from '../usecases/driver.usecases';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -50,11 +52,13 @@ import { TripsService } from '@modules/trip/service/trip.service';
 @ApiTags('Driver - Trips')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('api/v1/driver/trips')
+@Controller('v1/drivers')
 export class DriverTripController {
   constructor(
+    private readonly broker: Broker,
     private readonly driverTripService: DriverTripService,
     private readonly tripsService: TripsService, // For reading trip data
+    private readonly createDriverUsecase: CreateDriverTripUseCase 
   ) {}
 
   /**
@@ -63,7 +67,7 @@ export class DriverTripController {
    * ─────────────────────────────────────────────────────────────────────────
    */
 
-  @Post()
+  @Post('trip/create')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Create a new trip',
@@ -82,17 +86,14 @@ export class DriverTripController {
     status: 404,
     description: 'Driver profile not found',
   })
-  async createTrip(
+    createTrip(
     @AuthUser() userId: number,
     @Body() dto: CreateDriverTripDto,
   ): Promise<CreateTripResponseDto> {
-    const trip = await this.driverTripService.createTrip(userId, dto);
-
-    return {
-      success: true,
-      message: 'Trip created successfully',
-      data: this.mapTripToResponse(trip),
-    };
+    return this.broker.runUsecases([this.createDriverUsecase], {
+      userId,
+      ...dto,
+    });
   }
 
   /**

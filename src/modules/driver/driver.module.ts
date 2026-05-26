@@ -35,6 +35,7 @@ import { PaystackAdapter } from '@adapters/payment/paystack/paystack.adapter';
 import { FlutterwaveProvider } from '@adapters/payment/flutterwave/providers/flutterwave.provider';
 import { PaystackProvider } from '@adapters/payment/paystack/providers/paystack.provider';
 import { FlutterwaveAdapter } from '@adapters/payment/flutterwave/flutterwave.adapter';
+import { Broker } from '@broker/broker';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -63,6 +64,7 @@ import { FlutterwaveAdapter } from '@adapters/payment/flutterwave/flutterwave.ad
   ],
   controllers: [DriverTripController],
   providers: [
+    Broker,
     // Services
     DriverTripService,
     TripsService,

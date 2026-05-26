@@ -9,6 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 import { CouponType } from '../../../types/enums';
+import { Type } from 'class-transformer';
 
 export class SuspendUserDto {
   @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
@@ -45,9 +46,17 @@ export class CreateCouponDto {
   @IsOptional() @IsISO8601() expiresAt?: string;
 }
 
+// export class AdminListQueryDto {
+//   @ApiPropertyOptional() @IsOptional() @IsNumber() page?: number;
+//   @ApiPropertyOptional() @IsOptional() @IsNumber() limit?: number;
+//   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
+//   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
+//   @ApiPropertyOptional() @IsOptional() @IsString() role?: string;
+// }
+
 export class AdminListQueryDto {
-  @ApiPropertyOptional() @IsOptional() @IsNumber() page?: number;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() limit?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() page?: number;
+  @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsNumber() limit?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() role?: string;

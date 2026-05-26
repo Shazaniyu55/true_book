@@ -68,7 +68,7 @@ export class TripsController {
   // ──────────────────────────────────────────────────────────────────────────
 
   @DriverOnly()
-  @Post()
+  @Post('driver/create')
   @ApiOperation({
     summary: 'Driver: Create a new trip',
     description: 'Trip starts in PENDING state. Call /activate to open it for bookings.',

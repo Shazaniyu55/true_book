@@ -112,7 +112,7 @@ export class TripsService {
 
     await this.notify(
       userId,
-      '✅ Trip Completed',
+      'Trip Completed',
       `Your trip to ${trip.destination} has been completed. Earnings have been credited to your wallet.`,
       NotificationType.TRIP_COMPLETED,
     );
