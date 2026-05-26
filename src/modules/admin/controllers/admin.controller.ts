@@ -76,7 +76,9 @@ import {
   DeactivateCouponUsecase,
   ListCouponsUsecase,
 } from '../usecases/cupons.usecase';
+import { ServiceName } from '@shared/decorators/servicename.decorators';
 
+@ServiceName('admin') // For kill switch targeting
 @ApiTags('Admin')
 @Controller('v1/admin')
 export class AdminController {

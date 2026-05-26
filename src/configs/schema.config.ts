@@ -112,5 +112,7 @@ export default {
     YOUVERIFY_BASEURL: optionalString,
     TERMII_API_KEY: optionalString,
     TERMII_SENDER_ID: optionalString,
+    PLATFORM_FEE_RATE: optionalNumber,
+    AGENT_COMMISSION_RATE: optionalNumber,
   }),
 };

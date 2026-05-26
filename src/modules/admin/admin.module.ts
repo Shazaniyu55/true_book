@@ -71,6 +71,8 @@ import {
   ListCouponsUsecase,
 } from './usecases/cupons.usecase';
 
+
+
 const USECASES = [
   // Auth
   RegisterAdminUsecase,
@@ -102,6 +104,9 @@ const USECASES = [
   CreateCouponUsecase,
   DeactivateCouponUsecase,
 ];
+
+
+
 
 @Module({
   imports: [

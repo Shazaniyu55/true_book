@@ -1,37 +1,289 @@
-import { Body, Controller, Headers, HttpCode, HttpStatus, Post, RawBodyRequest, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Public } from '@shared/decorators/isPublic.decorator';
-import { Request } from 'express';
+import { SkipKillSwitch } from '@modules/kill-switch/kill-switch.guard';
+import { ServiceName } from '@shared/decorators/servicename.decorators';
+import { PaystackAdapter } from '@adapters/payment/paystack/paystack.adapter';
+import { Booking } from '@modules/core/entities/booking.entity';
+import { Escrow } from '@modules/core/entities/escro.entity';
+import { DocumentVerification } from '@modules/core/entities/document-verification.entity';
+import { Notification } from '@modules/core/entities/notification.entity';
+import { Driver } from '@modules/core/entities/driver.entity';
+import { BookingStatus, DocumentStatus, EscrowStatus, KycStatus, NotificationType, PaymentStatus } from '../../../types/enums';
+import { TripsService } from '@modules/trip/service/trip.service';
 
 @ApiTags('Webhooks')
+@ServiceName('webhooks')
 @Controller('webhook')
 export class WebhookController {
+  private readonly logger = new Logger(WebhookController.name);
+
+  constructor(
+    private readonly paystackAdapter: PaystackAdapter,
+    private readonly tripsService: TripsService,
+    @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
+    @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
+    @InjectRepository(DocumentVerification) private readonly docRepo: Repository<DocumentVerification>,
+    @InjectRepository(Notification) private readonly notifRepo: Repository<Notification>,
+    @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
+  ) {}
+
+  // ─── Paystack ─────────────────────────────────────────────────────────────
+
   @Public()
+  @SkipKillSwitch()
   @Post('paystack')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Paystack webhook handler' })
-  handlePaystack(
+  @ApiOperation({
+    summary: 'Paystack webhook — charge.success, transfer.success/failed',
+    description: 'Do NOT call manually. Paystack sends events here.',
+  })
+  async handlePaystack(
     @Headers('x-paystack-signature') signature: string,
-    @Body() body: any,
+    @Body() rawBody: any,
   ) {
-    // TODO: Verify signature and process event
+    // 1. Verify signature
+    const bodyString = JSON.stringify(rawBody);
+    if (!this.paystackAdapter.verifyWebhookSignature(bodyString, signature)) {
+      this.logger.warn('Paystack webhook: invalid signature — ignored');
+      return { received: false };
+    }
+
+    const { event, data } = rawBody;
+    this.logger.log(`Paystack event: ${event} | ref: ${data?.reference}`);
+
+    switch (event) {
+      case 'charge.success':
+        await this.handleChargeSuccess(data);
+        break;
+      case 'transfer.success':
+        await this.handleTransferSuccess(data);
+        break;
+      case 'transfer.failed':
+      case 'transfer.reversed':
+        await this.handleTransferFailed(data, event);
+        break;
+      case 'refund.processed':
+        await this.handleRefundProcessed(data);
+        break;
+      default:
+        this.logger.log(`Unhandled Paystack event: ${event}`);
+    }
+
     return { received: true };
   }
 
-  @Public()
-  @Post('paystack-simple')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Paystack simple webhook' })
-  handlePaystackSimple(@Body() body: any) {
-    return { received: true };
-  }
+  // ─── Dojah KYC ────────────────────────────────────────────────────────────
 
   @Public()
+  @SkipKillSwitch()
   @Post('dojah')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Dojah KYC webhook handler' })
-  handleDojah(@Body() body: any) {
-    // TODO: Process KYC verification result
+  @ApiOperation({ summary: 'Dojah KYC webhook — verification results' })
+  async handleDojah(@Body() body: any) {
+    const { event, data } = body ?? {};
+    this.logger.log(`Dojah event: ${event}`);
+
+    switch (event) {
+      case 'verification.complete':
+      case 'kyc.completed':
+        await this.handleKycComplete(data);
+        break;
+      case 'kyc.failed':
+        await this.handleKycFailed(data);
+        break;
+    }
+
     return { received: true };
+  }
+
+  // ─── Payment: charge.success ──────────────────────────────────────────────
+
+  private async handleChargeSuccess(data: any) {
+    const reference = data?.reference as string;
+    if (!reference) return;
+
+    const metadata = data?.metadata ?? {};
+    const bookingId: number | undefined = metadata?.bookingId;
+    const type: string | undefined = metadata?.type;
+
+    if (!bookingId || type !== 'trip_booking') {
+      this.logger.log(`charge.success ref ${reference} — not a trip booking, skipped`);
+      return;
+    }
+
+    try {
+      await this.tripsService.confirmBookingPayment(bookingId, reference);
+      this.logger.log(`Booking ${bookingId} confirmed via escrow — ref ${reference}`);
+    } catch (err) {
+      this.logger.error(`Failed to confirm booking ${bookingId}`, err?.message);
+    }
+  }
+
+  // ─── Transfer: success (payout released) ─────────────────────────────────
+
+  private async handleTransferSuccess(data: any) {
+    const transferCode = data?.transfer_code as string;
+    if (!transferCode) return;
+
+    const escrow = await this.escrowRepo.findOne({
+      where: { metadata: { transferCode } as any },
+    });
+    if (!escrow) {
+      this.logger.log(`transfer.success — no escrow found for transfer ${transferCode}`);
+      return;
+    }
+
+    if (escrow.status !== EscrowStatus.RELEASED) {
+      escrow.status = EscrowStatus.RELEASED;
+      escrow.releasedAt = new Date();
+      await this.escrowRepo.save(escrow);
+    }
+
+    await this.saveNotification(
+      escrow.driverId,
+      '💰 Payout Sent',
+      `Your payout of ₦${Number(escrow.netDriverAmount).toLocaleString()} has been sent to your bank account.`,
+      NotificationType.PAYOUT_APPROVED,
+      true,
+    );
+  }
+
+  // ─── Transfer: failed / reversed ──────────────────────────────────────────
+
+  private async handleTransferFailed(data: any, event: string) {
+    const transferCode = data?.transfer_code as string;
+    this.logger.warn(`Transfer ${event}: code=${transferCode}`);
+
+    const escrow = await this.escrowRepo.findOne({
+      where: { metadata: { transferCode } as any },
+    });
+    if (!escrow) return;
+
+    // Revert driver wallet deduction
+    await this.driverRepo.increment(
+      { id: escrow.driverId },
+      'walletBalance',
+      Number(escrow.netDriverAmount),
+    );
+
+    await this.saveNotification(
+      escrow.driverId,
+      '⚠️ Payout Failed',
+      `Your payout transfer failed. The amount has been returned to your wallet. Please contact support.`,
+      NotificationType.PAYOUT_DECLINED,
+      true,
+    );
+  }
+
+  // ─── Refund processed ─────────────────────────────────────────────────────
+
+  private async handleRefundProcessed(data: any) {
+    const reference = data?.transaction_reference as string;
+    if (!reference) return;
+
+    const booking = await this.bookingRepo.findOne({
+      where: { paymentReference: reference },
+    });
+    if (!booking) return;
+
+    booking.paymentStatus = PaymentStatus.REFUNDED;
+    await this.bookingRepo.save(booking);
+    this.logger.log(`Refund processed for booking ref ${reference}`);
+  }
+
+  // ─── Dojah KYC complete ───────────────────────────────────────────────────
+
+  private async handleKycComplete(data: any) {
+    const driverId: number | undefined = data?.driverId ?? data?.metadata?.driverId;
+    const documentType: string | undefined = data?.documentType ?? data?.type;
+
+    if (!driverId) return;
+
+    // Mark document as approved
+    if (documentType) {
+      const doc = await this.docRepo.findOne({
+        where: { driverId, documentType },
+      });
+      if (doc) {
+        doc.status = DocumentStatus.APPROVED;
+        doc.verificationData = data;
+        await this.docRepo.save(doc);
+      }
+    }
+
+    // Check if all driver documents are now approved
+    const allDocs = await this.docRepo.find({ where: { driverId } });
+    if (allDocs.length && allDocs.every((d) => d.status === DocumentStatus.APPROVED)) {
+      await this.driverRepo.update(driverId, { kycStatus: KycStatus.COMPLETED });
+    }
+
+    await this.saveNotification(
+      driverId,
+      '✅ Document Verified',
+      `Your ${documentType ?? 'identity'} document has been successfully verified.`,
+      NotificationType.DOCUMENT_APPROVED,
+      true,
+    );
+  }
+
+  // ─── Dojah KYC failed ─────────────────────────────────────────────────────
+
+  private async handleKycFailed(data: any) {
+    const driverId: number | undefined = data?.driverId ?? data?.metadata?.driverId;
+    const documentType: string | undefined = data?.documentType ?? data?.type;
+    const reason: string = data?.reason ?? 'Verification could not be completed';
+
+    if (!driverId) return;
+
+    if (documentType) {
+      const doc = await this.docRepo.findOne({ where: { driverId, documentType } });
+      if (doc) {
+        doc.status = DocumentStatus.REJECTED;
+        doc.rejectionReason = reason;
+        await this.docRepo.save(doc);
+      }
+    }
+
+    await this.saveNotification(
+      driverId,
+      '❌ Document Rejected',
+      `Your ${documentType ?? 'identity'} verification failed: ${reason}. Please resubmit.`,
+      NotificationType.DOCUMENT_REJECTED,
+      true,
+    );
+  }
+
+  // ─── Helper: save in-app notification ────────────────────────────────────
+
+  private async saveNotification(
+    entityId: number,
+    title: string,
+    body: string,
+    type: NotificationType,
+    isDriverId = false,
+  ) {
+    try {
+      let userId = entityId;
+      if (isDriverId) {
+        const driver = await this.driverRepo.findOne({ where: { id: entityId } });
+        if (driver) userId = driver.userId;
+        else return;
+      }
+      const notif = this.notifRepo.create({ userId, title, body, type });
+      await this.notifRepo.save(notif);
+    } catch (err) {
+      this.logger.warn('Webhook notification save failed', err?.message);
+    }
   }
 }

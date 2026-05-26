@@ -77,6 +77,10 @@ export default registerAs('common', () => ({
     commissionRate: toNumber(process.env.AGENT_COMMISSION_RATE, 5),
   },
 
+  platformfee:{
+    feeRate: toNumber(process.env.PLATFORM_FEE_RATE, 5),
+  },
+
 
   database: {
     type: process.env.DATABASE_TYPE,

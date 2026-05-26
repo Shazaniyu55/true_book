@@ -1,49 +1,55 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { WebhookController } from './controllers/webhook.controller';
+import { ConfigModule } from '@nestjs/config';
+
+import { Trip } from '@modules/core/entities/trip.entity';
 import { Booking } from '@modules/core/entities/booking.entity';
-import { Escrow } from '@modules/core/entities/escro.entity';
-import { DocumentVerification } from '@modules/core/entities/document-verification.entity';
-import { Notification } from '@modules/core/entities/notification.entity';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { Passenger } from '@modules/core/entities/passenger.entity';
-import { Trip } from '@modules/core/entities/trip.entity';
 import { Coupon } from '@modules/core/entities/coupon.entity';
+import { Notification } from '@modules/core/entities/notification.entity';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
 
+import { PaymentFactory } from '@adapters/payment/payment.factory';
 import { PaystackAdapter } from '@adapters/payment/paystack/paystack.adapter';
 import { PaystackProvider } from '@adapters/payment/paystack/providers/paystack.provider';
 import { FlutterwaveAdapter } from '@adapters/payment/flutterwave/flutterwave.adapter';
 import { FlutterwaveProvider } from '@adapters/payment/flutterwave/providers/flutterwave.provider';
-import { PaymentFactory } from '@adapters/payment/payment.factory';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { ExpoService } from '@modules/notification/services/expo.service';
-import { TripsModule } from '@modules/trip/trip.module';
+import { Broker } from '@broker/broker';
+import { Escrow } from '@modules/core/entities/escro.entity';
+import { TripsController } from './controllers/trip.controller';
+import { TripsService } from './service/trip.service';
+
+
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature([
+      Trip,
       Booking,
-      Escrow,
-      DocumentVerification,
-      Notification,
       Driver,
       Passenger,
-      Trip,
+      Escrow,
       Coupon,
+      Notification,
       Vehicle,
     ]),
-    TripsModule,   // ← imports TripsService via export
   ],
-  controllers: [WebhookController],
+  controllers: [TripsController],
   providers: [
-    PaystackAdapter,      // ← this was missing
-    PaystackProvider,     // ← this was missing
+    Broker,
+    TripsService,
+    PaymentFactory,
+    PaystackAdapter,
+    PaystackProvider,
     FlutterwaveAdapter,
     FlutterwaveProvider,
-    PaymentFactory,
     RandomnessUtil,
     ExpoService,
   ],
+  exports: [TripsService],
 })
-export class WebhookModule {}
+export class TripsModule {}

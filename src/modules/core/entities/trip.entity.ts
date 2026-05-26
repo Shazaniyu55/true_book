@@ -51,6 +51,12 @@ export class Trip extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   waypoints: any[];
 
+    @Column({ type: 'varchar', nullable: true })       // ← ADD
+  description: string;
+
+  @Column({ type: 'jsonb', nullable: true })          // ← ADD
+  amenities: string[];
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
 }

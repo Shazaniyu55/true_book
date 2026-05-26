@@ -45,4 +45,9 @@ export class PaymentFactory {
   nameEnquiry(account_number: string, bank_code: string): Promise<NameEnquiryResponse> {
     return this.getProvider().nameEnquiry(account_number, bank_code);
   }
+
+  initiateRefund(reference: string, amount?: number): Promise<boolean> {
+  return this.paystackAdapter.initiateRefund(reference, amount);
+}
+  
 }

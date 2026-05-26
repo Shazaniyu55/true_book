@@ -50,4 +50,9 @@ export class PaystackAdapter implements IPaystack {
   verifyWebhookSignature(payload: string, signature: string): boolean {
     return this.provider.verifyWebhookSignature(payload, signature);
   }
+
+  initiateRefund(reference: string, amount?: number): Promise<boolean> {
+  return this.provider.initiateRefund(reference, amount);
+}
+  
 }

@@ -28,7 +28,9 @@ import { GetContactSupportUseCase } from '../usecases/get-support.usecase';
 import { UpdateContactSupportUseCase } from '../usecases/update-support.usecase';
 import { ContactSupportResponseDto, CreateContactSupportDto, UpdateContactSupportDto } from '../dtos/dto';
 import { ContactSupportStatus, UserRole } from 'src/types/enums';
+import { ServiceName } from '@shared/decorators/servicename.decorators';
 
+@ServiceName('contact-support') // For kill switch targeting
 @ApiTags('Contact Support')
 @Controller('v1/contact-support')
 export class ContactSupportController {

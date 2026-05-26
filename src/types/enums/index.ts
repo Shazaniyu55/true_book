@@ -122,3 +122,10 @@ export enum ContactSupportStatus {
   RESOLVED = 'resolved',
   CLOSED = 'closed',
 }
+
+export enum EscrowStatus {
+  HELD = 'held',
+  RELEASED = 'released',
+  REFUNDED = 'refunded',
+  DISPUTED = 'disputed',
+}

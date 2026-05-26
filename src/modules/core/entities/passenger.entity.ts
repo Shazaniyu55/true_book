@@ -17,4 +17,7 @@ export class Passenger extends BaseEntity {
 
   @Column({ type: 'integer', default: 0 })
   totalTrips: number;
+
+   @Column({ type: 'jsonb', nullable: true })
+    metadata: Record<string, any>;
 }

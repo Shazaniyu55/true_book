@@ -19,6 +19,7 @@ async function bootstrap() {
    //Load secrets from Vault (or env in local mode) — BEFORE app creation
   await loadSecretsFromVault();
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
   const configService = app.get(ConfigService);
   const { port, swaggerApiRoot } = configService.get('common');
 
@@ -60,7 +61,6 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
   // Enable global validation pipe
   app.useGlobalPipes(CustomFieldValidationPipe);
-
   //Register Kill Switch as a global guard
   const killSwitchGuard = app.get(KillSwitchGuard);
   app.useGlobalGuards(killSwitchGuard);

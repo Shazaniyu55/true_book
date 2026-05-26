@@ -26,6 +26,11 @@ import { NotificationModule } from '@modules/notification/notification.module';
 import { WebhookModule } from '@modules/webhook/webhook.module';
 import { ContactSupportModule } from '@modules/contact-support/contact-support.module';
 import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
+import { TripsModule } from '@modules/trip/trip.module';
+
+
+
+
 
 @Module({
   imports: [
@@ -40,6 +45,7 @@ import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
       useFactory: async (configService: ConfigService) =>
         configService.get('typeorm'),
     }),
+    
     ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
@@ -61,6 +67,7 @@ import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
     NotificationModule,
     WebhookModule,
     ContactSupportModule,
+    TripsModule,
    
   ],
   controllers: [],
