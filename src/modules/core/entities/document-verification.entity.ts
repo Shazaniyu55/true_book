@@ -1,12 +1,12 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { DocumentStatus } from '../../../types/enums';
 import { Driver } from './driver.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('document_verifications')
 export class DocumentVerification extends BaseEntity {
-  @Column({ type: 'integer' })
-  driverId: number;
+  @Column({ type: 'varchar' })
+  driverId: string;
 
   @ManyToOne(() => Driver)
   @JoinColumn({ name: 'driverId' })

@@ -11,7 +11,7 @@ export class SuspendUserUsecase extends Usecase {
 
   async execute(
     _entityManager: EntityManager,
-    args: { id: number; reason?: string },
+    args: { id: string; reason?: string },
   ) {
     return this.adminService.suspendUser(args.id, args.reason);
   }

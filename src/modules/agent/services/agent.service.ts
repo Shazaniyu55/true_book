@@ -31,16 +31,16 @@ export class AgentService {
 
   // ─── Profile ─────────────────────────────────────────────────────────────────
 
-  async getProfile(userId: number) {
+  async getProfile(id: string) {
     const agent = await this.agentRepo.findOne({
-      where: { userId },
-      relations: ['user'],
+      where: { id },
+      relations: ['users'],
     });
     if (!agent) throw new NotFoundException('Agent profile not found');
     return agent;
   }
 
-  async updateBankDetails(userId: number, dto: UpdateAgentBankDto) {
+  async updateBankDetails(userId: string, dto: UpdateAgentBankDto) {
     const agent = await this.getAgentByUserId(userId);
     Object.assign(agent, dto);
     return this.agentRepo.save(agent);
@@ -58,7 +58,7 @@ export class AgentService {
    * after the trip completes successfully.
    */
   async bookTripForPassenger(
-    agentUserId: number,
+    agentUserId: string,
     dto: BookAgentTripDto,
     entityManager?: EntityManager,
   ) {
@@ -135,7 +135,7 @@ export class AgentService {
 
   // ─── Commission ───────────────────────────────────────────────────────────────
 
-  async getCommissions(userId: number, query: { page?: number; limit?: number; status?: string }) {
+  async getCommissions(userId: string, query: { page?: number; limit?: number; status?: string }) {
     const agent = await this.getAgentByUserId(userId);
     const { page = 1, limit = 20, status } = query;
     const skip = (page - 1) * limit;
@@ -155,7 +155,7 @@ export class AgentService {
   }
 
   /** Called by the booking completion webhook to release pending commission */
-  async releaseCommission(bookingId: number, entityManager?: EntityManager) {
+  async releaseCommission(bookingId: string, entityManager?: EntityManager) {
     const manager = entityManager ?? this.agentRepo.manager;
     const commission = await this.commissionRepo.findOne({
       where: { bookingId, status: 'pending' },
@@ -182,7 +182,7 @@ export class AgentService {
 
   // ─── Wallet & Withdrawal ─────────────────────────────────────────────────────
 
-  async getWallet(userId: number) {
+  async getWallet(userId: string) {
     const agent = await this.getAgentByUserId(userId);
     const totalPending = await this.commissionRepo
       .createQueryBuilder('c')
@@ -198,7 +198,7 @@ export class AgentService {
     };
   }
 
-  async requestWithdrawal(userId: number, dto: AgentWithdrawDto) {
+  async requestWithdrawal(userId: string, dto: AgentWithdrawDto) {
     const agent = await this.getAgentByUserId(userId);
 
     if (!agent.bankAccountNumber || !agent.bankCode)
@@ -229,7 +229,7 @@ export class AgentService {
 
   // ─── Bookings history ────────────────────────────────────────────────────────
 
-  async getBookingHistory(userId: number, query: { page?: number; limit?: number }) {
+  async getBookingHistory(userId: string, query: { page?: number; limit?: number }) {
     const agent = await this.getAgentByUserId(userId);
     const { page = 1, limit = 20 } = query;
     const skip = (page - 1) * limit;
@@ -247,8 +247,8 @@ export class AgentService {
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-  private async getAgentByUserId(userId: number): Promise<Agent> {
-    const agent = await this.agentRepo.findOne({ where: { userId } });
+  private async getAgentByUserId(id: string): Promise<Agent> {
+    const agent = await this.agentRepo.findOne({ where: { id } });
     if (!agent) throw new NotFoundException('Agent profile not found');
     return agent;
   }

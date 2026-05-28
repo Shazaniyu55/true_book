@@ -23,7 +23,7 @@ export class PayoutRepository extends Repository<Payout> {
     return this.findOne({ where: { reference }, relations: ['driver'] });
   }
 
-  async updatePayout(id: number, data: Partial<Payout>, entityManager?: EntityManager): Promise<Payout> {
+  async updatePayout(id: string, data: Partial<Payout>, entityManager?: EntityManager): Promise<Payout> {
     const manager = entityManager || this.entityManager;
     await manager.update(Payout, id, data);
     return manager.findOne(Payout, { where: { id } });

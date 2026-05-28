@@ -1,7 +1,7 @@
 import { Column, Entity, Index } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { UserRole, UserStatus } from '../../../types/enums';
+import { BaseEntity } from './base.entity';
 
 @Entity('users')
 export class User extends BaseEntity {

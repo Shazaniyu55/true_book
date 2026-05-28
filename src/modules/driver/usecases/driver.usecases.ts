@@ -27,7 +27,7 @@ export class CreateDriverTripUseCase {
     private readonly randomnessUtil: RandomnessUtil,
   ) {}
 
-  async execute(userId: number, dto: CreateDriverTripDto, em?: EntityManager): Promise<Trip> {
+  async execute(userId: string, dto: CreateDriverTripDto, em?: EntityManager): Promise<Trip> {
     const manager = em ?? this.tripRepo.manager;
 
     // Validate driver exists
@@ -51,7 +51,7 @@ export class CreateDriverTripUseCase {
       totalSeats: dto.totalSeats,
       pricePerSeat: dto.pricePerSeat,
       description: dto.description?.trim() || null,
-      vehicleId: dto.vehicleId ? Number(dto.vehicleId) : null,
+      vehicleId: dto.vehicleId ?? null,
       reference,
       driverId: driver.id,
       status: TripStatus.PENDING,
@@ -129,7 +129,7 @@ export class UpdateDriverTripUseCase {
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
   ) {}
 
-  async execute(userId: number, tripId: number, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
+  async execute(userId: string, tripId: string, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
     const manager = em ?? this.tripRepo.manager;
 
     // Validate driver and ownership
@@ -198,7 +198,7 @@ export class UpdateDriverTripUseCase {
     }
   }
 
-  private async getTripOwnedByDriver(userId: number, tripId: number): Promise<Trip> {
+  private async getTripOwnedByDriver(userId: string, tripId: string): Promise<Trip> {
     const driver = await this.driverRepo.findOne({ where: { userId } });
     if (!driver) throw new NotFoundException('Driver profile not found');
 
@@ -225,7 +225,7 @@ export class ActivateDriverTripUseCase {
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
   ) {}
 
-  async execute(userId: number, tripId: number, em?: EntityManager): Promise<Trip> {
+  async execute(userId: string, tripId: string, em?: EntityManager): Promise<Trip> {
     const manager = em ?? this.tripRepo.manager;
 
     const trip = await this.getTripOwnedByDriver(userId, tripId);
@@ -250,7 +250,7 @@ export class ActivateDriverTripUseCase {
     return updated;
   }
 
-  private async getTripOwnedByDriver(userId: number, tripId: number): Promise<Trip> {
+  private async getTripOwnedByDriver(userId: string, tripId: string): Promise<Trip> {
     const driver = await this.driverRepo.findOne({ where: { userId } });
     if (!driver) throw new NotFoundException('Driver profile not found');
 
@@ -279,7 +279,7 @@ export class CancelDriverTripUseCase {
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
   ) {}
 
-  async execute(userId: number, tripId: number, dto: CancelDriverTripDto, em?: EntityManager): Promise<{
+  async execute(userId: string, tripId: string, dto: CancelDriverTripDto, em?: EntityManager): Promise<{
     trip: Trip;
     refundedBookings: number;
     totalRefundAmount: number;
@@ -354,7 +354,7 @@ export class CancelDriverTripUseCase {
     };
   }
 
-  private async processRefund(bookingId: number, manager: EntityManager): Promise<number> {
+  private async processRefund(bookingId: string, manager: EntityManager): Promise<number> {
     const escrow = await this.escrowRepo.findOne({
       where: { bookingId },
       relations: ['booking'],
@@ -374,7 +374,7 @@ export class CancelDriverTripUseCase {
     return 0;
   }
 
-  private async getTripOwnedByDriver(userId: number, tripId: number): Promise<Trip> {
+  private async getTripOwnedByDriver(userId: string, tripId: string): Promise<Trip> {
     const driver = await this.driverRepo.findOne({ where: { userId } });
     if (!driver) throw new NotFoundException('Driver profile not found');
 
@@ -403,7 +403,7 @@ export class CompleteDriverTripUseCase {
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
   ) {}
 
-  async execute(userId: number, tripId: number, dto: CompleteDriverTripDto, em?: EntityManager): Promise<{
+  async execute(userId: string, tripId: string, dto: CompleteDriverTripDto, em?: EntityManager): Promise<{
     trip: Trip;
     completedBookings: number;
     totalEarnings: number;
@@ -460,7 +460,7 @@ export class CompleteDriverTripUseCase {
   }
 
   private async releaseEscrowsForTrip(
-    tripId: number,
+    tripId: string,
     manager: EntityManager,
   ): Promise<{ completedCount: number; totalEarnings: number; platformFeeTotal: number }> {
     const escrows = await this.escrowRepo.find({
@@ -500,7 +500,7 @@ export class CompleteDriverTripUseCase {
     return { completedCount, totalEarnings, platformFeeTotal };
   }
 
-  private async getTripOwnedByDriver(userId: number, tripId: number): Promise<Trip> {
+  private async getTripOwnedByDriver(userId: string, tripId: string): Promise<Trip> {
     const driver = await this.driverRepo.findOne({ where: { userId } });
     if (!driver) throw new NotFoundException('Driver profile not found');
 

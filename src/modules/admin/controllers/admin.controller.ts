@@ -77,6 +77,8 @@ import {
   ListCouponsUsecase,
 } from '../usecases/cupons.usecase';
 import { ServiceName } from '@shared/decorators/servicename.decorators';
+import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
+import { VerifyOtpDto } from '@modules/auth/dtos/verify-otp.dto';
 
 @ServiceName('admin') // For kill switch targeting
 @ApiTags('Admin')
@@ -89,6 +91,7 @@ export class AdminController {
     // Auth
     private readonly registerAdminUsecase: RegisterAdminUsecase,
     private readonly loginAdminUsecase: LoginAdminUsecase,
+    private readonly verifyAdminOtp: VerifyAdminOtpUsecase,
 
     // Dashboard
     private readonly getDashboardUsecase: GetDashboardUsecase,
@@ -138,6 +141,14 @@ export class AdminController {
   @ApiBody({ type: LoginAdminDto })
   loginAdmin(@Body() dto: LoginAdminDto) {
     return this.broker.runUsecases([this.loginAdminUsecase], dto);
+  }
+
+  @Post('verify')
+  @ApiOperation({summary: 'verify admin otp'})
+  @ApiBody({type: VerifyOtpDto})
+  verifyOtp(@Body() dto: VerifyOtpDto){
+    return this.broker.runUsecases([this.verifyAdminOtp], dto)
+
   }
 
   // ─── Dashboard ───────────────────────────────────────────────────────────────

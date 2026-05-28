@@ -70,6 +70,7 @@ import {
   DeactivateCouponUsecase,
   ListCouponsUsecase,
 } from './usecases/cupons.usecase';
+import { VerifyAdminOtpUsecase } from './usecases/verifyadminotp.usecase';
 
 
 
@@ -84,6 +85,7 @@ const USECASES = [
   GetUserUsecase,
   SuspendUserUsecase,
   ActivateUserUsecase,
+  VerifyAdminOtpUsecase,
   // Documents
   ListPendingDocumentsUsecase,
   ApproveDocumentUsecase,

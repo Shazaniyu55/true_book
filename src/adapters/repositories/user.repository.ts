@@ -31,7 +31,7 @@ export class UserRepository extends Repository<User> {
     return this.findOne({ where: { referralCode } });
   }
 
-  async updateUser(id: number, data: Partial<User>, entityManager?: EntityManager): Promise<User> {
+  async updateUser(id: string, data: Partial<User>, entityManager?: EntityManager): Promise<User> {
     const manager = entityManager || this.entityManager;
     await manager.update(User, id, data);
     return manager.findOne(User, { where: { id } });

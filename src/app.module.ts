@@ -29,9 +29,6 @@ import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
 import { TripsModule } from '@modules/trip/trip.module';
 
 
-
-
-
 @Module({
   imports: [
     ConfigModule.forRoot({

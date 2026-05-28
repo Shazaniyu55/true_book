@@ -10,6 +10,7 @@ import {
   CancelDriverTripUseCase,
   CompleteDriverTripUseCase,
 } from '../usecases/driver.usecases';
+import { instanceToPlain } from 'class-transformer';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -35,15 +36,16 @@ export class DriverTripService {
   /**
    * Create a new trip
    */
-  async createTrip(userId: number, dto: CreateDriverTripDto, em?: EntityManager): Promise<Trip> {
+  async createTrip(userId: string, dto: CreateDriverTripDto, em?: EntityManager) {
     this.logger.debug(`Creating trip for driver ${userId}`);
-    return this.createTripUseCase.execute(userId, dto, em);
+    const trip = this.createTripUseCase.execute(userId, dto, em);
+    return instanceToPlain(trip)
   }
 
   /**
    * Update trip details (only PENDING trips)
    */
-  async updateTrip(userId: number, tripId: number, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
+  async updateTrip(userId: string, tripId: string, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
     this.logger.debug(`Updating trip ${tripId} for driver ${userId}`);
     return this.updateTripUseCase.execute(userId, tripId, dto, em);
   }
@@ -51,7 +53,7 @@ export class DriverTripService {
   /**
    * Activate trip (publish for bookings)
    */
-  async activateTrip(userId: number, tripId: number, em?: EntityManager): Promise<Trip> {
+  async activateTrip(userId: string, tripId: string, em?: EntityManager): Promise<Trip> {
     this.logger.debug(`Activating trip ${tripId} for driver ${userId}`);
     return this.activateTripUseCase.execute(userId, tripId, em);
   }
@@ -60,8 +62,8 @@ export class DriverTripService {
    * Cancel trip (with refunds)
    */
   async cancelTrip(
-    userId: number,
-    tripId: number,
+    userId: string,
+    tripId: string,
     dto: CancelDriverTripDto,
     em?: EntityManager,
   ): Promise<{
@@ -77,8 +79,8 @@ export class DriverTripService {
    * Complete trip (release escrows & mark as completed)
    */
   async completeTrip(
-    userId: number,
-    tripId: number,
+    userId: string,
+    tripId: string,
     dto: CompleteDriverTripDto,
     em?: EntityManager,
   ): Promise<{

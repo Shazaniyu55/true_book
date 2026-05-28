@@ -1,11 +1,13 @@
-import { Column, Entity, Index } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
-import { BaseEntity } from '@shared/repositories/base.entity';
-import { UserRole, UserStatus } from '../../../types/enums';
+import {  UserStatus } from '../../../types/enums';
+import { Role } from './role.entity';
+import { BaseEntity } from './base.entity';
 
 
 @Entity('admins')
 export class Admin extends BaseEntity {
+  
   @Index({ unique: true })
   @Column({ type: 'varchar' })
   email: string;
@@ -19,13 +21,15 @@ export class Admin extends BaseEntity {
   password: string;
 
   @Column({ type: 'varchar' })
-  firstName: string;
+  fullName: string;
 
-  @Column({ type: 'varchar' })
-  lastName: string;
 
-  @Column({ type: 'varchar', enum: UserRole, default: UserRole.ADMIN })
-  role: UserRole;
+  @Column({ type: 'uuid', nullable: true })
+  roleId: string;
+
+  @ManyToOne(() => Role, (role) => role.users, { eager: false })
+  @JoinColumn({ name: 'roleId' })
+  role: Role;
 
   @Column({ type: 'varchar', enum: UserStatus, default: UserStatus.PENDING })
   status: UserStatus;
@@ -39,11 +43,7 @@ export class Admin extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   profilePhoto: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  referralCode: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  referredBy: string;
 
   @Column({ type: 'varchar', nullable: true })
   fcmToken: string;

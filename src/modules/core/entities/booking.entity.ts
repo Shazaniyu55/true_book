@@ -1,24 +1,25 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { BookingStatus, PaymentStatus } from '../../../types/enums';
 import { Trip } from './trip.entity';
 import { Passenger } from './passenger.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('bookings')
 export class Booking extends BaseEntity {
+  
   @Index({ unique: true })
   @Column({ type: 'varchar' })
   bookingCode: string;
 
-  @Column({ type: 'integer' })
-  tripId: number;
+  @Column({ type: 'uuid' })
+  tripId: string;
 
   @ManyToOne(() => Trip)
   @JoinColumn({ name: 'tripId' })
   trip: Trip;
 
-  @Column({ type: 'integer' })
-  passengerId: number;
+  @Column({ type: 'uuid' })
+  passengerId: string;
 
   @ManyToOne(() => Passenger)
   @JoinColumn({ name: 'passengerId' })

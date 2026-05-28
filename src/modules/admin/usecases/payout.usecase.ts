@@ -23,7 +23,7 @@ export class ApprovePayoutUsecase extends Usecase {
 
   async execute(
     _entityManager: EntityManager,
-    args: { id: number; adminEmail: string },
+    args: { id: string; adminEmail: string },
   ) {
     return this.adminService.approvePayout(args.id, args.adminEmail);
   }
@@ -37,7 +37,7 @@ export class DeclinePayoutUsecase extends Usecase {
 
   async execute(
     _entityManager: EntityManager,
-    args: { id: number; reason: string; adminEmail: string },
+    args: { id: string; reason: string; adminEmail: string },
   ) {
     return this.adminService.declinePayout(args.id, args.reason, args.adminEmail);
   }

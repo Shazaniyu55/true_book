@@ -1,8 +1,9 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { TripStatus } from '../../../types/enums';
 import { Driver } from './driver.entity';
 import { Vehicle } from './vehicle.entity';
+import { BaseEntity } from './base.entity';
+import { Passenger } from './passenger.entity';
 
 @Entity('trips')
 export class Trip extends BaseEntity {
@@ -10,19 +11,26 @@ export class Trip extends BaseEntity {
   @Column({ type: 'varchar' })
   reference: string;
 
-  @Column({ type: 'integer' })
-  driverId: number;
+  @Column({ type: 'string' })
+  driverId: string;
 
   @ManyToOne(() => Driver)
   @JoinColumn({ name: 'driverId' })
   driver: Driver;
 
-  @Column({ type: 'integer', nullable: true })
-  vehicleId: number;
+  @Column({ type: 'uuid', nullable: true })
+  vehicleId: string;
 
   @ManyToOne(() => Vehicle, { nullable: true })
   @JoinColumn({ name: 'vehicleId' })
   vehicle: Vehicle;
+
+@Column({ type: 'uuid', nullable: true })
+passengerId: string | null;
+
+@ManyToOne(() => Passenger, { nullable: true })
+@JoinColumn({ name: 'passengerId' })
+passenger: Passenger;
 
   @Column({ type: 'varchar' })
   origin: string;

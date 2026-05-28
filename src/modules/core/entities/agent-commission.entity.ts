@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { Agent } from './agent.entity';
 import { Booking } from './booking.entity';
+import { BaseEntity } from './base.entity';
 
 /**
  * Tracks individual commission events for an agent.
@@ -10,16 +10,16 @@ import { Booking } from './booking.entity';
  */
 @Entity('agent_commissions')
 export class AgentCommission extends BaseEntity {
-  @Index()
-  @Column({ type: 'integer' })
-  agentId: number;
+  @Index({ unique: true })
+  @Column({ type: 'uuid' })
+  agentId: string;
 
   @ManyToOne(() => Agent)
   @JoinColumn({ name: 'agentId' })
   agent: Agent;
 
-  @Column({ type: 'integer', nullable: true })
-  bookingId: number;
+  @Column({ type: 'uuid', nullable: true })
+  bookingId: string;
 
   @ManyToOne(() => Booking, { nullable: true })
   @JoinColumn({ name: 'bookingId' })

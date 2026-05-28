@@ -233,7 +233,7 @@ export class DriverTripDetailResponseDto extends DriverTripResponseDto {
 export class DriverBookingResponseDto {
   id: number;
   bookingCode: string;
-  tripId: number;
+  tripId: string;
   tripDestination: string;
   passengerId: number;
   passengerName: string;
@@ -259,7 +259,7 @@ export class CancelTripResponseDto {
   success: boolean;
   message: string;
   data: {
-    tripId: number;
+    tripId: string;
     reference: string;
     status: string;
     refundedBookings: number;
@@ -277,7 +277,7 @@ export class CompleteTripResponseDto {
   success: boolean;
   message: string;
   data: {
-    tripId: number;
+    tripId: string;
     reference: string;
     status: string;
     completedBookings: number;

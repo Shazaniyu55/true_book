@@ -19,11 +19,11 @@ export class DriverRepository extends Repository<Driver> {
     return manager.save(Driver, driver);
   }
 
-  async findByUserId(userId: number): Promise<Driver> {
-    return this.findOne({ where: { userId }, relations: ['user'] });
+  async findByUserId(id: string): Promise<Driver> {
+    return this.findOne({ where: { id }, relations: ['users'] });
   }
 
-  async updateDriver(id: number, data: Partial<Driver>, entityManager?: EntityManager): Promise<Driver> {
+  async updateDriver(id: string, data: Partial<Driver>, entityManager?: EntityManager): Promise<Driver> {
     const manager = entityManager || this.entityManager;
     await manager.update(Driver, id, data);
     return manager.findOne(Driver, { where: { id } });

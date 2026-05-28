@@ -9,7 +9,7 @@ export class ActivateUserUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, args: { id: number }) {
+  async execute(_entityManager: EntityManager, args: { id: string }) {
     return this.adminService.activateUser(args.id);
   }
 }

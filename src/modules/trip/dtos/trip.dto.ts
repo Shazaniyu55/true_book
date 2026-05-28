@@ -9,6 +9,7 @@ import {
   IsPositive,
   IsString,
   IsUrl,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -23,6 +24,8 @@ export class CreateTripDto {
   @ApiProperty({ example: 'Abuja (Wuse)' })
   @IsNotEmpty() @IsString() destination: string;
 
+
+
   @ApiProperty({ example: '2025-08-15T07:00:00.000Z' })
   @IsNotEmpty() @IsDateString() departureTime: string;
 
@@ -36,7 +39,7 @@ export class CreateTripDto {
   @IsPositive() @IsNumber() pricePerSeat: number;
 
   @ApiPropertyOptional({ description: 'Vehicle ID (must belong to driver)' })
-  @IsOptional() @IsNumber() vehicleId?: number;
+  @IsOptional() @IsNumber() vehicleId?: string;
 
   @ApiPropertyOptional({
     description: 'Intermediate stops',
@@ -65,7 +68,7 @@ export class UpdateTripDto {
 
 export class BookTripDto {
   @ApiProperty({ example: 1 })
-  @IsNotEmpty() @IsNumber() tripId: number;
+  @IsNotEmpty() @IsUUID() tripId: string;
 
   @ApiProperty({ example: 2, description: 'Number of seats to book' })
   @IsPositive() @Min(1) @IsNumber() seats: number;
@@ -111,8 +114,8 @@ export class SearchTripsDto {
 // ─── Cancel booking ────────────────────────────────────────────────────────
 
 export class CancelBookingDto {
-  @ApiProperty({ example: 1 })
-  @IsNotEmpty() @IsNumber() bookingId: number;
+  @ApiProperty({ example: 'uuid' })
+  @IsNotEmpty() @IsString() bookingId: string;
 
   @ApiPropertyOptional({ example: 'Change of plans' })
   @IsOptional() @IsString() reason?: string;
@@ -121,8 +124,8 @@ export class CancelBookingDto {
 // ─── Driver completes trip ─────────────────────────────────────────────────
 
 export class CompleteTripDto {
-  @ApiProperty({ example: 1 })
-  @IsNotEmpty() @IsNumber() tripId: number;
+  @ApiProperty({ example: 'uuid' })
+  @IsNotEmpty() @IsString() tripId: string;
 
   @ApiPropertyOptional({ example: 'Trip completed successfully' })
   @IsOptional() @IsString() notes?: string;
@@ -132,7 +135,7 @@ export class CompleteTripDto {
 
 export class CancelTripDto {
   @ApiProperty({ example: 1 })
-  @IsNotEmpty() @IsNumber() tripId: number;
+  @IsNotEmpty() @IsString() tripId: string;
 
   @ApiProperty({ example: 'Vehicle breakdown' })
   @IsNotEmpty() @IsString() reason: string;

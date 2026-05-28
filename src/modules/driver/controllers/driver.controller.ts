@@ -67,34 +67,20 @@ export class DriverTripController {
    * ─────────────────────────────────────────────────────────────────────────
    */
 
-  @Post('trip/create')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Create a new trip',
-    description: 'Create a new trip as a driver. Trip starts in PENDING status.',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Trip created successfully',
-    type: CreateTripResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid trip data or validation error',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Driver profile not found',
-  })
-    createTrip(
-    @AuthUser() userId: number,
-    @Body() dto: CreateDriverTripDto,
-  ): Promise<CreateTripResponseDto> {
-    return this.broker.runUsecases([this.createDriverUsecase], {
-      userId,
-      ...dto,
-    });
-  }
+@Post('trip/create')
+@HttpCode(HttpStatus.CREATED)
+async createTrip(
+  @AuthUser() user: any,
+  @Body() dto: CreateDriverTripDto,
+): Promise<CreateTripResponseDto> {
+  const trip = await this.driverTripService.createTrip(user.id, dto); 
+
+  return {
+    success: true,
+    message: 'Trip created successfully',
+    data: this.mapTripToResponse(trip),
+  };
+}
 
   /**
    * ─────────────────────────────────────────────────────────────────────────
@@ -102,7 +88,7 @@ export class DriverTripController {
    * ─────────────────────────────────────────────────────────────────────────
    */
 
-  @Get()
+  @Get('trip/getTrip')
   @ApiOperation({
     summary: 'Get all your trips',
     description: 'Retrieve a paginated list of your trips with optional filtering by status.',
@@ -116,10 +102,10 @@ export class DriverTripController {
     description: 'Driver profile not found',
   })
   async getMyTrips(
-    @AuthUser() userId: number,
+    @AuthUser() user: any,
     @Query() query: GetDriverTripsQueryDto,
   ) {
-    return this.tripsService.getMyTrips(userId, {
+    return this.tripsService.getMyTrips(user.id, {
       page: query.page,
       limit: query.limit,
       status: query.status,
@@ -132,7 +118,7 @@ export class DriverTripController {
    * ─────────────────────────────────────────────────────────────────────────
    */
 
-  @Get(':tripId')
+  @Get('trip/:tripId')
   @ApiOperation({
     summary: 'Get trip detail',
     description: 'Get detailed information about a specific trip.',
@@ -147,8 +133,8 @@ export class DriverTripController {
     description: 'Trip not found',
   })
   async getTripDetail(
-    @AuthUser() userId: number,
-    @Param('tripId', ParseIntPipe) tripId: number,
+    @AuthUser() user: string,
+    @Param('tripId') tripId: string,
   ) {
     const trip = await this.tripsService.getTripById(tripId);
 
@@ -167,7 +153,7 @@ export class DriverTripController {
    * ─────────────────────────────────────────────────────────────────────────
    */
 
-  @Put(':tripId')
+  @Put('trip/update/:tripId')
   @ApiOperation({
     summary: 'Update trip details',
     description: 'Update trip details. Only possible for PENDING trips without confirmed bookings.',
@@ -186,15 +172,15 @@ export class DriverTripController {
     description: 'Trip not found or does not belong to you',
   })
   async updateTrip(
-    @AuthUser() userId: number,
-    @Param('tripId', ParseIntPipe) tripId: number,
+    @AuthUser() user: any,
+    @Param('tripId') tripId: string,
     @Body() dto: UpdateDriverTripDto,
   ): Promise<{
     success: boolean;
     message: string;
     data: DriverTripResponseDto;
   }> {
-    const trip = await this.driverTripService.updateTrip(userId, tripId, dto);
+    const trip = await this.driverTripService.updateTrip(user.id, tripId, dto);
 
     return {
       success: true,
@@ -228,11 +214,11 @@ export class DriverTripController {
     description: 'Trip not found',
   })
   async activateTrip(
-    @AuthUser() userId: number,
-    @Param('tripId', ParseIntPipe) tripId: number,
+    @AuthUser() user: any,
+    @Param('tripId') tripId: string,
     @Body() _dto?: ActivateDriverTripDto,
   ): Promise<ActivateTripResponseDto> {
-    const trip = await this.driverTripService.activateTrip(userId, tripId);
+    const trip = await this.driverTripService.activateTrip(user.id, tripId);
 
     return {
       success: true,
@@ -267,12 +253,12 @@ export class DriverTripController {
     description: 'Trip not found',
   })
   async cancelTrip(
-    @AuthUser() userId: number,
-    @Param('tripId', ParseIntPipe) tripId: number,
+    @AuthUser() user: any,
+    @Param('tripId') tripId: string,
     @Body() dto: CancelDriverTripDto,
   ): Promise<CancelTripResponseDto> {
     const { trip, refundedBookings, totalRefundAmount } = await this.driverTripService.cancelTrip(
-      userId,
+      user.id,
       tripId,
       dto,
     );
@@ -315,12 +301,12 @@ export class DriverTripController {
     description: 'Trip not found',
   })
   async completeTrip(
-    @AuthUser() userId: number,
-    @Param('tripId', ParseIntPipe) tripId: number,
+    @AuthUser() user: any,
+    @Param('tripId') tripId: string,
     @Body() dto: CompleteDriverTripDto,
   ): Promise<CompleteTripResponseDto> {
     const { trip, completedBookings, totalEarnings, platformFee, netEarnings } =
-      await this.driverTripService.completeTrip(userId, tripId, dto);
+      await this.driverTripService.completeTrip(user.id, tripId, dto);
 
     return {
       success: true,
@@ -358,11 +344,11 @@ export class DriverTripController {
     description: 'Trip not found',
   })
   async getTripBookings(
-    @AuthUser() userId: number,
-    @Param('tripId', ParseIntPipe) tripId: number,
+    @AuthUser() user: any,
+    @Param('tripId') tripId: string,
     @Query() _query?: GetDriverTripsBookingsQueryDto,
   ) {
-    const bookings = await this.tripsService.getTripBookings(userId, tripId);
+    const bookings = await this.tripsService.getTripBookings(user.id, tripId);
 
     return {
       success: true,
@@ -390,10 +376,10 @@ export class DriverTripController {
     description: 'Booking not found',
   })
   async checkInPassenger(
-    @AuthUser() userId: number,
-    @Param('bookingId', ParseIntPipe) bookingId: number,
+    @AuthUser() user: any,
+    @Param('bookingId') bookingId: string,
   ) {
-    const booking = await this.tripsService.checkInPassenger(userId, bookingId);
+    const booking = await this.tripsService.checkInPassenger(user.id, bookingId);
 
     return {
       success: true,

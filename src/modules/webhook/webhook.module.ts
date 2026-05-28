@@ -33,12 +33,12 @@ import { TripsModule } from '@modules/trip/trip.module';
       Coupon,
       Vehicle,
     ]),
-    TripsModule,   // ← imports TripsService via export
+    TripsModule,   
   ],
   controllers: [WebhookController],
   providers: [
-    PaystackAdapter,      // ← this was missing
-    PaystackProvider,     // ← this was missing
+    PaystackAdapter,      
+    PaystackProvider,     
     FlutterwaveAdapter,
     FlutterwaveProvider,
     PaymentFactory,

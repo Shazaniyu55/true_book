@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { Notification } from '@modules/core/entities/notification.entity';
 import { User } from '@modules/core/entities/user.entity';
+import { CreateNotificationDto } from '@modules/notification/dtos/create-notification.dto';
 
 @Injectable()
 export class NotificationRepository extends Repository<Notification> {
@@ -18,38 +19,38 @@ export class NotificationRepository extends Repository<Notification> {
   }
 
   async createNotification(
-    userId: number,
-    data: Partial<Notification>,
+    userId: string,
+    dto: CreateNotificationDto,
     entityManager?: EntityManager
   ): Promise<Notification> {
     const manager = entityManager || this.entityManager;
     const notification = manager.create(Notification, {
-      ...data,
+      ...dto,
       userId, // Ensure userId is always set
     });
     return manager.save(Notification, notification);
   }
 
-  async findUnreadByUserId(userId: number): Promise<Notification[]> {
+  async findUnreadByUserId(id: string): Promise<Notification[]> {
     return this.find({
-      where: { userId, isRead: false },
+      where: { id, isRead: false },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async markAllReadByUserId(userId: number, entityManager?: EntityManager): Promise<void> {
+  async markAllReadByUserId(userId: string, entityManager?: EntityManager): Promise<void> {
     const manager = entityManager || this.entityManager;
     await manager.update(Notification, { userId, isRead: false }, { isRead: true });
   }
 
-  async getNotificationsByUserId(userId: number): Promise<Notification[]> {
+  async getNotificationsByUserId(id: string): Promise<Notification[]> {
     return this.find({
-      where: { userId },
+      where: { id },
       order: { createdAt: 'DESC' },
     });
   }
 
-  async deleteNotificationByUserId(userId: number, notificationId: number): Promise<void> {
-    await this.delete({ id: notificationId, userId });
+  async deleteNotificationByUserId( notificationId: string): Promise<void> {
+    await this.delete({ id: notificationId  });
   }
 }

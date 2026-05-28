@@ -8,11 +8,10 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 import { Permission } from './permission.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('roles')
-export class Role {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+export class Role  extends BaseEntity{
 
   @Column({ unique: true })
   name: string;

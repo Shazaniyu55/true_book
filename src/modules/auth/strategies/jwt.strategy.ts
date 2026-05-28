@@ -26,8 +26,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload) {
     // Try to find admin first
-    let entity = await this.adminRepository.findOne({ 
-      where: { id: payload.sub as any } 
+    let entity: Admin | User | null = await this.adminRepository.findOne({ 
+      where: { id: payload.sub as any },
+       relations: ['role'],
     });
     
     // If not admin, try user
@@ -44,7 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return { 
       id: entity.id, 
       email: entity.email, 
-      role: entity.role 
+      role: 'role' in entity ? entity.role : null, 
     };
   }
 }

@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { PayoutStatus } from '../../../types/enums';
 import { Driver } from './driver.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('payouts')
 export class Payout extends BaseEntity {
@@ -9,8 +9,8 @@ export class Payout extends BaseEntity {
   @Column({ type: 'varchar' })
   reference: string;
 
-  @Column({ type: 'integer' })
-  driverId: number;
+  @Column({ type: 'uuid' })
+  driverId: string;
 
   @ManyToOne(() => Driver)
   @JoinColumn({ name: 'driverId' })

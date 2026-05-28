@@ -14,6 +14,7 @@ import { VerifyOtpUsecase } from '../usecases/verify-otp.usecase';
 import { ForgotPasswordUsecase } from '../usecases/forgot-password.usecase';
 import { ResetPasswordUsecase } from '../usecases/reset-password.usecase';
 import { ServiceName } from '@shared/decorators/servicename.decorators';
+import { ResendOtpUsecase } from '../usecases/resendotp.usecase';
 
 @ApiTags('Auth')
 @ServiceName('auth')
@@ -27,6 +28,7 @@ export class AuthController {
     private readonly verifyOtpUsecase: VerifyOtpUsecase,
     private readonly forgotPasswordUsecase: ForgotPasswordUsecase,
     private readonly resetPasswordUsecase: ResetPasswordUsecase,
+    private readonly resendotp: ResendOtpUsecase
   ) {}
 
   @Public()
@@ -65,11 +67,7 @@ export class AuthController {
     // inline usecase pattern for simple ops
     return this.broker.runUsecases(
       [
-        {
-          execute: async () => {
-            return { message: 'OTP sent' };
-          },
-        } as any,
+       this.resendotp
       ],
       dto,
     );
@@ -84,7 +82,7 @@ export class AuthController {
 
   // Preserved typo for mobile backward compat: /v1/reset-passowrd
   @Public()
-  @Post('reset-passowrd')
+  @Post('reset-password')
   @ApiOperation({ summary: 'Reset password (preserved typo for mobile compat)' })
   resetPassword(@Body() dto: ResetPassowrdDto) {
     return this.broker.runUsecases([this.resetPasswordUsecase], dto);

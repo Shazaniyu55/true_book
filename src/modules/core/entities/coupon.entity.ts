@@ -1,6 +1,6 @@
 import { Column, Entity, Index } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { CouponStatus, CouponType } from '../../../types/enums';
+import { BaseEntity } from './base.entity';
 
 @Entity('coupons')
 export class Coupon extends BaseEntity {

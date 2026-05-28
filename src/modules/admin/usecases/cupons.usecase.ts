@@ -23,7 +23,7 @@ export class CreateCouponUsecase extends Usecase {
 
   async execute(
     _entityManager: EntityManager,
-    args: CreateCouponDto & { adminId: number },
+    args: CreateCouponDto & { adminId: string },
   ) {
     return this.adminService.createCoupon(args);
   }
@@ -35,7 +35,7 @@ export class DeactivateCouponUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, args: { id: number }) {
+  async execute(_entityManager: EntityManager, args: { id: string }) {
     return this.adminService.deactivateCoupon(args.id);
   }
 }

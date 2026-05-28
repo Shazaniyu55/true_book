@@ -1,5 +1,5 @@
 import { Column, Entity } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('kill_switch')
 export class KillSwitch extends BaseEntity {

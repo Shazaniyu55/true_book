@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { VehicleType } from '../../../types/enums';
 import { Driver } from './driver.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('vehicles')
 export class Vehicle extends BaseEntity {

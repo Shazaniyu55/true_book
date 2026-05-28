@@ -21,7 +21,7 @@ export class GetTripUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, args: { id: number }) {
+  async execute(_entityManager: EntityManager, args: { id: string }) {
     return this.adminService.getTrip(args.id);
   }
 }

@@ -16,7 +16,7 @@ export class SendPushNotificationUseCase {
      body,
     data,
   }: {
-    userId: number;
+    userId: string;
      expoPushToken: string;
      title: string;
      body: string;

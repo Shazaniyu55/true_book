@@ -12,10 +12,10 @@ import {
 
 export class BookAgentTripDto {
   @ApiProperty({ description: 'Trip ID to book' })
-  @IsNotEmpty() @IsNumber() tripId: number;
+  @IsNotEmpty() @IsNumber() tripId: string;
 
   @ApiProperty({ description: 'User ID of the passenger being booked for' })
-  @IsNotEmpty() @IsNumber() passengerUserId: number;
+  @IsNotEmpty() @IsNumber() passengerUserId: string;
 
   @ApiProperty({ description: "Passenger's email for payment link" })
   @IsNotEmpty() @IsEmail() passengerEmail: string;

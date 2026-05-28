@@ -21,6 +21,7 @@ import { Broker } from '@broker/broker';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { TripsController } from './controllers/trip.controller';
 import { TripsService } from './service/trip.service';
+import { TripRepository } from '@adapters/repositories/trip.repository';
 
 
 
@@ -46,10 +47,11 @@ import { TripsService } from './service/trip.service';
     PaystackAdapter,
     PaystackProvider,
     FlutterwaveAdapter,
+    TripRepository,
     FlutterwaveProvider,
     RandomnessUtil,
     ExpoService,
   ],
-  exports: [TripsService],
+  exports: [TripsService, TripRepository],
 })
 export class TripsModule {}

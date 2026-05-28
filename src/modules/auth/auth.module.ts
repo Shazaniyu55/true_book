@@ -25,10 +25,13 @@ import { BcryptHashingUtil } from '@shared/utils/hashing/bcrypt.utils';
 import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 import { Admin } from '@modules/core/entities/admin.entity';
 import { ExpoService } from '@modules/notification/services/expo.service';
+import { BookingRepository } from '@adapters/repositories/booking.repository';
+import { Booking } from '@modules/core/entities/booking.entity';
+import { ResendOtpUsecase } from './usecases/resendotp.usecase';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ User, Driver, Passenger, Admin]),
+    TypeOrmModule.forFeature([ User, Driver, Passenger, Admin, Booking]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -58,6 +61,8 @@ import { ExpoService } from '@modules/notification/services/expo.service';
     VerifyOtpUsecase,
     ForgotPasswordUsecase,
     ResetPasswordUsecase,
+    ResendOtpUsecase,
+    BookingRepository
   ],
   exports: [AuthService, UserRepository],
 })

@@ -14,6 +14,7 @@ import { LoginDto } from '../dtos/login.dto';
 import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 import { EmailService } from '@modules/email/email.service';
 import { ExpoService } from '@modules/notification/services/expo.service';
+import { ResendOtpDto } from '../dtos/verify-otp.dto';
 
 @Injectable()
 export class AuthService {
@@ -110,7 +111,10 @@ export class AuthService {
     );
   }
 
-  async resendOtp(email: string, entityManager?: EntityManager): Promise<void> {
+
+
+
+  async resendOtp({email}: ResendOtpDto, entityManager?: EntityManager): Promise<void> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) throw new BadRequestException('User not found');
     if (user.isEmailVerified) throw new BadRequestException('Email already verified');

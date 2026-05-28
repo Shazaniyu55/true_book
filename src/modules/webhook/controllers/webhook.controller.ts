@@ -21,6 +21,7 @@ import { Notification } from '@modules/core/entities/notification.entity';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { BookingStatus, DocumentStatus, EscrowStatus, KycStatus, NotificationType, PaymentStatus } from '../../../types/enums';
 import { TripsService } from '@modules/trip/service/trip.service';
+import { ExpoService } from '@modules/notification/services/expo.service';
 
 @ApiTags('Webhooks')
 @ServiceName('webhooks')
@@ -36,6 +37,7 @@ export class WebhookController {
     @InjectRepository(DocumentVerification) private readonly docRepo: Repository<DocumentVerification>,
     @InjectRepository(Notification) private readonly notifRepo: Repository<Notification>,
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
+    private readonly expoService: ExpoService
   ) {}
 
   // ─── Paystack ─────────────────────────────────────────────────────────────
@@ -114,7 +116,7 @@ export class WebhookController {
     if (!reference) return;
 
     const metadata = data?.metadata ?? {};
-    const bookingId: number | undefined = metadata?.bookingId;
+    const bookingId: string | undefined = metadata?.bookingId;
     const type: string | undefined = metadata?.type;
 
     if (!bookingId || type !== 'trip_booking') {
@@ -150,13 +152,9 @@ export class WebhookController {
       await this.escrowRepo.save(escrow);
     }
 
-    await this.saveNotification(
-      escrow.driverId,
-      '💰 Payout Sent',
-      `Your payout of ₦${Number(escrow.netDriverAmount).toLocaleString()} has been sent to your bank account.`,
-      NotificationType.PAYOUT_APPROVED,
-      true,
-    );
+   
+
+  
   }
 
   // ─── Transfer: failed / reversed ──────────────────────────────────────────
@@ -177,13 +175,6 @@ export class WebhookController {
       Number(escrow.netDriverAmount),
     );
 
-    await this.saveNotification(
-      escrow.driverId,
-      '⚠️ Payout Failed',
-      `Your payout transfer failed. The amount has been returned to your wallet. Please contact support.`,
-      NotificationType.PAYOUT_DECLINED,
-      true,
-    );
   }
 
   // ─── Refund processed ─────────────────────────────────────────────────────
@@ -205,7 +196,7 @@ export class WebhookController {
   // ─── Dojah KYC complete ───────────────────────────────────────────────────
 
   private async handleKycComplete(data: any) {
-    const driverId: number | undefined = data?.driverId ?? data?.metadata?.driverId;
+    const driverId: string | undefined = data?.driverId ?? data?.metadata?.driverId;
     const documentType: string | undefined = data?.documentType ?? data?.type;
 
     if (!driverId) return;
@@ -228,19 +219,13 @@ export class WebhookController {
       await this.driverRepo.update(driverId, { kycStatus: KycStatus.COMPLETED });
     }
 
-    await this.saveNotification(
-      driverId,
-      '✅ Document Verified',
-      `Your ${documentType ?? 'identity'} document has been successfully verified.`,
-      NotificationType.DOCUMENT_APPROVED,
-      true,
-    );
+
   }
 
   // ─── Dojah KYC failed ─────────────────────────────────────────────────────
 
   private async handleKycFailed(data: any) {
-    const driverId: number | undefined = data?.driverId ?? data?.metadata?.driverId;
+    const driverId: string | undefined = data?.driverId ?? data?.metadata?.driverId;
     const documentType: string | undefined = data?.documentType ?? data?.type;
     const reason: string = data?.reason ?? 'Verification could not be completed';
 
@@ -255,35 +240,9 @@ export class WebhookController {
       }
     }
 
-    await this.saveNotification(
-      driverId,
-      '❌ Document Rejected',
-      `Your ${documentType ?? 'identity'} verification failed: ${reason}. Please resubmit.`,
-      NotificationType.DOCUMENT_REJECTED,
-      true,
-    );
-  }
+
 
   // ─── Helper: save in-app notification ────────────────────────────────────
 
-  private async saveNotification(
-    entityId: number,
-    title: string,
-    body: string,
-    type: NotificationType,
-    isDriverId = false,
-  ) {
-    try {
-      let userId = entityId;
-      if (isDriverId) {
-        const driver = await this.driverRepo.findOne({ where: { id: entityId } });
-        if (driver) userId = driver.userId;
-        else return;
-      }
-      const notif = this.notifRepo.create({ userId, title, body, type });
-      await this.notifRepo.save(notif);
-    } catch (err) {
-      this.logger.warn('Webhook notification save failed', err?.message);
-    }
   }
 }

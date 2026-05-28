@@ -6,23 +6,23 @@ import { CreateNotificationDto } from '../dtos/create-notification.dto';
 export class NotificationService {
   constructor(private readonly notificationRepository: NotificationRepository) {}
 
-  async createNotification(userId: number, data: CreateNotificationDto) {
-    return this.notificationRepository.createNotification(userId, data);
+  async createNotification(id: string, data: CreateNotificationDto) {
+    return this.notificationRepository.createNotification(id, data);
   }
 
-  async getUnreadNotifications(userId: number) {
-    return this.notificationRepository.findUnreadByUserId(userId);
+  async getUnreadNotifications(id: string) {
+    return this.notificationRepository.findUnreadByUserId(id);
   }
 
-  async getAllNotifications(userId: number) {
-    return this.notificationRepository.getNotificationsByUserId(userId);
+  async getAllNotifications(id: string) {
+    return this.notificationRepository.getNotificationsByUserId(id);
   }
 
-  async markAllAsRead(userId: number) {
-    return this.notificationRepository.markAllReadByUserId(userId);
+  async markAllAsRead(id: string) {
+    return this.notificationRepository.markAllReadByUserId(id);
   }
 
-  async deleteNotification(userId: number, notificationId: number) {
-    return this.notificationRepository.deleteNotificationByUserId(userId, notificationId);
+  async deleteNotification(id: string) {
+    return this.notificationRepository.deleteNotificationByUserId(id);
   }
 }

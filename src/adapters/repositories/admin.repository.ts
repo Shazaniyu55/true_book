@@ -27,10 +27,8 @@ export class AdminRepository extends Repository<Admin> {
   constructor(
     @InjectRepository(Admin)
     private readonly adminRepository: Repository<Admin>,
-
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
@@ -40,10 +38,10 @@ export class AdminRepository extends Repository<Admin> {
     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
     private readonly paystackAdapter: PaystackAdapter,
-    private readonly entityManager: EntityManager,
-
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>,
+    private readonly entityManager: EntityManager,
+
   ) {
     super(adminRepository.target, adminRepository.manager, adminRepository.queryRunner);
   }
@@ -56,6 +54,12 @@ export class AdminRepository extends Repository<Admin> {
 
   async findByEmail(email: string): Promise<Admin> {
     return this.findOne({ where: { email: email.toLowerCase() } });
+  }
+
+    async updateUser(id: string, data: Partial<Admin>, entityManager?: EntityManager): Promise<Admin> {
+    const manager = entityManager || this.entityManager;
+    await manager.update(Admin, id, data);
+    return manager.findOne(Admin, { where: { id } });
   }
 
   // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -134,20 +138,20 @@ export class AdminRepository extends Repository<Admin> {
     return pagedDto;
   }
 
-  async getUser(id: number) {
+  async getUser(id: string) {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     return user;
   }
 
-  async suspendUser(id: number, reason?: string) {
+  async suspendUser(id: string, reason?: string) {
     const user = await this.getUser(id);
     user.status = UserStatus.SUSPENDED;
     if (reason) user.metadata = { ...(user.metadata ?? {}), suspensionReason: reason };
     return this.userRepo.save(user);
   }
 
-  async activateUser(id: number) {
+  async activateUser(id: string) {
     const user = await this.getUser(id);
     user.status = UserStatus.ACTIVE;
     return this.userRepo.save(user);
@@ -163,7 +167,7 @@ export class AdminRepository extends Repository<Admin> {
     });
   }
 
-  async approveDocument(docId: number, adminEmail: string) {
+  async approveDocument(docId: string, adminEmail: string) {
     const doc = await this.docRepo.findOne({
       where: { id: docId },
       relations: ['driver'],
@@ -181,7 +185,7 @@ export class AdminRepository extends Repository<Admin> {
     return doc;
   }
 
-  async rejectDocument(docId: number, reason: string, adminEmail: string) {
+  async rejectDocument(docId: string, reason: string, adminEmail: string) {
     const doc = await this.docRepo.findOne({ where: { id: docId } });
     if (!doc) throw new NotFoundException('Document not found');
 
@@ -191,7 +195,7 @@ export class AdminRepository extends Repository<Admin> {
     return this.docRepo.save(doc);
   }
 
-  private async recalculateDriverKyc(driverId: number) {
+  private async recalculateDriverKyc(driverId: string) {
     const allDocs = await this.docRepo.find({ where: { driverId } });
     const allApproved =
       allDocs.length > 0 && allDocs.every((d) => d.status === DocumentStatus.APPROVED);
@@ -220,7 +224,7 @@ export class AdminRepository extends Repository<Admin> {
     return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
 
-  async getTrip(id: number) {
+  async getTrip(id: string) {
     const trip = await this.tripRepo.findOne({
       where: { id },
       relations: ['driver', 'vehicle'],
@@ -265,7 +269,7 @@ export class AdminRepository extends Repository<Admin> {
     //return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
 
-  async approvePayout(payoutId: number, adminEmail: string) {
+  async approvePayout(payoutId: string, adminEmail: string) {
     const payout = await this.payoutRepo.findOne({
       where: { id: payoutId },
       relations: ['driver'],
@@ -274,7 +278,7 @@ export class AdminRepository extends Repository<Admin> {
     if (payout.status !== PayoutStatus.PENDING)
       throw new BadRequestException('Payout is not pending');
 
-    const driver = await this.driverRepo.findOne({ where: { id: payout.driverId } });
+    const driver = await this.driverRepo.findOne({ where: { id: payout.id } });
     if (!driver) throw new NotFoundException('Driver not found');
 
     if (!driver.bankAccountNumber || !driver.bankCode)
@@ -308,7 +312,7 @@ export class AdminRepository extends Repository<Admin> {
     return this.payoutRepo.save(payout);
   }
 
-  async declinePayout(payoutId: number, reason: string, adminEmail: string) {
+  async declinePayout(payoutId: string, reason: string, adminEmail: string) {
     const payout = await this.payoutRepo.findOne({ where: { id: payoutId } });
     if (!payout) throw new NotFoundException('Payout not found');
     if (payout.status !== PayoutStatus.PENDING)
@@ -346,7 +350,7 @@ export class AdminRepository extends Repository<Admin> {
     return this.couponRepo.save(coupon);
   }
 
-  async deactivateCoupon(id: number) {
+  async deactivateCoupon(id: string) {
     const coupon = await this.couponRepo.findOne({ where: { id } });
     if (!coupon) throw new NotFoundException('Coupon not found');
     coupon.isActive = false;
@@ -377,7 +381,7 @@ export class AdminRepository extends Repository<Admin> {
     return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
 
-  async refundBooking(bookingId: number, adminEmail: string) {
+  async refundBooking(bookingId: string, adminEmail: string) {
     const booking = await this.bookingRepo.findOne({ where: { id: bookingId } });
     if (!booking) throw new NotFoundException('Booking not found');
     if (!booking.paymentReference) throw new BadRequestException('No payment reference found');
@@ -394,11 +398,11 @@ export class AdminRepository extends Repository<Admin> {
     return this.bookingRepo.save(booking);
   }
 
-  reviewDocument(docId: number, approve: boolean, reason: string, email: string) {
+  reviewDocument(docId: string, approve: boolean, reason: string, email: string) {
     return approve ? this.approveDocument(docId, email) : this.rejectDocument(docId, reason, email);
   }
 
-  getBooking(id: number) {
+  getBooking(id: string) {
     return this.bookingRepo.findOne({
       where: { id },
       relations: ['trip', 'passenger', 'passenger.user'],

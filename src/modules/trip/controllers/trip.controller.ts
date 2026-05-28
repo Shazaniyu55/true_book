@@ -32,6 +32,7 @@ import {
   SearchTripsDto,
   UpdateTripDto,
 } from '../dtos/trip.dto';
+import { string } from 'joi';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -58,8 +59,8 @@ export class TripsController {
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get trip detail by ID' })
-  @ApiParam({ name: 'id', type: Number })
-  getTripById(@Param('id', ParseIntPipe) id: number) {
+  @ApiParam({ name: 'id', type: string })
+  getTripById(@Param('id') id: string) {
     return this.tripsService.getTripById(id);
   }
 
@@ -80,7 +81,7 @@ export class TripsController {
   @DriverOnly()
   @Patch(':id/activate')
   @ApiOperation({ summary: 'Driver: Activate trip — opens it for bookings' })
-  activateTrip(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
+  activateTrip(@Param('id') id: string, @AuthUser() user: any) {
     return this.tripsService.activateTrip(user.id, id);
   }
 
@@ -88,7 +89,7 @@ export class TripsController {
   @Put(':id')
   @ApiOperation({ summary: 'Driver: Update trip details (no confirmed bookings required)' })
   updateTrip(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: UpdateTripDto,
     @AuthUser() user: any,
   ) {
@@ -131,14 +132,14 @@ export class TripsController {
   @DriverOnly()
   @Get(':id/bookings')
   @ApiOperation({ summary: 'Driver: View all bookings for a trip' })
-  getTripBookings(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
+  getTripBookings(@Param('id') id: string, @AuthUser() user: any) {
     return this.tripsService.getTripBookings(user.id, id);
   }
 
   @DriverOnly()
   @Patch('bookings/:bookingId/check-in')
   @ApiOperation({ summary: 'Driver: Check in a passenger at boarding' })
-  checkIn(@Param('bookingId', ParseIntPipe) bookingId: number, @AuthUser() user: any) {
+  checkIn(@Param('bookingId') bookingId: string, @AuthUser() user: any) {
     return this.tripsService.checkInPassenger(user.id, bookingId);
   }
 

@@ -36,6 +36,7 @@ import { FlutterwaveProvider } from '@adapters/payment/flutterwave/providers/flu
 import { PaystackProvider } from '@adapters/payment/paystack/providers/paystack.provider';
 import { FlutterwaveAdapter } from '@adapters/payment/flutterwave/flutterwave.adapter';
 import { Broker } from '@broker/broker';
+import { TripsModule } from '@modules/trip/trip.module';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -51,6 +52,7 @@ import { Broker } from '@broker/broker';
 @Module({
   imports: [
     ConfigModule,
+    TripsModule,
     TypeOrmModule.forFeature([
       Trip,
       Driver,

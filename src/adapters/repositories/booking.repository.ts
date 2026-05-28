@@ -27,7 +27,7 @@ export class BookingRepository extends Repository<Booking> {
     return this.findOne({ where: { paymentReference } });
   }
 
-  async updateBooking(id: number, data: Partial<Booking>, entityManager?: EntityManager): Promise<Booking> {
+  async updateBooking(id: string, data: Partial<Booking>, entityManager?: EntityManager): Promise<Booking> {
     const manager = entityManager || this.entityManager;
     await manager.update(Booking, id, data);
     return manager.findOne(Booking, { where: { id } });

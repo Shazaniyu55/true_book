@@ -22,7 +22,7 @@ export class ApproveDocumentUsecase extends Usecase {
 
   async execute(
     _entityManager: EntityManager,
-    args: { id: number; adminEmail: string },
+    args: { id: string; adminEmail: string },
   ) {
     return this.adminService.approveDocument(args.id, args.adminEmail);
   }
@@ -36,7 +36,7 @@ export class RejectDocumentUsecase extends Usecase {
 
   async execute(
     _entityManager: EntityManager,
-    args: { id: number; reason: string; adminEmail: string },
+    args: { id: string; reason: string; adminEmail: string },
   ) {
     return this.adminService.rejectDocument(args.id, args.reason, args.adminEmail);
   }

@@ -21,7 +21,7 @@ export class GetBookingUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, args: { id: number }) {
+  async execute(_entityManager: EntityManager, args: { id: string }) {
     return this.adminService.getBooking(args.id);
   }
 }
@@ -34,7 +34,7 @@ export class RefundBookingUsecase extends Usecase {
 
   async execute(
     _entityManager: EntityManager,
-    args: { id: number; adminEmail: string },
+    args: { id: string; adminEmail: string },
   ) {
     return this.adminService.refundBooking(args.id, args.adminEmail);
   }

@@ -1,7 +1,9 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { Booking } from './booking.entity';
 import { EscrowStatus } from 'src/types/enums';
+import { BaseEntity } from './base.entity';
+import { Driver } from './driver.entity';
+import { Passenger } from './passenger.entity';
 
 
 /**
@@ -16,8 +18,8 @@ export class Escrow extends BaseEntity {
   @Column({ type: 'varchar' })
   reference: string;
 
-  @Column({ type: 'integer' })
-  bookingId: number;
+  @Column({ type: 'uuid' })
+  bookingId: string;
 
   @ManyToOne(() => Booking)
   @JoinColumn({ name: 'bookingId' })
@@ -38,13 +40,22 @@ export class Escrow extends BaseEntity {
   @Column({ type: 'varchar', enum: EscrowStatus, default: EscrowStatus.HELD })
   status: EscrowStatus;
 
+   @Column({ type: 'uuid' })
+  driverId: string;
+
   /** driverId receiving the payout on release */
-  @Column({ type: 'integer' })
-  driverId: number;
+  @ManyToOne(() => Driver)
+  @JoinColumn({ name: 'driverId' })
+  driver: Driver;
+  
+
+   @Column({ type: 'uuid' })
+  passengerId: string;
 
   /** passengerId for refund path */
-  @Column({ type: 'integer' })
-  passengerId: number;
+  @ManyToOne(()=> Passenger)
+  @JoinColumn({ name: 'passengerId' })
+  passenger: Passenger;
 
   /** Paystack transaction reference that funded this escrow */
   @Column({ type: 'varchar', nullable: true })

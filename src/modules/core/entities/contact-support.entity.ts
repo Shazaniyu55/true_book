@@ -1,5 +1,6 @@
 import { ContactSupportStatus, UserRole } from 'src/types/enums';
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { Entity, Column, CreateDateColumn, UpdateDateColumn, Index } from 'typeorm';
+import { BaseEntity } from './base.entity';
 
 
 
@@ -9,9 +10,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Index(['status'])
 @Index(['user_type'])
 @Index(['created_at'])
-export class ContactSupport {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+export class ContactSupport extends BaseEntity {
+
 
   @Column({ type: 'varchar', length: 255 })
   name: string;

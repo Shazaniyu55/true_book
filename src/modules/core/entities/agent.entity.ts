@@ -1,12 +1,12 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { User } from './user.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('agents')
 export class Agent extends BaseEntity {
   @Index({ unique: true })
-  @Column({ type: 'integer' })
-  userId: number;
+  @Column({ type: 'uuid' })
+  userId: string; 
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })

@@ -1,12 +1,12 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '@shared/repositories/base.entity';
 import { NotificationType } from '../../../types/enums';
 import { User } from './user.entity';
+import { BaseEntity } from './base.entity';
 
 @Entity('notifications')
 export class Notification extends BaseEntity {
-  @Column({ type: 'integer' })
-  userId: number;
+  @Column({ type: 'uuid' })
+  userId: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })

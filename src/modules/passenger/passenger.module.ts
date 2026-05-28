@@ -6,6 +6,7 @@ import { User } from '@modules/core/entities/user.entity';
 import { Booking } from '@modules/core/entities/booking.entity';
 import { PassengerController } from './controllers/passanger.controller';
 import { PassengerService } from './services/passanger.service';
+import { PassengerRepository } from '@adapters/repositories/passenger.repository';
 
 
 
@@ -14,7 +15,11 @@ import { PassengerService } from './services/passanger.service';
     TypeOrmModule.forFeature([Passenger, User, Booking]),
   ],
   controllers: [PassengerController],
-  providers: [PassengerService],
-  exports: [PassengerService],  // exported so AuthModule can call ensureProfile()
+  providers: [
+    PassengerService,
+    PassengerRepository
+  
+  ],
+  exports: [PassengerService, PassengerRepository],  // exported so AuthModule can call ensureProfile()
 })
 export class PassengerModule {}

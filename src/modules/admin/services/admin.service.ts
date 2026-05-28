@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '@modules/email/email.service';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
-import { getOtpExpiry } from '@shared/utils/helpers/common.utils';
+import { getOtpExpiry, isOtpExpired } from '@shared/utils/helpers/common.utils';
 
 @Injectable()
 export class AdminService {
@@ -73,6 +73,20 @@ export class AdminService {
     return { user, ...tokens };
   }
 
+
+    async verifyOtp(email: string, otp: string, entityManager?: EntityManager): Promise<Admin> {
+      const user = await this.adminRepo.findByEmail(email);
+      if (!user) throw new UnauthorizedException('User not found');
+      if (user.otpCode !== otp) throw new UnauthorizedException('Invalid OTP');
+      if (isOtpExpired(user.otpExpiresAt)) throw new UnauthorizedException('OTP has expired');
+  
+      return this.adminRepo.updateUser(
+        user.id,
+        { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
+        entityManager,
+      );
+    }
+
   async getDashboardStats() {
     return await this.adminRepo.getDashboardStats();
   }
@@ -81,15 +95,15 @@ export class AdminService {
     return await this.adminRepo.listUsers(query);
   }
 
-  async getUser(id: number) {
+  async getUser(id: string) {
     return await this.adminRepo.getUser(id);
   }
 
-  async suspendUser(id: number, reason?: string) {
+  async suspendUser(id: string, reason?: string) {
     return await this.adminRepo.suspendUser(id, reason);
   }
 
-  async activateUser(id: number) {
+  async activateUser(id: string) {
     return await this.adminRepo.activateUser(id);
   }
 
@@ -97,15 +111,15 @@ export class AdminService {
     return await this.adminRepo.listPendingDocuments();
   }
 
-  async reviewDocument(documentId: number, approve: boolean, reason?: string, email?: string) {
+  async reviewDocument(documentId: string, approve: boolean, reason?: string, email?: string) {
     return await this.adminRepo.reviewDocument(documentId, approve, reason, email);
   }
 
-  async approveDocument(documentId: number, email: string) {
+  async approveDocument(documentId: string, email: string) {
     return await this.adminRepo.approveDocument(documentId, email);
   }
 
-  async rejectDocument(documentId: number, reason: string, email: string) {
+  async rejectDocument(documentId: string, reason: string, email: string) {
     return await this.adminRepo.rejectDocument(documentId, reason, email);
   }
 
@@ -113,7 +127,7 @@ export class AdminService {
     return await this.adminRepo.listTrips(query);
   }
 
-  async getTrip(id: number) {
+  async getTrip(id: string) {
     return await this.adminRepo.getTrip(id);
   }
 
@@ -121,11 +135,11 @@ export class AdminService {
     return await this.adminRepo.listBookings(query);
   }
 
-  async getBooking(id: number) {
+  async getBooking(id: string) {
     return await this.adminRepo.getBooking(id);
   }
 
-  async refundBooking(bookingId: number, reason: string) {
+  async refundBooking(bookingId: string, reason: string) {
     return await this.adminRepo.refundBooking(bookingId, reason);
   }
 
@@ -133,11 +147,11 @@ export class AdminService {
     return await this.adminRepo.listPayouts(query);
   }
 
-  async approvePayout(payoutId: number, email: string) {
+  async approvePayout(payoutId: string, email: string) {
     return await this.adminRepo.approvePayout(payoutId, email);
   }
 
-  async declinePayout(payoutId: number, reason: string, email: string) {
+  async declinePayout(payoutId: string, reason: string, email: string) {
     return await this.adminRepo.declinePayout(payoutId, reason, email);
   }
 
@@ -149,7 +163,7 @@ export class AdminService {
     return await this.adminRepo.createCoupon(dto);
   }
 
-  async deactivateCoupon(couponId: number) {
+  async deactivateCoupon(couponId: string) {
     return await this.adminRepo.deactivateCoupon(couponId);
   }
 
