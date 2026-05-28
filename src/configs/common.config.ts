@@ -83,7 +83,7 @@ export default registerAs('common', () => ({
 
 
   database: {
-    type: process.env.DATABASE_TYPE,
+    type: process.env.DB_TYPE,
     host: process.env.DB_HOST,
     name: process.env.DB_NAME,
     user: process.env.DB_USER,
