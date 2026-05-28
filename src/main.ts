@@ -76,7 +76,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerOptions);
   SwaggerModule.setup(swaggerApiRoot, app, document);
 
-  await app.listen(process.env.PORT || port);
+  await app.listen(process.env.PORT || 8083);
   Logger.log(
     `${PRODUCT_NAME} core service running on port ${port}: visit http://localhost:${port}/${swaggerApiRoot}`,
   );
