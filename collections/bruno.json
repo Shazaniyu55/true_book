@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "name": "Misau Backend Service",
+  "name": "tru_booker",
   "type": "collection",
   "ignore": ["node_modules", ".git"]
 }
