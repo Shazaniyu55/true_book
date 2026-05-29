@@ -15,7 +15,7 @@ export const dataSource = {
   username: process.env.DB_USER,
   password: process.env.DB_PASS,
   autoLoadEntities: true,
-  synchronize: true,
+  synchronize: false,
   type: process.env.DB_TYPE,
   logging: process.env.DATABASE_LOGGING === 'true',
   migrationsTransactionMode: 'each',
