@@ -15,6 +15,8 @@ import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 import { EmailService } from '@modules/email/email.service';
 import { ExpoService } from '@modules/notification/services/expo.service';
 import { ResendOtpDto } from '../dtos/verify-otp.dto';
+import { CouponService } from '@modules/coupon-referral/service/cupon.service';
+import { ReferralService } from '@modules/coupon-referral/service/referal.service';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +30,8 @@ export class AuthService {
     private readonly hashingUtil: HashingUtil,
     private readonly emailService: EmailService,
     private readonly expoService: ExpoService,
+    private readonly referralService: ReferralService,
+    private readonly couponService: CouponService,
     
     
   ) {}
@@ -65,6 +69,24 @@ export class AuthService {
     } else if (user.role === UserRole.DRIVER) {
       await this.driverRepository.createDriver({ userId: user.id }, entityManager);
     }
+
+      // ── Referral: record who referred this user (if referralCode supplied) ──
+  if (dto.referralCode && user.role === UserRole.PASSENGER) {
+    await this.referralService.recordReferral(
+      user.id,
+      dto.referralCode,
+      entityManager,
+    );
+  }
+
+    // ── Welcome coupon: send if admin has an active welcome coupon running ──
+  if (user.role === UserRole.PASSENGER) {
+    // Fire-and-forget — never blocks registration
+    this.couponService.dispatchWelcomeCouponIfActive(user).catch((err) => {
+      // Already logged inside the service
+    });
+  }
+  
 
      // SEND PUSH NOTIFICATION
   if (user.fcmToken) {

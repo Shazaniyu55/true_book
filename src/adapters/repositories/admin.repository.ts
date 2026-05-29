@@ -343,7 +343,7 @@ export class AdminRepository extends Repository<Admin> {
       ...dto,
       code: dto.code.toUpperCase(),
       status: CouponStatus.ACTIVE,
-      createdByUserId: dto.adminId,
+      createdByAdminId: String(dto.adminId),
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
     });
 

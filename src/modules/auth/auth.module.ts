@@ -28,6 +28,7 @@ import { ExpoService } from '@modules/notification/services/expo.service';
 import { BookingRepository } from '@adapters/repositories/booking.repository';
 import { Booking } from '@modules/core/entities/booking.entity';
 import { ResendOtpUsecase } from './usecases/resendotp.usecase';
+import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ResendOtpUsecase } from './usecases/resendotp.usecase';
         signOptions: { expiresIn: configService.get<string>('common.auth.jwt.accessExpiresIn') },
       }),
     }),
+    CouponReferralModule
   ],
   controllers: [AuthController],
   providers: [

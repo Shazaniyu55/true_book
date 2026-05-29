@@ -5,6 +5,8 @@ import {
   otpEmailTemplate,
   passwordResetTemplate,
   welcomeEmailTemplate,
+  welcomeCouponTemplate,
+  referralRewardTemplate
 } from './templates';
 import { SendEmailDto, SendOtpEmailDto, SendWelcomeEmailDto } from './dtos/send-email.dto';
 
@@ -94,4 +96,41 @@ export class EmailService {
       }),
     });
   }
+
+  // ─── Welcome coupon email (sent when passenger registers during active promo) ─
+ 
+  async sendWelcomeCoupon(params: {
+    to: string;
+    firstName: string;
+    couponCode: string;
+    discountValue: number;
+    discountType: string;
+    expiresAt?: Date | null;
+    description?: string | null;
+  }): Promise<EmailResult> {
+    return this.send({
+      to: params.to,
+      subject: `🎉 A welcome gift for you, ${params.firstName}!`,
+      html: welcomeCouponTemplate(params),
+    });
+  }
+ 
+  // ─── Referral reward email (sent when referrer hits milestone) ────────────
+ 
+  async sendReferralReward(params: {
+    to: string;
+    firstName: string;
+    couponCode: string;
+    rewardValue: number;
+    rewardType: 'flat' | 'percentage';
+    expiresAt?: Date | null;
+    qualifiedCount: number;
+  }): Promise<EmailResult> {
+    return this.send({
+      to: params.to,
+      subject: `🏆 You've earned a referral reward!`,
+      html: referralRewardTemplate(params),
+    });
+  }
+
 }
