@@ -27,6 +27,7 @@ import { WebhookModule } from '@modules/webhook/webhook.module';
 import { ContactSupportModule } from '@modules/contact-support/contact-support.module';
 import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
 import { TripsModule } from '@modules/trip/trip.module';
+import { KycModule } from '@modules/kyc/kyc.module';
 
 
 @Module({
@@ -65,6 +66,7 @@ import { TripsModule } from '@modules/trip/trip.module';
     WebhookModule,
     ContactSupportModule,
     TripsModule,
+    KycModule
    
   ],
   controllers: [],

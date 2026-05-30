@@ -14,7 +14,6 @@ import { DocumentVerification } from '@modules/core/entities/document-verificati
 import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 
 import {
-  DocumentType,
   UploadDocumentDto,
   VerifyDriverBvnDto,
   VerifyDriverLicenseDto,
@@ -23,6 +22,7 @@ import {
   VerifyPassengerNinDto,
 } from '../dtos/kyc.dto';
 import { DocumentStatus, KycStatus } from '../../../types/enums';
+import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 
 @Injectable()
 export class KycService {
@@ -33,6 +33,8 @@ export class KycService {
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
     @InjectRepository(DocumentVerification) private readonly docRepo: Repository<DocumentVerification>,
     private readonly dojahAdapter: DojahAdapter,
+    private readonly cloudinaryService: CloudinaryService,
+
   ) {}
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -247,10 +249,13 @@ export class KycService {
   /**
    * Upload a KYC document (stored as Cloudinary URL, pending admin review).
    */
-  async uploadDriverDocument(userId: string, dto: UploadDocumentDto) {
+async uploadDriverDocument(
+    userId: string,
+    dto: UploadDocumentDto,
+    file: Express.Multer.File,
+  ) {
     const driver = await this.getDriverOrThrow(userId);
 
-    // Check for duplicate pending/approved document of same type
     const existing = await this.docRepo.findOne({
       where: {
         driverId: driver.id,
@@ -262,21 +267,22 @@ export class KycService {
       throw new ConflictException(`A ${dto.documentType} document is already pending review`);
     }
 
+    // Upload under an authenticated request — validation happens inside the service
+    const uploaded = await this.cloudinaryService.upload(file, {
+      folder: `kyc/drivers/${driver.id}`,
+    });
+
     const doc = this.docRepo.create({
       driverId: driver.id,
       documentType: dto.documentType,
-      documentUrl: dto.documentUrl,
+      documentUrl: uploaded.secure_url, // server-produced, not client-supplied
       status: DocumentStatus.PENDING,
     });
 
     const saved = await this.docRepo.save(doc);
     this.logger.log(`Document ${dto.documentType} uploaded for driver ${driver.id}`);
 
-    return {
-      success: true,
-      message: 'Document uploaded and queued for review',
-      data: saved,
-    };
+    return { success: true, message: 'Document uploaded and queued for review', data: saved };
   }
 
   // ══════════════════════════════════════════════════════════════════════════

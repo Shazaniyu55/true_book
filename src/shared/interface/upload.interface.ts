@@ -20,6 +20,7 @@ export interface CloudinaryUploadOptions {
   overwrite?: boolean;
   unique_filename?: boolean;
   use_filename?: boolean;
+  folder?: string;
 }
 
 export interface CloudinaryDeleteResult {

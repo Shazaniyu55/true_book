@@ -102,10 +102,7 @@ export class UploadDocumentDto {
   @IsEnum(DocumentType)
   documentType: DocumentType;
 
-  @ApiProperty({ description: 'Cloudinary secure URL of the uploaded document' })
-  @IsNotEmpty()
-  @IsString()
-  documentUrl: string;
+
 }
 
 // ─── Response shapes ──────────────────────────────────────────────────────────
