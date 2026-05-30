@@ -39,7 +39,7 @@ export class CouponController {
   // ─── Admin ────────────────────────────────────────────────────────────────
 
   @AdminOnly()
-  @Post()
+  @Post('create')
   @ApiOperation({ summary: 'Admin: Create a new coupon' })
   create(@Body() dto: CreateCouponDto, @AuthUser() user: any) {
     return this.couponService.createCoupon(dto, user.id);

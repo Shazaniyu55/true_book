@@ -32,13 +32,20 @@ export class CreateAdminDto {
   @MinLength(8)
   password: string;
 
+  @ApiProperty({ example: 'Admin' })
+  @IsString()
+  role: string;
+
+
+
+
   // @IsUUID()
   // roleId: string;
 
-  @ApiProperty({ example: UserRole.ADMIN })
+  @ApiProperty({ example: UserRole.ADMIN, default: UserRole.ADMIN })
   @IsEnum(UserRole)
   @IsOptional()
-  roleName?: UserRole = UserRole.ADMIN;
+  roletru?: UserRole = UserRole.ADMIN;
 
   @ApiPropertyOptional({ example: true })
   @IsBoolean()

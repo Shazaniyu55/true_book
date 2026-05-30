@@ -1,7 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { EntityManager } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { UserRepository } from '@adapters/repositories/user.repository';
 import { PassengerRepository } from '@adapters/repositories/passenger.repository';
 import { DriverRepository } from '@adapters/repositories/driver.repository';
@@ -17,6 +17,8 @@ import { ExpoService } from '@modules/notification/services/expo.service';
 import { ResendOtpDto } from '../dtos/verify-otp.dto';
 import { CouponService } from '@modules/coupon-referral/service/cupon.service';
 import { ReferralService } from '@modules/coupon-referral/service/referal.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Role } from '@modules/core/entities/role.entity';
 
 @Injectable()
 export class AuthService {
@@ -32,6 +34,10 @@ export class AuthService {
     private readonly expoService: ExpoService,
     private readonly referralService: ReferralService,
     private readonly couponService: CouponService,
+
+       @InjectRepository(Role)
+      private readonly roleRepository: Repository<Role>
+    
     
     
   ) {}
@@ -42,6 +48,14 @@ export class AuthService {
 
     const existingPhone = await this.userRepository.findByPhone(dto.phone);
     if (existingPhone) throw new ConflictException('Phone number already in use');
+
+      const role = await this.roleRepository.findOne({ 
+      where: { name: dto.role } 
+    });
+    
+    if (!role) {
+      throw new NotFoundException(`Role '${dto.role}' not found`);
+    }
 
     const hashedPassword = await this.hashingUtil.hash(dto.password);
     const referralCode = this.randomnessUtil.generateRandomStringWithNumbers(8);
@@ -57,6 +71,7 @@ export class AuthService {
         referralCode,
         otpCode: otp,
         otpExpiresAt,
+        roleId: role.id,
         role: dto.role || UserRole.PASSENGER,
         status: UserStatus.PENDING,
       },

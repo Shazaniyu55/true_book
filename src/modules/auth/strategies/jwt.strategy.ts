@@ -28,7 +28,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Try to find admin first
     let entity: Admin | User | null = await this.adminRepository.findOne({ 
       where: { id: payload.sub as any },
-       relations: ['role'],
+       //relations: ['role'],
     });
     
     // If not admin, try user

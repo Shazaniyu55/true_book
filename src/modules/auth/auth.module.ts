@@ -29,10 +29,11 @@ import { BookingRepository } from '@adapters/repositories/booking.repository';
 import { Booking } from '@modules/core/entities/booking.entity';
 import { ResendOtpUsecase } from './usecases/resendotp.usecase';
 import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
+import { Role } from '@modules/core/entities/role.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ User, Driver, Passenger, Admin, Booking]),
+    TypeOrmModule.forFeature([ User, Driver, Passenger, Admin, Booking, Role]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

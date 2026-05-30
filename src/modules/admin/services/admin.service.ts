@@ -1,9 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 import { Admin } from '@modules/core/entities/admin.entity';
 import { CreateAdminDto } from '../dtos/create-admin.dto';
 import { AdminRepository } from '@adapters/repositories/admin.repository';
-import { EntityManager } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { AdminListQueryDto } from '../dtos/admin.dto';
 import { LoginAdminDto } from '../dtos/login.dto';
 import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
@@ -13,6 +13,8 @@ import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '@modules/email/email.service';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { getOtpExpiry, isOtpExpired } from '@shared/utils/helpers/common.utils';
+import { Role } from '@modules/core/entities/role.entity';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class AdminService {
@@ -23,6 +25,9 @@ export class AdminService {
     private readonly emailService: EmailService,
     private readonly randomnessUtil: RandomnessUtil,
     private readonly configService: ConfigService,
+
+    @InjectRepository(Role)
+  private readonly roleRepository: Repository<Role>
   ) {}
 
   async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
@@ -32,21 +37,34 @@ export class AdminService {
       throw new Error('Email already in use');
     }
 
+    const role = await this.roleRepository.findOne({ 
+  where: { name: dto.role } 
+});
+
+if (!role) {
+  throw new NotFoundException(`Role '${dto.role}' not found`);
+}
+
     const hashedPassword = await this.hashingUtil.hash(dto.password);
         const otp = this.randomnessUtil.generateOtp();
         await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
-            await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.roleName });
+            await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.role });
 
        const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
         
     const user = await this.adminRepo.createAdmin(
-      {
-        ...dto,
-        password: hashedPassword,
-        otpCode: otp,
-        otpExpiresAt,
-        status: UserStatus.PENDING,
-      },
+     {
+      email: dto.email,
+      fullName: `${dto.firstName} ${dto.lastName}`,  // ← entity uses fullName
+      phone: dto.phoneNumber,                         // ← entity uses phone
+      roleId: role.id,                                // ← entity uses roleId, not roleName
+      password: hashedPassword,
+      role:role.name,
+      otpCode: otp,
+      otpExpiresAt,
+      status: UserStatus.PENDING,
+      metadata: dto.meta,
+    },
       entityManager,
     );
 

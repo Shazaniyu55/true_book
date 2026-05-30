@@ -1,7 +1,8 @@
-import { Column, Entity, Index } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { UserRole, UserStatus } from '../../../types/enums';
 import { BaseEntity } from './base.entity';
+import { Role } from './role.entity';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -22,6 +23,14 @@ export class User extends BaseEntity {
 
   @Column({ type: 'varchar' })
   lastName: string;
+
+  @Exclude({ toPlainOnly: true })
+  @Column({ type: 'uuid', nullable: true })
+  roleId: string;
+
+  @ManyToOne(() => Role, (role) => role.users, { eager: false })
+  @JoinColumn({ name: 'roleId' })
+  roletru: Role;
 
   @Column({ type: 'varchar', enum: UserRole, default: UserRole.PASSENGER })
   role: UserRole;
