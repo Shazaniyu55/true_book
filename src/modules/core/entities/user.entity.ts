@@ -63,8 +63,15 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   otpCode: string;
 
+  @Exclude({ toPlainOnly: true })
+  @Column({ type: 'varchar', nullable: true })
+  phoneOtpCode: string;
+
   @Column({ type: 'timestamp with time zone', nullable: true })
   otpExpiresAt: Date;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  phoneOtpExpiresAt: Date;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;

@@ -30,6 +30,9 @@ import { Booking } from '@modules/core/entities/booking.entity';
 import { ResendOtpUsecase } from './usecases/resendotp.usecase';
 import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
 import { Role } from '@modules/core/entities/role.entity';
+import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
+import { DojahProvider } from '@adapters/kyc/dojah/providers/dojah.provider';
+import { VerifyPhoneOtpUsecase } from './usecases/verifyphone-otp.usecase';
 
 @Module({
   imports: [
@@ -54,6 +57,8 @@ import { Role } from '@modules/core/entities/role.entity';
     UserRepository,
     DriverRepository,
     PassengerRepository,
+    DojahAdapter,
+    DojahProvider,
      {
           provide: HashingUtil,
           useClass: BcryptHashingUtil,
@@ -62,6 +67,7 @@ import { Role } from '@modules/core/entities/role.entity';
     RegisterUsecase,
     LoginUsecase,
     VerifyOtpUsecase,
+    VerifyPhoneOtpUsecase,
     ForgotPasswordUsecase,
     ResetPasswordUsecase,
     ResendOtpUsecase,

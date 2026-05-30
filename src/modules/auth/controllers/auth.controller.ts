@@ -6,7 +6,7 @@ import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { RegisterDto, RegisterPassangerDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
-import { VerifyOtpDto, ResendOtpDto } from '../dtos/verify-otp.dto';
+import { VerifyOtpDto, ResendOtpDto , VerifyPhoneDto} from '../dtos/verify-otp.dto';
 import { ForgotPasswordDto, ResetPassowrdDto } from '../dtos/reset-password.dto';
 import { RegisterUsecase } from '../usecases/register.usecase';
 import { LoginUsecase } from '../usecases/login.usecase';
@@ -15,6 +15,7 @@ import { ForgotPasswordUsecase } from '../usecases/forgot-password.usecase';
 import { ResetPasswordUsecase } from '../usecases/reset-password.usecase';
 import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { ResendOtpUsecase } from '../usecases/resendotp.usecase';
+import { VerifyPhoneOtpUsecase } from '../usecases/verifyphone-otp.usecase';
 
 @ApiTags('Auth')
 @ServiceName('auth')
@@ -28,7 +29,8 @@ export class AuthController {
     private readonly verifyOtpUsecase: VerifyOtpUsecase,
     private readonly forgotPasswordUsecase: ForgotPasswordUsecase,
     private readonly resetPasswordUsecase: ResetPasswordUsecase,
-    private readonly resendotp: ResendOtpUsecase
+    private readonly resendotp: ResendOtpUsecase,
+    private readonly verifyphoneUsecase: VerifyPhoneOtpUsecase
   ) {}
 
   @Public()
@@ -58,6 +60,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify email OTP' })
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.broker.runUsecases([this.verifyOtpUsecase], dto);
+  }
+
+  @Public()
+  @Post('verify-phone-otp')
+  @ApiOperation({ summary: 'Verify phone OTP' })
+  verifyPhoneOtp(@Body() dto: VerifyPhoneDto) {
+    return this.broker.runUsecases([this.verifyphoneUsecase], dto);
   }
 
   @Public()

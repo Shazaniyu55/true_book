@@ -20,9 +20,14 @@ import {
   VerifyDriverNinDto,
   VerifyPassengerBvnDto,
   VerifyPassengerNinDto,
+  VerifyPhoneDto,
 } from '../dtos/kyc.dto';
 import { DocumentStatus, KycStatus } from '../../../types/enums';
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
+import { User } from '@modules/core/entities/user.entity';
+import { getOtpExpiry } from '@shared/utils/helpers/common.utils';
+import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class KycService {
@@ -32,9 +37,12 @@ export class KycService {
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
     @InjectRepository(DocumentVerification) private readonly docRepo: Repository<DocumentVerification>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly dojahAdapter: DojahAdapter,
     private readonly cloudinaryService: CloudinaryService,
-
+    private readonly randomnessUtil: RandomnessUtil,
+    private readonly configService: ConfigService
+    
   ) {}
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -129,6 +137,34 @@ export class KycService {
       },
     };
   }
+
+    /**
+   * Verify driver PhoneNumber via Dojah.
+   * Checks that the PhoneNumber matches the name on the driver's profile.
+   */
+
+async sendPhoneOtp(userId: string) {
+  const user = await this.getUserOrThrow(userId);
+
+  if (!user.phone) throw new BadRequestException('No phone number on file');
+  if (user.isPhoneVerified) throw new ConflictException('Phone number is already verified');
+
+  const minutes = this.configService.get<number>('common.otp.durationMinutes') ?? 10;
+  const otp = this.randomnessUtil.generateOtp();
+
+  await this.userRepo.update(user.id, {
+    phoneOtpCode: otp,
+    phoneOtpExpiresAt: getOtpExpiry(minutes),
+  });
+
+  const sent = await this.dojahAdapter.sendSms({
+    destination: user.phone,
+    message: `Your Tru Booker verification code is ${otp}. It expires in ${minutes} minutes.`,
+  });
+  if (!sent) throw new BadRequestException('Could not send SMS. Please try again.');
+
+  return { success: true, message: 'Verification code sent to your phone' };
+}
 
   /**
    * Verify driver NIN via Dojah.
@@ -537,8 +573,8 @@ async uploadDriverDocument(
 
   private async getDriverOrThrow(userId: string): Promise<Driver> {
     const driver = await this.driverRepo.findOne({
-      where: { id: userId },
-      relations: ['users'],
+      where: { userId: userId },
+      relations: ['user'],
     });
     if (!driver) throw new NotFoundException('Driver profile not found');
     return driver;
@@ -552,4 +588,10 @@ async uploadDriverDocument(
     if (!passenger) throw new NotFoundException('Passenger profile not found');
     return passenger;
   }
+
+ private async getUserOrThrow(userId: string): Promise<User> {
+  const user = await this.userRepo.findOne({ where: { id: userId } });
+  if (!user) throw new NotFoundException('User not found');
+  return user;
+}
 }

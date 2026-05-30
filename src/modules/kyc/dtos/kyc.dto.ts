@@ -9,6 +9,20 @@ import {
   Matches,
 } from 'class-validator';
 
+export class VerifyPhoneDto {
+  @ApiProperty({ example: '123456', description: '6-digit OTP sent via SMS' })
+  @IsNotEmpty()
+  @IsString()
+  @Length(6, 6, { message: 'OTP must be exactly 6 digits' })
+  @Matches(/^\d+$/, { message: 'OTP must contain digits only' })
+  otp: string;
+
+  @ApiPropertyOptional({ example: '+2348012345678' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}
+
 // ─── Driver KYC DTOs ─────────────────────────────────────────────────────────
 
 export class VerifyDriverBvnDto {

@@ -1,18 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
-import { IDojah } from '../dojah.interface';
+import { DojahSendSmsPayload, IDojah } from '../dojah.interface';
 import { DojahVerificationResult, DojahVerifyBvnPayload, DojahVerifyLicensePayload, DojahVerifyNinPayload } from '../../../../types/interfaces';
 
 @Injectable()
 export class DojahProvider implements IDojah {
   private readonly client: AxiosInstance;
   private readonly logger = new Logger(DojahProvider.name);
+   private readonly senderId: string;
 
   constructor(private readonly configService: ConfigService) {
     const baseUrl = this.configService.get<string>('common.kyc.dojah.baseUrl') || 'https://api.dojah.io';
     const appId = this.configService.get<string>('common.kyc.dojah.appId');
     const privateKey = this.configService.get<string>('common.kyc.dojah.privateKey');
+      this.senderId = this.configService.get<string>('common.kyc.dojah.senderId') || 'Tru Booker';
 
     this.client = axios.create({
       baseURL: baseUrl,
@@ -51,4 +53,30 @@ export class DojahProvider implements IDojah {
       throw new Error(error?.response?.data?.error || 'License verification failed');
     }
   }
+
+  async sendSms(payload: DojahSendSmsPayload): Promise<boolean> {
+    try {
+      await this.client.post('/api/v1/messaging/sms', {
+        channel: 'sms',
+        sender_id: this.senderId,
+        destination: this.normalize(payload.destination),
+        message: payload.message,
+      });
+      this.logger.log(`Dojah SMS sent to ${this.mask(payload.destination)}`);
+      return true;
+    } catch (error) {
+      this.logger.error('Dojah SMS error', error?.response?.data);
+      return false;
+    }
+  }
+
+    /** Dojah expects international format with no leading "+" (e.g. 2348012345678) */
+  private normalize(phone: string): string {
+    return phone.replace(/^\+/, '').replace(/^0/, '234');
+  }
+
+  private mask(phone: string): string {
+    return phone.slice(0, 4) + '****' + phone.slice(-3);
+  }
+  
 }

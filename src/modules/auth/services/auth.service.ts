@@ -19,6 +19,7 @@ import { CouponService } from '@modules/coupon-referral/service/cupon.service';
 import { ReferralService } from '@modules/coupon-referral/service/referal.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from '@modules/core/entities/role.entity';
+import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 
 @Injectable()
 export class AuthService {
@@ -34,9 +35,11 @@ export class AuthService {
     private readonly expoService: ExpoService,
     private readonly referralService: ReferralService,
     private readonly couponService: CouponService,
+    private readonly dojahAdapter: DojahAdapter,
 
-       @InjectRepository(Role)
-      private readonly roleRepository: Repository<Role>
+
+    @InjectRepository(Role)
+    private readonly roleRepository: Repository<Role>
     
     
     
@@ -60,6 +63,8 @@ export class AuthService {
     const hashedPassword = await this.hashingUtil.hash(dto.password);
     const referralCode = this.randomnessUtil.generateRandomStringWithNumbers(8);
     const otp = this.randomnessUtil.generateOtp();
+
+
     await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
     await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.role });
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
@@ -67,9 +72,9 @@ export class AuthService {
     const user = await this.userRepository.createUser(
       {
         ...dto,
-        password: hashedPassword,
+        //password: hashedPassword,
         referralCode,
-        otpCode: otp,
+        //otpCode: otp,
         otpExpiresAt,
         roleId: role.id,
         role: dto.role || UserRole.PASSENGER,
@@ -78,12 +83,37 @@ export class AuthService {
       entityManager,
     );
 
+
     // Create role-specific profile
     if (user.role === UserRole.PASSENGER) {
       await this.passengerRepository.createPassenger({ userId: user.id }, entityManager);
     } else if (user.role === UserRole.DRIVER) {
+
       await this.driverRepository.createDriver({ userId: user.id }, entityManager);
+        
+    
     }
+
+    // ── Phone verification OTP — for passengers AND drivers ──
+if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DRIVER)) {
+  const minutes = this.configService.get<number>('common.otp.durationMinutes');
+  const phoneOtp = this.randomnessUtil.generateOtp();
+
+  await this.userRepository.updateUser(
+    user.id,
+    { phoneOtpCode: phoneOtp, phoneOtpExpiresAt: getOtpExpiry(minutes) },
+    entityManager,
+  );
+  user.phoneOtpCode = phoneOtp;
+  user.phoneOtpExpiresAt = getOtpExpiry(minutes);
+
+  this.dojahAdapter
+    .sendSms({
+      destination: user.phone,
+      message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
+    })
+    .catch(() => {/* logged in provider */});
+}
 
       // ── Referral: record who referred this user (if referralCode supplied) ──
   if (dto.referralCode && user.role === UserRole.PASSENGER) {
@@ -127,6 +157,7 @@ export class AuthService {
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
     if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
+    if (!user.isPhoneVerified) throw new UnauthorizedException('Please verify your phone first');
 
     if (user.status === UserStatus.SUSPENDED)
       throw new UnauthorizedException('Your account has been suspended');
@@ -146,6 +177,19 @@ export class AuthService {
       { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
       entityManager,
     );
+  }
+  async verifyPhoneOtp(phone: string, otp:string, entityManager?: EntityManager): Promise<User>{
+     const user = await this.userRepository.findByPhone(phone);
+     if (!user) throw new BadRequestException('User not found');
+     if (user.phoneOtpCode !== otp) throw new BadRequestException('Invalid OTP');
+     if (isOtpExpired(user.phoneOtpExpiresAt)) throw new BadRequestException('OTP has expired');
+
+    return this.userRepository.updateUser(
+      user.id,
+      { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
+      entityManager,
+    );
+  
   }
 
 
