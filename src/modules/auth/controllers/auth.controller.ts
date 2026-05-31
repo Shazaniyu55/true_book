@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Broker } from '@broker/broker';
 import { Public } from '@shared/decorators/isPublic.decorator';
@@ -17,7 +17,6 @@ import { VerifyPhoneOtpUsecase } from '../usecases/verifyphone-otp.usecase';
 
 @ApiTags('Auth')
 @ServiceName('auth')
-// @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1')
 export class AuthController {
   constructor(

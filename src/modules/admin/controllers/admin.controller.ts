@@ -79,12 +79,13 @@ import {
 import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
 import { VerifyOtpDto } from '@modules/auth/dtos/verify-otp.dto';
-import { RequirePermissions } from '@shared/decorators/permissions.decorator';
+import { ACGuard, UseRoles } from 'nest-access-control';
 import { Permission } from 'src/types/enums/permission.enums';
+
 
 @ServiceName('admin') // For kill switch targeting
 @ApiTags('Admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ACGuard)
 @Controller('v1/admin')
 export class AdminController {
   constructor(
@@ -320,8 +321,8 @@ export class AdminController {
   // ─── Payouts ─────────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @RequirePermissions(Permission.PAYOUT_VIEW)
   @AdminOnly()
+  @UseRoles({ resource: Permission.PAYOUT_VIEW, action: 'read', possession: 'any' })
   @Get('payouts')
   @ApiOperation({ summary: 'List all payout requests' })
   listPayouts(@Query() query: AdminListQueryDto) {
@@ -329,9 +330,8 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @RequirePermissions(Permission.PAYOUT_APPROVE)
-
   @AdminOnly()
+  @UseRoles({ resource: Permission.PAYOUT_APPROVE, action: 'read', possession: 'any' })
   @Patch('payouts/:id/approve')
   @ApiOperation({ summary: 'Approve and execute a payout via Paystack' })
   approvePayout(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
@@ -342,9 +342,9 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @RequirePermissions(Permission.PAYOUT_DECLINE)
-
   @AdminOnly()
+  @UseRoles({ resource: Permission.PAYOUT_DECLINE, action: 'read', possession: 'any' })
+
   @Patch('payouts/:id/decline')
   @ApiOperation({ summary: 'Decline a payout request' })
   declinePayout(

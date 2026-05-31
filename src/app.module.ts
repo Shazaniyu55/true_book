@@ -28,12 +28,13 @@ import { ContactSupportModule } from '@modules/contact-support/contact-support.m
 import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
 import { TripsModule } from '@modules/trip/trip.module';
 import { KycModule } from '@modules/kyc/kyc.module';
+import { AppAccessControlModule } from '@shared/access-control/access-control.module';
 
 
 
 @Module({
   imports: [
-
+    
     ConfigModule.forRoot({
       load: [common, typeorm],
       ...configSchema,
@@ -58,6 +59,7 @@ import { KycModule } from '@modules/kyc/kyc.module';
     KillSwitchModule,
 
     // ─── Feature modules ───────────────────────────────────────────────────
+    AppAccessControlModule,
     CoreModule,
     AuthModule,
     DriverModule,
