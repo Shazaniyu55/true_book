@@ -38,6 +38,7 @@ import { DriverTripService } from '../services/driver.service';
 import { TripsService } from '@modules/trip/service/trip.service';
 import { Broker } from '@broker/broker';
 import { CreateDriverTripUseCase } from '../usecases/driver.usecases';
+import { RolesGuard } from '@shared/guards/roles.guard';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -51,7 +52,7 @@ import { CreateDriverTripUseCase } from '../usecases/driver.usecases';
 
 @ApiTags('Driver - Trips')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/drivers')
 export class DriverTripController {
   constructor(

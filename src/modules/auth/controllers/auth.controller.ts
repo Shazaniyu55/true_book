@@ -2,8 +2,6 @@ import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Broker } from '@broker/broker';
 import { Public } from '@shared/decorators/isPublic.decorator';
-import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
-import { RolesGuard } from '@shared/guards/roles.guard';
 import { RegisterDto, RegisterPassangerDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { VerifyOtpDto, ResendOtpDto , VerifyPhoneDto} from '../dtos/verify-otp.dto';
@@ -19,7 +17,7 @@ import { VerifyPhoneOtpUsecase } from '../usecases/verifyphone-otp.usecase';
 
 @ApiTags('Auth')
 @ServiceName('auth')
-@UseGuards(JwtAuthGuard, RolesGuard)
+// @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1')
 export class AuthController {
   constructor(

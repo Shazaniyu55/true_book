@@ -79,9 +79,12 @@ import {
 import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
 import { VerifyOtpDto } from '@modules/auth/dtos/verify-otp.dto';
+import { RequirePermissions } from '@shared/decorators/permissions.decorator';
+import { Permission } from 'src/types/enums/permission.enums';
 
 @ServiceName('admin') // For kill switch targeting
 @ApiTags('Admin')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/admin')
 export class AdminController {
   constructor(
@@ -334,7 +337,8 @@ export class AdminController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @AdminOnly()
+  @RequirePermissions(Permission.PAYOUT_VIEW)
+  // @AdminOnly()
   @Get('payouts')
   @ApiOperation({ summary: 'List all payout requests' })
   listPayouts(@Query() query: AdminListQueryDto) {
@@ -343,7 +347,9 @@ export class AdminController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @AdminOnly()
+  @RequirePermissions(Permission.PAYOUT_APPROVE)
+
+  // @AdminOnly()
   @Patch('payouts/:id/approve')
   @ApiOperation({ summary: 'Approve and execute a payout via Paystack' })
   approvePayout(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
@@ -355,7 +361,9 @@ export class AdminController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @AdminOnly()
+  @RequirePermissions(Permission.PAYOUT_DECLINE)
+
+  // @AdminOnly()
   @Patch('payouts/:id/decline')
   @ApiOperation({ summary: 'Decline a payout request' })
   declinePayout(

@@ -29,9 +29,11 @@ import { UpdateContactSupportUseCase } from '../usecases/update-support.usecase'
 import { ContactSupportResponseDto, CreateContactSupportDto, UpdateContactSupportDto } from '../dtos/dto';
 import { ContactSupportStatus, UserRole } from 'src/types/enums';
 import { ServiceName } from '@shared/decorators/servicename.decorators';
+import { RolesGuard } from '@shared/guards/roles.guard';
 
 @ServiceName('contact-support') // For kill switch targeting
 @ApiTags('Contact Support')
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/contact-support')
 export class ContactSupportController {
   constructor(
@@ -79,7 +81,6 @@ export class ContactSupportController {
   }
 
   @Get('statistics')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get contact support statistics' })
   @ApiResponse({
@@ -91,7 +92,6 @@ export class ContactSupportController {
   }
 
   @Get('status/:status')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get contact support requests by status' })
   @ApiParam({
@@ -120,7 +120,6 @@ export class ContactSupportController {
   }
 
   @Get('user-type/:userType')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get contact support requests by user type' })
   @ApiParam({
@@ -149,7 +148,6 @@ export class ContactSupportController {
   }
 
   @Get('pending')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get pending contact support requests' })
   @ApiQuery({
@@ -172,7 +170,6 @@ export class ContactSupportController {
   }
 
   @Get('email/:email')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get contact support requests by email' })
   @ApiParam({
@@ -199,7 +196,6 @@ export class ContactSupportController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a contact support request' })
   @ApiParam({
@@ -216,7 +212,6 @@ export class ContactSupportController {
   }
 
   @Put(':id/status/:status')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update contact support request status' })
   @ApiParam({
@@ -236,7 +231,6 @@ export class ContactSupportController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a contact support request' })
