@@ -7,7 +7,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ResponseInterceptor } from '@shared/interceptors/response.interceptor';
 import { CustomFieldValidationPipe } from '@shared/validations/custom.validation';
 
-import * as cookieParser from 'cookie-parser';
+import  cookieParser from 'cookie-parser';
 import * as dotenv from 'dotenv';
 
 import { AppModule } from './app.module';

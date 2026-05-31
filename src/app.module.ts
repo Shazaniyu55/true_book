@@ -30,8 +30,10 @@ import { TripsModule } from '@modules/trip/trip.module';
 import { KycModule } from '@modules/kyc/kyc.module';
 
 
+
 @Module({
   imports: [
+
     ConfigModule.forRoot({
       load: [common, typeorm],
       ...configSchema,
