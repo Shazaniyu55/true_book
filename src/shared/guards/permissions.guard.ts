@@ -27,7 +27,7 @@ export class PermissionsGuard implements CanActivate {
     });
     const grantedNames = new Set(granted.map((p) => p.name));
 
-    const ok = required.every((p) => grantedNames.has(p));
+    const ok = null;
     if (!ok) throw new ForbiddenException('Insufficient permissions');
     return true;
   }

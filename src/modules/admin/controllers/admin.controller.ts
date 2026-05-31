@@ -157,7 +157,6 @@ export class AdminController {
   // ─── Dashboard ───────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('dashboard')
   @ApiOperation({ summary: 'Platform dashboard statistics' })
@@ -168,7 +167,6 @@ export class AdminController {
   // ─── Kill Switch ─────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @SkipKillSwitch()
   @Get('kill-switch')
@@ -178,7 +176,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @SkipKillSwitch()
   @Post('kill-switch/activate')
@@ -188,7 +185,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @SkipKillSwitch()
   @Post('kill-switch/deactivate')
@@ -200,7 +196,6 @@ export class AdminController {
   // ─── Users ───────────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('users')
   @ApiOperation({ summary: 'List all users' })
@@ -209,7 +204,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('users/:id')
   @ApiOperation({ summary: 'Get user by ID' })
@@ -218,7 +212,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Patch('users/:id/suspend')
   @ApiOperation({ summary: 'Suspend a user account' })
@@ -233,7 +226,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Patch('users/:id/activate')
   @ApiOperation({ summary: 'Activate a user account' })
@@ -244,7 +236,6 @@ export class AdminController {
   // ─── KYC / Documents ─────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('documents/pending')
   @ApiOperation({ summary: 'List pending KYC documents' })
@@ -253,7 +244,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Patch('documents/:id/approve')
   @ApiOperation({ summary: 'Approve a KYC document' })
@@ -265,7 +255,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Patch('documents/:id/reject')
   @ApiOperation({ summary: 'Reject a KYC document' })
@@ -284,7 +273,6 @@ export class AdminController {
   // ─── Trips ───────────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('trips')
   @ApiOperation({ summary: 'List all trips' })
@@ -293,7 +281,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('trips/:id')
   @ApiOperation({ summary: 'Get trip detail' })
@@ -304,7 +291,6 @@ export class AdminController {
   // ─── Bookings ────────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('bookings')
   @ApiOperation({ summary: 'List all bookings' })
@@ -313,7 +299,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('bookings/:id')
   @ApiOperation({ summary: 'Get booking detail' })
@@ -322,7 +307,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Patch('bookings/:id/refund')
   @ApiOperation({ summary: 'Issue a refund for a booking' })
@@ -336,9 +320,8 @@ export class AdminController {
   // ─── Payouts ─────────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @RequirePermissions(Permission.PAYOUT_VIEW)
-  // @AdminOnly()
+  @AdminOnly()
   @Get('payouts')
   @ApiOperation({ summary: 'List all payout requests' })
   listPayouts(@Query() query: AdminListQueryDto) {
@@ -346,10 +329,9 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @RequirePermissions(Permission.PAYOUT_APPROVE)
 
-  // @AdminOnly()
+  @AdminOnly()
   @Patch('payouts/:id/approve')
   @ApiOperation({ summary: 'Approve and execute a payout via Paystack' })
   approvePayout(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
@@ -360,10 +342,9 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @RequirePermissions(Permission.PAYOUT_DECLINE)
 
-  // @AdminOnly()
+  @AdminOnly()
   @Patch('payouts/:id/decline')
   @ApiOperation({ summary: 'Decline a payout request' })
   declinePayout(
@@ -381,7 +362,6 @@ export class AdminController {
   // ─── Coupons ─────────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Get('coupons')
   @ApiOperation({ summary: 'List all coupons' })
@@ -390,7 +370,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Post('coupons')
   @ApiOperation({ summary: 'Create a new coupon' })
@@ -402,7 +381,6 @@ export class AdminController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @AdminOnly()
   @Patch('coupons/:id/deactivate')
   @ApiOperation({ summary: 'Deactivate a coupon' })
