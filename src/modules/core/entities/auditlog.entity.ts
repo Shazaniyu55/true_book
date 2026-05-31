@@ -27,6 +27,9 @@ export class AuditLog extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   actorEmail: string;
 
+    @Column({ type: 'varchar', nullable: true })
+  name: string;
+
   @Column({ type: 'varchar', nullable: true })
   actorRole: string;
 
