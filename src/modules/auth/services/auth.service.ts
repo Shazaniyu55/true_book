@@ -14,7 +14,7 @@ import { LoginDto } from '../dtos/login.dto';
 import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 import { EmailService } from '@modules/email/email.service';
 import { ExpoService } from '@modules/notification/services/expo.service';
-import { ResendOtpDto } from '../dtos/verify-otp.dto';
+import { ResendOtpDto, ResendPhoneOtpDto } from '../dtos/verify-otp.dto';
 import { CouponService } from '@modules/coupon-referral/service/cupon.service';
 import { ReferralService } from '@modules/coupon-referral/service/referal.service';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -72,9 +72,9 @@ export class AuthService {
     const user = await this.userRepository.createUser(
       {
         ...dto,
-        //password: hashedPassword,
+        password: hashedPassword,
         referralCode,
-        //otpCode: otp,
+        otpCode: otp,
         otpExpiresAt,
         roleId: role.id,
         role: dto.role || UserRole.PASSENGER,
@@ -186,7 +186,7 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
 
     return this.userRepository.updateUser(
       user.id,
-      { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
+      { isPhoneVerified: true, status: UserStatus.ACTIVE, phoneOtpCode: null, phoneOtpExpiresAt: null },
       entityManager,
     );
   
@@ -200,11 +200,28 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
     if (!user) throw new BadRequestException('User not found');
     if (user.isEmailVerified) throw new BadRequestException('Email already verified');
 
+
     const otp = this.randomnessUtil.generateOtp();
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
     await this.emailService.sendOtp({ to: user.email, firstName: user.firstName, otp });
     await this.userRepository.updateUser(user.id, { otpCode: otp, otpExpiresAt }, entityManager);
     // TODO: send OTP via notification service
+  }
+
+  async resendPhoneOtp({phone}: ResendPhoneOtpDto, entityManager?: EntityManager): Promise<void>{
+    const user = await this.userRepository.findByPhone(phone);
+    if(!user) throw new BadRequestException("User not found");
+    if(user.isPhoneVerified) throw new BadRequestException("user phone already verified")
+
+    const phoneOtp = this.randomnessUtil.generateOtp();
+  const minutes = this.configService.get<number>('common.otp.durationMinutes');
+  const phoneExpires = user.phoneOtpExpiresAt = getOtpExpiry(minutes);
+
+    await this.dojahAdapter.sendSms({
+            destination: user.phone,
+      message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
+    })
+    await this.userRepository.updateUser(user.id, {phoneOtpCode: phoneOtp, phoneOtpExpiresAt: phoneExpires}, entityManager)
   }
 
   async forgotPassword(email: string, entityManager?: EntityManager): Promise<void> {

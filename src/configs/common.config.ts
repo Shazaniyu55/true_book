@@ -40,8 +40,8 @@ export default registerAs('common', () => ({
   },
  
    redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: toNumber(process.env.REDIS_PORT, 6379),
+    host: process.env.REDIS_HOST || 'redis-15370.crce309.us-east-1-6.ec2.cloud.redislabs.com',
+    port: toNumber(process.env.REDIS_PORT, 15370),
     password: process.env.REDIS_PASSWORD,
     db: toNumber(process.env.REDIS_DB, 0),
   },

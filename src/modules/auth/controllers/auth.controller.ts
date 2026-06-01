@@ -4,7 +4,7 @@ import { Broker } from '@broker/broker';
 import { Public } from '@shared/decorators/isPublic.decorator';
 import { RegisterDto, RegisterPassangerDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
-import { VerifyOtpDto, ResendOtpDto , VerifyPhoneDto} from '../dtos/verify-otp.dto';
+import { VerifyOtpDto, ResendOtpDto , VerifyPhoneDto, ResendPhoneOtpDto} from '../dtos/verify-otp.dto';
 import { ForgotPasswordDto, ResetPassowrdDto } from '../dtos/reset-password.dto';
 import { RegisterUsecase } from '../usecases/register.usecase';
 import { LoginUsecase } from '../usecases/login.usecase';
@@ -14,10 +14,11 @@ import { ResetPasswordUsecase } from '../usecases/reset-password.usecase';
 import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { ResendOtpUsecase } from '../usecases/resendotp.usecase';
 import { VerifyPhoneOtpUsecase } from '../usecases/verifyphone-otp.usecase';
+import { ResendPhoneOtpUsecase } from '../usecases/resendphoneotp.usecase';
 
 @ApiTags('Auth')
 @ServiceName('auth')
-@Controller('v1')
+@Controller('v1/auth')
 export class AuthController {
   constructor(
     private readonly broker: Broker,
@@ -26,24 +27,19 @@ export class AuthController {
     private readonly verifyOtpUsecase: VerifyOtpUsecase,
     private readonly forgotPasswordUsecase: ForgotPasswordUsecase,
     private readonly resetPasswordUsecase: ResetPasswordUsecase,
-    private readonly resendotp: ResendOtpUsecase,
-    private readonly verifyphoneUsecase: VerifyPhoneOtpUsecase
+    private readonly resendotpUsecase: ResendOtpUsecase,
+    private readonly verifyphoneUsecase: VerifyPhoneOtpUsecase,
+    private readonly resendPhoneOtpUsecase:ResendPhoneOtpUsecase
   ) {}
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Register a new passanger' })
+  @ApiOperation({ summary: 'Register a new a new user' })
   register(@Body() dto: RegisterDto) {
     return this.broker.runUsecases([this.registerUsecase], dto);
   }
 
-  // Preserved typo for mobile backward compatibility: /v1/register/passanger
-  @Public()
-  @Post('register/passanger')
-  @ApiOperation({ summary: 'Register passenger (preserved typo for mobile compat)' })
-  registerPassanger(@Body() dto: RegisterPassangerDto) {
-    return this.broker.runUsecases([this.registerUsecase], dto);
-  }
+
 
   @Public()
   @Post('login')
@@ -70,10 +66,21 @@ export class AuthController {
   @Post('resend-otp')
   @ApiOperation({ summary: 'Resend OTP' })
   resendOtp(@Body() dto: ResendOtpDto) {
-    // inline usecase pattern for simple ops
     return this.broker.runUsecases(
       [
-       this.resendotp
+       this.resendotpUsecase
+      ],
+      dto,
+    );
+  }
+
+  @Public()
+  @Post('resend-phone-otp')
+  @ApiOperation({ summary: 'Resend phone OTP' })
+  resendPhoneOtp(@Body() dto: ResendPhoneOtpDto) {
+    return this.broker.runUsecases(
+      [
+       this.resendPhoneOtpUsecase
       ],
       dto,
     );
@@ -86,10 +93,9 @@ export class AuthController {
     return this.broker.runUsecases([this.forgotPasswordUsecase], dto);
   }
 
-  // Preserved typo for mobile backward compat: /v1/reset-passowrd
   @Public()
   @Post('reset-password')
-  @ApiOperation({ summary: 'Reset password (preserved typo for mobile compat)' })
+  @ApiOperation({ summary: 'Reset password ' })
   resetPassword(@Body() dto: ResetPassowrdDto) {
     return this.broker.runUsecases([this.resetPasswordUsecase], dto);
   }

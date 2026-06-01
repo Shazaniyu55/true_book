@@ -22,6 +22,11 @@ import { Escrow } from '@modules/core/entities/escro.entity';
 import { TripsController } from './controllers/trip.controller';
 import { TripsService } from './service/trip.service';
 import { TripRepository } from '@adapters/repositories/trip.repository';
+import { CreateTripUsecase } from './usecases/createtrip.usecase';
+import { SearchTripUsecase } from './usecases/searchtrip.usecase';
+import { GetTripUsecase } from './usecases/gettrip.usecase';
+import { ActivateTripUsecase } from './usecases/activatetrip.usecase';
+import { UpdateTripUsecase } from './usecases/updatetrip.usecase';
 
 
 
@@ -51,6 +56,12 @@ import { TripRepository } from '@adapters/repositories/trip.repository';
     FlutterwaveProvider,
     RandomnessUtil,
     ExpoService,
+
+    CreateTripUsecase,
+    SearchTripUsecase,
+    GetTripUsecase,
+    ActivateTripUsecase,
+    UpdateTripUsecase
   ],
   exports: [TripsService, TripRepository],
 })

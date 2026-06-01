@@ -16,6 +16,8 @@ import {
   UpdateCouponDto,
   ValidateCouponDto,
 } from '../dtos/cupon.dto';
+import { PagedDto } from '@shared/interface/paged.interface';
+
 
 @Injectable()
 export class CouponService {
@@ -234,7 +236,7 @@ export class CouponService {
     limit?: number;
     type?: CouponType;
     isActive?: boolean;
-  }) {
+  }): Promise<PagedDto<any>> {
     const { page = 1, limit = 20, type, isActive } = query;
     const skip = (page - 1) * limit;
 
@@ -248,7 +250,18 @@ export class CouponService {
     if (isActive !== undefined) qb.andWhere('c.isActive = :isActive', { isActive });
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
+    const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+    return pagedDto;
   }
 
   async getCouponById(id: string): Promise<Coupon> {

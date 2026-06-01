@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { AdminService } from '../services/admin.service';
+import { AdminListQueryDto } from '../dtos/admin.dto';
 
 @Injectable()
 export class ListPendingDocumentsUsecase extends Usecase {
@@ -9,8 +10,8 @@ export class ListPendingDocumentsUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, _args: any) {
-    return this.adminService.listPendingDocuments();
+  async execute(_entityManager: EntityManager,args: AdminListQueryDto) {
+    return this.adminService.listPendingDocuments(args);
   }
 }
 

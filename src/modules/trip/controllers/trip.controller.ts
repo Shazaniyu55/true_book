@@ -33,6 +33,12 @@ import {
   UpdateTripDto,
 } from '../dtos/trip.dto';
 import { string } from 'joi';
+import { CreateTripUsecase } from '../usecases/createtrip.usecase';
+import { Broker } from '@broker/broker';
+import { SearchTripUsecase } from '../usecases/searchtrip.usecase';
+import { GetTripUsecase } from '../usecases/gettrip.usecase';
+import { ActivateTripUsecase } from '../usecases/activatetrip.usecase';
+import { UpdateTripUsecase } from '../usecases/updatetrip.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -40,28 +46,39 @@ import { string } from 'joi';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/trips')
 export class TripsController {
-  constructor(private readonly tripsService: TripsService) {}
+  constructor(
+    private readonly broker: Broker,
+    private readonly tripsService: TripsService,
+    private readonly createTripUsecase:CreateTripUsecase,
+    private readonly searchTripeUsecase: SearchTripUsecase,
+    private readonly getTripUsecase: GetTripUsecase,
+    private readonly activateTripUsecase:ActivateTripUsecase,
+    private readonly updateTripUsecase:UpdateTripUsecase
+  
+  ) {}
 
   // ──────────────────────────────────────────────────────────────────────────
   // PUBLIC — search & view (no auth required)
   // ──────────────────────────────────────────────────────────────────────────
 
   @Public()
-  @Get('search')
+  @Get('search-trip')
   @ApiOperation({
     summary: 'Search available trips',
     description: 'Filter by origin, destination, date, seats, price. Publicly accessible.',
   })
   searchTrips(@Query() dto: SearchTripsDto) {
-    return this.tripsService.searchTrips(dto);
+    return this.broker.runUsecases([this.searchTripeUsecase], dto)
   }
 
   @Public()
-  @Get(':id')
+  @Get('get-trip/:id')
   @ApiOperation({ summary: 'Get trip detail by ID' })
   @ApiParam({ name: 'id', type: string })
-  getTripById(@Param('id') id: string) {
-    return this.tripsService.getTripById(id);
+  getTripById(
+    @AuthUser() user: any,
+  ) {
+    return this.broker.runUsecases([this.getTripUsecase], {id: user.sub})
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -69,35 +86,36 @@ export class TripsController {
   // ──────────────────────────────────────────────────────────────────────────
 
   @DriverOnly()
-  @Post('driver/create')
+  @Post('driver/create-trip')
   @ApiOperation({
     summary: 'Driver: Create a new trip',
     description: 'Trip starts in PENDING state. Call /activate to open it for bookings.',
   })
   createTrip(@Body() dto: CreateTripDto, @AuthUser() user: any) {
-    return this.tripsService.createTrip(user.id, dto);
+    return this.broker.runUsecases([this.createTripUsecase], {id:user.sub, dto:dto})
   }
 
   @DriverOnly()
-  @Patch(':id/activate')
+  @Patch(':id/drivers/activate-trip')
   @ApiOperation({ summary: 'Driver: Activate trip — opens it for bookings' })
-  activateTrip(@Param('id') id: string, @AuthUser() user: any) {
-    return this.tripsService.activateTrip(user.id, id);
+  activateTrip(@AuthUser() user: any, @Param('id') tripId: string) {
+    return this.broker.runUsecases([this.activateTripUsecase], {id:user.sub, tripId: tripId})
   }
 
   @DriverOnly()
-  @Put(':id')
+  @Put(':id/drivers/update-trip')
   @ApiOperation({ summary: 'Driver: Update trip details (no confirmed bookings required)' })
   updateTrip(
-    @Param('id') id: string,
-    @Body() dto: UpdateTripDto,
     @AuthUser() user: any,
+
+    @Param('id') tripId: string,
+    @Body() dto: UpdateTripDto
   ) {
-    return this.tripsService.updateTrip(user.id, id, dto);
+    return this.broker.runUsecases([this.updateTripUsecase],{ id: user.id, tripId: tripId, dto: dto})
   }
 
   @DriverOnly()
-  @Post('complete')
+  @Post('driver/complete-trip')
   @ApiOperation({
     summary: 'Driver: Mark trip as completed',
     description:

@@ -20,11 +20,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 @ApiBearerAuth()
 @ServiceName('kyc') // For kill switch targeting
 @UseGuards(JwtAuthGuard, RolesGuard)
-@DriverOnly()
 @Controller('v1/drivers/kyc')
 export class KycController {
   constructor(private readonly kycService: KycService) {}
 
+
+  @DriverOnly()
   @Get('status')
   @ApiOperation({
     summary: 'Get driver KYC status',
@@ -34,18 +35,21 @@ export class KycController {
     return this.kycService.getDriverKycStatus(user.id);
   }
 
+  @DriverOnly()
   @Post('bvn')
   @ApiOperation({ summary: 'Verify driver BVN via Dojah' })
   verifyBvn(@AuthUser() user: any, @Body() dto: VerifyDriverBvnDto) {
     return this.kycService.verifyDriverBvn(user.id, dto);
   }
 
+  @DriverOnly()
   @Post('nin')
   @ApiOperation({ summary: 'Verify driver NIN via Dojah' })
   verifyNin(@AuthUser() user: any, @Body() dto: VerifyDriverNinDto) {
     return this.kycService.verifyDriverNin(user.id, dto);
   }
 
+  @DriverOnly()
   @Post('license')
   @ApiOperation({
     summary: "Verify driver's license via Dojah",
@@ -55,6 +59,7 @@ export class KycController {
     return this.kycService.verifyDriverLicense(user.id, dto);
   }
 
+  @DriverOnly()
   @Post('documents')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')

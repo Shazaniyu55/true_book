@@ -3,6 +3,7 @@ import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { AdminService } from '../services/admin.service';
 import { CreateCouponDto } from '../dtos/admin.dto';
+import { AdminListQueryDto } from '../dtos/admin.dto';
 
 @Injectable()
 export class ListCouponsUsecase extends Usecase {
@@ -10,8 +11,8 @@ export class ListCouponsUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, _args: any) {
-    return this.adminService.listCoupons();
+  async execute(_entityManager: EntityManager, args: AdminListQueryDto) {
+    return this.adminService.listCoupons(args);
   }
 }
 

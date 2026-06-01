@@ -13,6 +13,7 @@ import { Booking } from '@modules/core/entities/booking.entity';
 import { PaymentFactory } from '@adapters/payment/payment.factory';
 import { Passenger } from '@modules/core/entities/passenger.entity';
 import { Coupon } from '@modules/core/entities/coupon.entity';
+import { PagedDto } from '@shared/interface/paged.interface';
 
 
 /** Platform fee rate (deducted from driver payout) */
@@ -186,8 +187,8 @@ export class TripRepository extends Repository<Trip> {
 
 
 
-    async searchTrips(dto: SearchTripsDto) {
-        const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = dto;
+    async searchTrips(query: {page?: number, limit?:number, origin?: string, destination?:string, date?:string, seats?:number, maxPrice?:number, sortBy?:string, status?:string}): Promise<PagedDto<any>> {
+        const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = query;
         const skip = (page - 1) * limit;
     
         const qb = this.tripRepository.createQueryBuilder('trip')
@@ -215,18 +216,25 @@ export class TripRepository extends Repository<Trip> {
         }
     
         const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    
-        return {
-          data: data.map((t) => ({
-            ...t,
-            availableSeats: t.totalSeats - t.bookedSeats,
-          })),
-          meta: { page, limit, total, pages: Math.ceil(total / limit) },
-        };
+            const pagedDto = new PagedDto();
+            pagedDto.data = data.map((t) => ({...t,availableSeats: t.totalSeats - t.bookedSeats,}));
+
+          pagedDto.meta = {
+              page,
+              limit,
+              count: data.length,
+              previousPage: page > 1 ? page - 1 : false,
+              nextPage: skip + limit < total ? page + 1 : false,
+              pageCount: Math.ceil(total / limit),
+              totalRecords: total,
+            };
+        
+            return pagedDto;
+       
       }
 
 
-      async getTripById(tripId: string) {
+    async getTripById(tripId: string) {
     const trip = await this.tripRepository.findOne({
       where: { id: tripId },
       relations: ['driver', 'driver.user', 'vehicle'],
@@ -446,10 +454,25 @@ return booking;
       order: { departureTime: 'DESC' },
     });
 
-    return {
-      data: data.map((t) => ({ ...t, availableSeats: t.totalSeats - t.bookedSeats })),
-      meta: { page, limit, total, pages: Math.ceil(total / limit) },
-    };
+      const pagedDto = new PagedDto();
+      pagedDto.data = data.map((t) => ({...t,availableSeats: t.totalSeats - t.bookedSeats,}));
+
+          pagedDto.meta = {
+              page,
+              limit,
+              count: data.length,
+              previousPage: page > 1 ? page - 1 : false,
+              nextPage: skip + limit < total ? page + 1 : false,
+              pageCount: Math.ceil(total / limit),
+              totalRecords: total,
+            };
+        
+            return pagedDto;
+
+    // return {
+    //   data: data.map((t) => ({ ...t, availableSeats: t.totalSeats - t.bookedSeats })),
+    //   meta: { page, limit, total, pages: Math.ceil(total / limit) },
+    // };
   }
 
 

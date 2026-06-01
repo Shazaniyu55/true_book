@@ -125,8 +125,8 @@ if (!role) {
     return await this.adminRepo.activateUser(id);
   }
 
-  async listPendingDocuments() {
-    return await this.adminRepo.listPendingDocuments();
+  async listPendingDocuments(query: AdminListQueryDto) {
+    return await this.adminRepo.listPendingDocuments(query);
   }
 
   async reviewDocument(documentId: string, approve: boolean, reason?: string, email?: string) {
@@ -173,8 +173,8 @@ if (!role) {
     return await this.adminRepo.declinePayout(payoutId, reason, email);
   }
 
-  async listCoupons() {
-    return await this.adminRepo.listCoupons();
+  async listCoupons(query: AdminListQueryDto) {
+    return await this.adminRepo.listCoupons(query);
   }
 
   async createCoupon(dto: any) {

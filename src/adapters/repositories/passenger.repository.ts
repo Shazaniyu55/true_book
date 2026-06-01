@@ -87,19 +87,19 @@ export class PassengerRepository extends Repository<Passenger> {
 }
 
 
-    async getProfile(id: string) {
+    async getProfile(userId: string) {
       const passenger = await this.passengerRepository.findOne({
-        where: { id },
-        relations: ['users'],
+        where: { userId },
+        relations: ['user'],
       });
       if (!passenger) throw new NotFoundException('Passenger profile not found');
       return passenger;
     }
 
 
-     async getDashboard(id: string) {
+     async getDashboard(userId) {
         const passenger = await this.passengerRepository.findOne({
-          where: { id },
+          where: { userId },
           relations: ['user'],
         });
         if (!passenger) throw new NotFoundException('Passenger profile not found');
@@ -127,12 +127,12 @@ export class PassengerRepository extends Repository<Passenger> {
         };
       }
 
-      async ensureProfile(id: string): Promise<Passenger> {
-  const existing = await this.passengerRepository.findOne({ where: { id } });
+      async ensureProfile(userId: string): Promise<Passenger> {
+  const existing = await this.passengerRepository.findOne({ where: { userId } });
   if (existing) return existing;
 
   return this.passengerRepository.save(
-    this.passengerRepository.create({ id } as any),
+    this.passengerRepository.create({ userId } as any),
   ) as unknown as Passenger;
 }
      

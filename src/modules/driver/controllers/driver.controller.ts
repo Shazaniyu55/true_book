@@ -39,6 +39,8 @@ import { TripsService } from '@modules/trip/service/trip.service';
 import { Broker } from '@broker/broker';
 import { CreateDriverTripUseCase } from '../usecases/driver.usecases';
 import { RolesGuard } from '@shared/guards/roles.guard';
+import { DriverOnly } from '@shared/decorators/roles.decorator';
+import { ACGuard } from 'nest-access-control';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -52,7 +54,7 @@ import { RolesGuard } from '@shared/guards/roles.guard';
 
 @ApiTags('Driver - Trips')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, ACGuard)
 @Controller('v1/drivers')
 export class DriverTripController {
   constructor(
@@ -67,7 +69,7 @@ export class DriverTripController {
    * CREATE TRIP
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+@DriverOnly()
 @Post('trip/create')
 @HttpCode(HttpStatus.CREATED)
 async createTrip(
@@ -88,7 +90,7 @@ async createTrip(
    * GET MY TRIPS (PAGINATED)
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Get('trip/getTrip')
   @ApiOperation({
     summary: 'Get all your trips',
@@ -118,7 +120,7 @@ async createTrip(
    * GET TRIP DETAIL
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Get('trip/:tripId')
   @ApiOperation({
     summary: 'Get trip detail',
@@ -153,7 +155,7 @@ async createTrip(
    * UPDATE TRIP (PENDING ONLY)
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Put('trip/update/:tripId')
   @ApiOperation({
     summary: 'Update trip details',
@@ -195,7 +197,7 @@ async createTrip(
    * ACTIVATE TRIP
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Patch(':tripId/activate')
   @ApiOperation({
     summary: 'Activate trip',
@@ -233,7 +235,7 @@ async createTrip(
    * CANCEL TRIP
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Delete(':tripId/cancel')
   @ApiOperation({
     summary: 'Cancel trip',
@@ -282,7 +284,7 @@ async createTrip(
    * COMPLETE TRIP
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Patch(':tripId/complete')
   @ApiOperation({
     summary: 'Complete trip',
@@ -329,7 +331,7 @@ async createTrip(
    * GET TRIP BOOKINGS
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Get(':tripId/bookings')
   @ApiOperation({
     summary: 'Get trip bookings',
@@ -362,7 +364,7 @@ async createTrip(
    * CHECK-IN PASSENGER
    * ─────────────────────────────────────────────────────────────────────────
    */
-
+  @DriverOnly()
   @Post('bookings/:bookingId/check-in')
   @ApiOperation({
     summary: 'Check in passenger',
@@ -435,6 +437,3 @@ async createTrip(
   }
 }
 
-// function CurrentUser(): (target: DriverTripController, propertyKey: "createTrip", parameterIndex: 0) => void {
-//     throw new Error('Function not implemented.');
-// }

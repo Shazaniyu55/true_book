@@ -33,6 +33,7 @@ import { Role } from '@modules/core/entities/role.entity';
 import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 import { DojahProvider } from '@adapters/kyc/dojah/providers/dojah.provider';
 import { VerifyPhoneOtpUsecase } from './usecases/verifyphone-otp.usecase';
+import { ResendPhoneOtpUsecase } from './usecases/resendphoneotp.usecase';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { VerifyPhoneOtpUsecase } from './usecases/verifyphone-otp.usecase';
     ForgotPasswordUsecase,
     ResetPasswordUsecase,
     ResendOtpUsecase,
+    ResendPhoneOtpUsecase,
     BookingRepository
   ],
   exports: [AuthService, UserRepository],

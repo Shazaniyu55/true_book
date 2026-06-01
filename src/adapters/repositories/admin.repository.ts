@@ -25,22 +25,19 @@ import { PagedDto } from '@shared/interface/paged.interface';
 @Injectable()
 export class AdminRepository extends Repository<Admin> {
   constructor(
-    @InjectRepository(Admin)
-    private readonly adminRepository: Repository<Admin>,
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
+    @InjectRepository(Admin) private readonly adminRepository: Repository<Admin>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Payout) private readonly payoutRepo: Repository<Payout>,
-    @InjectRepository(DocumentVerification)
-    private readonly docRepo: Repository<DocumentVerification>,
+    @InjectRepository(DocumentVerification) private readonly docRepo: Repository<DocumentVerification>,
     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
-    private readonly paystackAdapter: PaystackAdapter,
-    @InjectRepository(Role)
-    private readonly roleRepository: Repository<Role>,
+    @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
     private readonly entityManager: EntityManager,
+    private readonly paystackAdapter: PaystackAdapter,
+
 
   ) {
     super(adminRepository.target, adminRepository.manager, adminRepository.queryRunner);
@@ -159,12 +156,41 @@ export class AdminRepository extends Repository<Admin> {
 
   // ─── Driver / KYC Management ─────────────────────────────────────────────────
 
-  async listPendingDocuments() {
-    return this.docRepo.find({
-      where: { status: DocumentStatus.PENDING },
-      relations: ['driver'],
-      order: { createdAt: 'ASC' },
-    });
+  async listPendingDocuments(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PagedDto<any>>{
+
+        const { page = 1, limit = 20, search } = query;
+        const skip = (page - 1) * limit;
+
+      const qb = this.docRepo
+    .createQueryBuilder('doc')
+    .leftJoinAndSelect('doc.driver', 'driver')
+    .where('doc.status = :status', { status: DocumentStatus.PENDING })
+    .orderBy('doc.createdAt', 'ASC')
+    .skip(skip)
+    .take(limit);
+
+      if (search) {
+    qb.andWhere('driver.email ILIKE :search', { search: `%${search}%` });
+  }
+  const [data, total] = await qb.getManyAndCount();
+
+     const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+    
+    return pagedDto;
   }
 
   async approveDocument(docId: string, adminEmail: string) {
@@ -207,7 +233,7 @@ export class AdminRepository extends Repository<Admin> {
 
   // ─── Trip Management ─────────────────────────────────────────────────────────
 
-  async listTrips(query: { page?: number; limit?: number; status?: string }) {
+  async listTrips(query: { page?: number; limit?: number; status?: string }): Promise<PagedDto<any>> {
     const { page = 1, limit = 20, status } = query;
     const skip = (page - 1) * limit;
     const where: any = {};
@@ -221,7 +247,19 @@ export class AdminRepository extends Repository<Admin> {
       order: { createdAt: 'DESC' },
     });
 
-    return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
+    const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+
+    return pagedDto;
   }
 
   async getTrip(id: string) {
@@ -266,7 +304,6 @@ export class AdminRepository extends Repository<Admin> {
     };
     return pagedDto;
 
-    //return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
 
   async approvePayout(payoutId: string, adminEmail: string) {
@@ -358,13 +395,40 @@ export class AdminRepository extends Repository<Admin> {
     return this.couponRepo.save(coupon);
   }
 
-  async listCoupons() {
-    return this.couponRepo.find({ order: { createdAt: 'DESC' } });
-  }
+async listCoupons(query: {
+  page?: number;
+  limit?: number;
+  status?: string;
+}): Promise<PagedDto<any>> {
+  const { page = 1, limit = 20, status } = query;
+  const skip = (page - 1) * limit;
+  const where: any = {};
+  if (status) where.status = status;
+
+  const [data, total] = await this.couponRepo.findAndCount({
+    where,
+    skip,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+      const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+    return pagedDto; 
+}
 
   // ─── Booking Management ──────────────────────────────────────────────────────
 
-  async listBookings(query: { page?: number; limit?: number; status?: string }) {
+  async listBookings(query: { page?: number; limit?: number; status?: string }): Promise<PagedDto<any>> {
     const { page = 1, limit = 20, status } = query;
     const skip = (page - 1) * limit;
     const where: any = {};
@@ -378,7 +442,19 @@ export class AdminRepository extends Repository<Admin> {
       order: { createdAt: 'DESC' },
     });
 
-    return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
+       const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+
+    return pagedDto;
   }
 
   async refundBooking(bookingId: string, adminEmail: string) {
@@ -408,4 +484,6 @@ export class AdminRepository extends Repository<Admin> {
       relations: ['trip', 'passenger', 'passenger.user'],
     });
   }
+
+
 }

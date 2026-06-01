@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsNumber, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class VerifyOtpDto {
@@ -35,4 +35,11 @@ export class ResendOtpDto {
   @IsEmail()
   @Transform(({ value }) => value?.toLowerCase()?.trim())
   email: string;
+}
+
+export class ResendPhoneOtpDto {
+  @ApiPropertyOptional({ example: '+2348012345678' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }

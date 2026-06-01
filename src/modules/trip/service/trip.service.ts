@@ -71,8 +71,8 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
 
   // ─── Passenger: Search trips ──────────────────────────────────────────────
 
-  async searchTrips(dto: SearchTripsDto) {
-    return await this.tripRepository.searchTrips(dto);
+  async searchTrips(query: SearchTripsDto) {
+    return await this.tripRepository.searchTrips(query);
   }
 
   // ─── Passenger: Get single trip ───────────────────────────────────────────

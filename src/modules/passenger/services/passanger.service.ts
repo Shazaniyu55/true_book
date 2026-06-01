@@ -6,12 +6,15 @@ import { EntityManager } from 'typeorm';
 import { Passenger } from '@modules/core/entities/passenger.entity';
 import { UpdatePassengerProfileDto } from '../dtos/passanger.dto';
 import { PassengerRepository } from '@adapters/repositories/passenger.repository';
+import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 
 @Injectable()
 export class PassengerService {
   constructor(
 
-    private readonly passangerRepository: PassengerRepository
+    private readonly passangerRepository: PassengerRepository,
+    private readonly cloudinaryService: CloudinaryService,
+    
   ) {}
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -22,9 +25,22 @@ export class PassengerService {
     return await this.passangerRepository.getProfile(id);
   }
 
-  async updateProfile(id: string, dto: UpdatePassengerProfileDto, entityManager?: EntityManager) {
-    return await this.passangerRepository.updatePassenger(id, dto, entityManager);
+ async updateProfile(
+    id: string,
+    dto: UpdatePassengerProfileDto,
+    file?: Express.Multer.File,
+    entityManager?: EntityManager,
+  ) {
+    if (file) {
+      const uploaded = await this.cloudinaryService.upload(file, {
+        folder: `passengers/${id}/profile`,
+        resource_type: 'image',
+      });
+      dto.profilePhoto = uploaded.secure_url; // repository maps this onto User.profilePhoto
+    }
+    return this.passangerRepository.updatePassenger(id, dto, entityManager);
   }
+
 
   // ══════════════════════════════════════════════════════════════════════════
   // DASHBOARD
