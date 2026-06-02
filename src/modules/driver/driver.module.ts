@@ -16,13 +16,7 @@ import { Vehicle } from '@modules/core/entities/vehicle.entity';
 
 
 // Use Cases
-import {
-  CreateDriverTripUseCase,
-  UpdateDriverTripUseCase,
-  ActivateDriverTripUseCase,
-  CancelDriverTripUseCase,
-  CompleteDriverTripUseCase,
-} from './usecases/driver.usecases';
+
 
 // Shared Dependencies
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
@@ -37,6 +31,15 @@ import { PaystackProvider } from '@adapters/payment/paystack/providers/paystack.
 import { FlutterwaveAdapter } from '@adapters/payment/flutterwave/flutterwave.adapter';
 import { Broker } from '@broker/broker';
 import { TripsModule } from '@modules/trip/trip.module';
+import { CreateDriverTripUsecase } from './usecases/createTrip.usecase';
+import { UpdateDriverTripUsecase } from './usecases/updateTrip.usecase';
+import { ActivateDriverTripUsecase } from './usecases/activatetrip.usecase';
+import { CancleDriverTripUsecase } from './usecases/cancletrip.usecase';
+import { CompleteDriverTripUsecase } from './usecases/completetrip.usecase';
+import { GetTripBookingsUsecase } from '@modules/trip/usecases/gettripbookings.usecase';
+import { CheckInPassengerUsecase } from '@modules/trip/usecases/checkinpassenger.usecase';
+import { GetTripUsecase } from '@modules/trip/usecases/gettrip.usecase';
+import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -72,11 +75,16 @@ import { TripsModule } from '@modules/trip/trip.module';
     TripsService,
 
     // Use Cases
-    CreateDriverTripUseCase,
-    UpdateDriverTripUseCase,
-    ActivateDriverTripUseCase,
-    CancelDriverTripUseCase,
-    CompleteDriverTripUseCase,
+    CreateDriverTripUsecase,
+    UpdateDriverTripUsecase,
+    ActivateDriverTripUsecase,
+    CancleDriverTripUsecase,
+    CompleteDriverTripUsecase,
+    GetTripBookingsUsecase,
+    CheckInPassengerUsecase,
+    GetTripUsecase,
+    GetMyTripUsecase,
+
 
     // Shared Dependencies
     RandomnessUtil,

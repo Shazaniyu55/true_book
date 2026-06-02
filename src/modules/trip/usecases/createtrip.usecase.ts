@@ -6,11 +6,11 @@ import { CreateTripDto } from '../dtos/trip.dto';
 
 @Injectable()
 export class CreateTripUsecase extends Usecase {
-  constructor(private readonly passengerService: TripsService) {
+  constructor(private readonly tripserviceService: TripsService) {
     super();
   }
 
   async execute(_entityManager: EntityManager, args: { id: string, dto:CreateTripDto }) {
-    return this.passengerService.createTrip(args.id, args.dto, _entityManager);
+    return this.tripserviceService.createTrip(args.id, args.dto, _entityManager);
   }
 }

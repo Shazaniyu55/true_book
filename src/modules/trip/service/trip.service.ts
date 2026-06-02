@@ -16,6 +16,7 @@ import {
   CompleteTripDto,
   CreateTripDto,
   SearchTripsDto,
+  TripListQueryDto,
   UpdateTripDto,
 } from '../dtos/trip.dto';
 import { TripRepository } from '@adapters/repositories/trip.repository';
@@ -106,14 +107,14 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
 
   // ─── Get my bookings (passenger) ─────────────────────────────────────────
 
-  async getMyBookings(id: string, query: { page?: number; limit?: number; status?: string }) {
-   return await this.tripRepository.getMyBookings(id, {...query})
+  async getMyBookings(id: string, query: TripListQueryDto) {
+   return await this.tripRepository.getMyBookings(id, query)
   }
 
   // ─── Get my trips (driver) ────────────────────────────────────────────────
 
-  async getMyTrips(id: string, query: { page?: number; limit?: number; status?: string }) {
-   return await this.tripRepository.getMyTrips(id, {...query});
+  async getMyTrips(id: string, query: TripListQueryDto) {
+   return await this.tripRepository.getMyTrips(id, query);
   }
 
   // ─── Get trip bookings (driver) ───────────────────────────────────────────

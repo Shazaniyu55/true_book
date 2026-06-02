@@ -27,6 +27,15 @@ import { SearchTripUsecase } from './usecases/searchtrip.usecase';
 import { GetTripUsecase } from './usecases/gettrip.usecase';
 import { ActivateTripUsecase } from './usecases/activatetrip.usecase';
 import { UpdateTripUsecase } from './usecases/updatetrip.usecase';
+import { CompleteTripUsecase } from './usecases/completetrip.usecase';
+import { CancleTripUsecase } from './usecases/cancletrip.usecase';
+import { GetMyTripUsecase } from './usecases/getmytrip.usecase';
+import { GetMyBookingsUsecase } from './usecases/getmybooking.usecase';
+import { GetTripBookingsUsecase } from './usecases/gettripbookings.usecase';
+import { CheckInPassengerUsecase } from './usecases/checkinpassenger.usecase';
+import { CancleBookingUsecase } from './usecases/canclebooking.usecase';
+import { GetBookingCodeUsecase } from './usecases/getbookingcode.usecase';
+import { BookTripUsecase } from './usecases/booktrip.usecase';
 
 
 
@@ -61,7 +70,16 @@ import { UpdateTripUsecase } from './usecases/updatetrip.usecase';
     SearchTripUsecase,
     GetTripUsecase,
     ActivateTripUsecase,
-    UpdateTripUsecase
+    UpdateTripUsecase,
+    CompleteTripUsecase,
+    CancleTripUsecase,
+    GetMyTripUsecase,
+    GetMyBookingsUsecase,
+    GetTripBookingsUsecase,
+    CheckInPassengerUsecase,
+    CancleBookingUsecase,
+    GetBookingCodeUsecase,
+    BookTripUsecase
   ],
   exports: [TripsService, TripRepository],
 })

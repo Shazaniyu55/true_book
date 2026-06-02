@@ -30,6 +30,7 @@ import {
   CompleteTripDto,
   CreateTripDto,
   SearchTripsDto,
+  TripListQueryDto,
   UpdateTripDto,
 } from '../dtos/trip.dto';
 import { string } from 'joi';
@@ -39,6 +40,15 @@ import { SearchTripUsecase } from '../usecases/searchtrip.usecase';
 import { GetTripUsecase } from '../usecases/gettrip.usecase';
 import { ActivateTripUsecase } from '../usecases/activatetrip.usecase';
 import { UpdateTripUsecase } from '../usecases/updatetrip.usecase';
+import { CompleteTripUsecase } from '../usecases/completetrip.usecase';
+import { CancleTripUsecase } from '../usecases/cancletrip.usecase';
+import { GetMyTripUsecase } from '../usecases/getmytrip.usecase';
+import { GetMyBookingsUsecase } from '../usecases/getmybooking.usecase';
+import { GetTripBookingsUsecase } from '../usecases/gettripbookings.usecase';
+import { CheckInPassengerUsecase } from '../usecases/checkinpassenger.usecase';
+import { CancleBookingUsecase } from '../usecases/canclebooking.usecase';
+import { GetBookingCodeUsecase } from '../usecases/getbookingcode.usecase';
+import { BookTripUsecase } from '../usecases/booktrip.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -53,7 +63,16 @@ export class TripsController {
     private readonly searchTripeUsecase: SearchTripUsecase,
     private readonly getTripUsecase: GetTripUsecase,
     private readonly activateTripUsecase:ActivateTripUsecase,
-    private readonly updateTripUsecase:UpdateTripUsecase
+    private readonly updateTripUsecase:UpdateTripUsecase,
+    private readonly completeTripUsecase: CompleteTripUsecase,
+    private readonly cancleTripUsecase:CancleTripUsecase,
+    private readonly getMyTripUsecase:GetMyTripUsecase,
+    private readonly getMyBookingsUsecase:GetMyBookingsUsecase,
+    private readonly getTripBookingUsecase:GetTripBookingsUsecase,
+    private readonly checkInPassengerUsecase:CheckInPassengerUsecase,
+    private readonly cancleBookingUsecase:CancleBookingUsecase,
+    private readonly getBookingCodeUsecase:GetBookingCodeUsecase,
+    private readonly bookTripUsecase:BookTripUsecase
   
   ) {}
 
@@ -72,13 +91,13 @@ export class TripsController {
   }
 
   @Public()
-  @Get('get-trip/:id')
+  @Get('get-trip/:tripId')
   @ApiOperation({ summary: 'Get trip detail by ID' })
-  @ApiParam({ name: 'id', type: string })
+  @ApiParam({ name: 'tripId', type: string })
   getTripById(
-    @AuthUser() user: any,
+    @Param("tripId") tripId: string,
   ) {
-    return this.broker.runUsecases([this.getTripUsecase], {id: user.sub})
+    return this.broker.runUsecases([this.getTripUsecase], {tripId: tripId})
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -91,24 +110,23 @@ export class TripsController {
     summary: 'Driver: Create a new trip',
     description: 'Trip starts in PENDING state. Call /activate to open it for bookings.',
   })
-  createTrip(@Body() dto: CreateTripDto, @AuthUser() user: any) {
+  createTrip(@AuthUser() user: any,@Body() dto: CreateTripDto) {
     return this.broker.runUsecases([this.createTripUsecase], {id:user.sub, dto:dto})
   }
 
   @DriverOnly()
-  @Patch(':id/drivers/activate-trip')
+  @Patch(':tripId/drivers/activate-trip')
   @ApiOperation({ summary: 'Driver: Activate trip — opens it for bookings' })
-  activateTrip(@AuthUser() user: any, @Param('id') tripId: string) {
+  activateTrip(@AuthUser() user: any, @Param('tripId') tripId: string) {
     return this.broker.runUsecases([this.activateTripUsecase], {id:user.sub, tripId: tripId})
   }
 
   @DriverOnly()
-  @Put(':id/drivers/update-trip')
+  @Put(':tripId/drivers/update-trip')
   @ApiOperation({ summary: 'Driver: Update trip details (no confirmed bookings required)' })
   updateTrip(
     @AuthUser() user: any,
-
-    @Param('id') tripId: string,
+    @Param('tripId') tripId: string,
     @Body() dto: UpdateTripDto
   ) {
     return this.broker.runUsecases([this.updateTripUsecase],{ id: user.id, tripId: tripId, dto: dto})
@@ -121,8 +139,8 @@ export class TripsController {
     description:
       'Releases escrow funds to driver wallet. All confirmed bookings become completed.',
   })
-  completeTrip(@Body() dto: CompleteTripDto, @AuthUser() user: any) {
-    return this.tripsService.completeTrip(user.id, dto);
+  completeTrip(@AuthUser() user: any, @Body() dto: CompleteTripDto) {
+    return this.broker.runUsecases([this.completeTripUsecase], {id:user.sub, dto: dto})
   }
 
   @DriverOnly()
@@ -131,34 +149,33 @@ export class TripsController {
     summary: 'Driver: Cancel trip',
     description: 'Cancels trip and initiates refunds for all confirmed passengers.',
   })
-  cancelTrip(@Body() dto: CancelTripDto, @AuthUser() user: any) {
-    return this.tripsService.cancelTrip(user.id, dto);
+  cancelTrip(@AuthUser() user: any, @Body() dto: CancelTripDto) {
+    return this.broker.runUsecases([this.cancleTripUsecase], {id: user.sub, dto:dto})
   }
 
   @DriverOnly()
   @Get('driver/my-trips')
   @ApiOperation({ summary: 'Driver: List my trips' })
   getMyTrips(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('status') status?: string,
-    @AuthUser() user?: any,
+      @AuthUser() user?: any,
+    @Query() query?: TripListQueryDto
+
   ) {
-    return this.tripsService.getMyTrips(user.id, { page, limit, status });
+    return this.broker.runUsecases([this.getMyTripUsecase], {id:user.sub, dto: query})
   }
 
   @DriverOnly()
-  @Get(':id/bookings')
+  @Get(':tripId/bookings')
   @ApiOperation({ summary: 'Driver: View all bookings for a trip' })
-  getTripBookings(@Param('id') id: string, @AuthUser() user: any) {
-    return this.tripsService.getTripBookings(user.id, id);
+  getTripBookings( @AuthUser() user: any, @Param('tripId') tripId: string) {
+    return this.broker.runUsecases([this.getTripBookingUsecase], {id:user.sub, tripId: tripId})
   }
 
   @DriverOnly()
   @Patch('bookings/:bookingId/check-in')
   @ApiOperation({ summary: 'Driver: Check in a passenger at boarding' })
-  checkIn(@Param('bookingId') bookingId: string, @AuthUser() user: any) {
-    return this.tripsService.checkInPassenger(user.id, bookingId);
+  checkIn(@AuthUser() user: any, @Param('bookingId') bookingId: string) {
+    return this.broker.runUsecases([this.checkInPassengerUsecase], {id: user.sub, bookingId: bookingId})
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -172,20 +189,18 @@ export class TripsController {
     description:
       'Returns a Paystack payment link. Funds are held in escrow and released to the driver only after trip completion.',
   })
-  bookTrip(@Body() dto: BookTripDto, @AuthUser() user: any) {
-    return this.tripsService.bookTrip(user.id, dto);
+  bookTrip(@AuthUser() user: any, @Body() dto: BookTripDto) {
+    return this.broker.runUsecases([this.bookTripUsecase], {id: user.sub, dto: dto})
   }
 
   @PassengerOnly()
   @Get('passenger/my-bookings')
   @ApiOperation({ summary: 'Passenger: List my bookings' })
   getMyBookings(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('status') status?: string,
+    @Query() query?: TripListQueryDto,
     @AuthUser() user?: any,
   ) {
-    return this.tripsService.getMyBookings(user.id, { page, limit, status });
+    return this.broker.runUsecases([this.getMyBookingsUsecase], {id:user.sub, dto:query})
   }
 
   @PassengerOnly()
@@ -194,14 +209,14 @@ export class TripsController {
     summary: 'Passenger: Cancel a booking',
     description: 'Must cancel at least 2 hours before departure. Refund is initiated automatically.',
   })
-  cancelBooking(@Body() dto: CancelBookingDto, @AuthUser() user: any) {
-    return this.tripsService.cancelBooking(user.id, dto);
+  cancelBooking(@AuthUser() user: any, @Body() dto: CancelBookingDto) {
+    return this.broker.runUsecases([this.cancleBookingUsecase], {id:user.sub, dto: dto})
   }
 
   @PassengerOnly()
   @Get('bookings/:code')
   @ApiOperation({ summary: 'Passenger: Get booking by code' })
-  getBooking(@Param('code') code: string, @AuthUser() user: any) {
-    return this.tripsService.getBookingByCode(code, user.id);
+  getBooking(@AuthUser() user: any, @Param('code') code: string) {
+    return this.broker.runUsecases([this.getBookingCodeUsecase], {id: user.sub, bookingCode:code})
   }
 }

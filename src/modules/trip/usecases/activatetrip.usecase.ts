@@ -5,11 +5,11 @@ import { TripsService } from '../service/trip.service';
 
 @Injectable()
 export class ActivateTripUsecase extends Usecase {
-  constructor(private readonly passengerService: TripsService) {
+  constructor(private readonly tripserviceService: TripsService) {
     super();
   }
 
   async execute(_entityManager: EntityManager, args: { id: string, tripId:string }) {
-    return this.passengerService.activateTrip(args.id, args.tripId);
+    return this.tripserviceService.activateTrip(args.id, args.tripId);
   }
 }

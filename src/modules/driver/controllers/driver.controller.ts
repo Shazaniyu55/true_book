@@ -34,13 +34,19 @@ import {
   DriverTripDetailResponseDto,
   DriverBookingResponseDto,
 } from '../dtos/create-driver.dto';
-import { DriverTripService } from '../services/driver.service';
-import { TripsService } from '@modules/trip/service/trip.service';
 import { Broker } from '@broker/broker';
-import { CreateDriverTripUseCase } from '../usecases/driver.usecases';
+import { CreateDriverTripUsecase } from '../usecases/createTrip.usecase';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { DriverOnly } from '@shared/decorators/roles.decorator';
-import { ACGuard } from 'nest-access-control';
+import { UpdateDriverTripUsecase } from '../usecases/updateTrip.usecase';
+import { ActivateDriverTripUsecase } from '../usecases/activatetrip.usecase';
+import { CancleDriverTripUsecase } from '../usecases/cancletrip.usecase';
+import { CompleteDriverTripUsecase } from '../usecases/completetrip.usecase';
+import { GetTripBookingsUsecase } from '@modules/trip/usecases/gettripbookings.usecase';
+import { CheckInPassengerUsecase } from '@modules/trip/usecases/checkinpassenger.usecase';
+import { GetTripUsecase } from '@modules/trip/usecases/gettrip.usecase';
+import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
+import { TripListQueryDto } from '@modules/trip/dtos/trip.dto';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -54,14 +60,20 @@ import { ACGuard } from 'nest-access-control';
 
 @ApiTags('Driver - Trips')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard, ACGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/drivers')
 export class DriverTripController {
   constructor(
     private readonly broker: Broker,
-    private readonly driverTripService: DriverTripService,
-    private readonly tripsService: TripsService, // For reading trip data
-    private readonly createDriverUsecase: CreateDriverTripUseCase 
+    private readonly createDriverTripUsecase: CreateDriverTripUsecase,
+    private readonly updateDriverTripUsecase:UpdateDriverTripUsecase,
+    private readonly activateDriverTripUsecase:ActivateDriverTripUsecase,
+    private readonly cancleDriverTripUsecase:CancleDriverTripUsecase,
+    private readonly completeDriverTripUseCase:CompleteDriverTripUsecase,
+    private readonly getTripBookingsUseCase:GetTripBookingsUsecase,
+    private readonly checkInPassengerUsecase: CheckInPassengerUsecase,
+    private readonly getTripUsecase:GetTripUsecase,
+    private readonly getMyTripUsecase:GetMyTripUsecase
   ) {}
 
   /**
@@ -76,13 +88,8 @@ async createTrip(
   @AuthUser() user: any,
   @Body() dto: CreateDriverTripDto,
 ): Promise<CreateTripResponseDto> {
-  const trip = await this.driverTripService.createTrip(user.id, dto); 
-
-  return {
-    success: true,
-    message: 'Trip created successfully',
-    data: this.mapTripToResponse(trip),
-  };
+  return this.broker.runUsecases([this.createDriverTripUsecase], {id: user.sub, dto: dto})
+ 
 }
 
   /**
@@ -100,19 +107,12 @@ async createTrip(
     status: 200,
     description: 'Trips retrieved successfully',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Driver profile not found',
-  })
+
   async getMyTrips(
     @AuthUser() user: any,
-    @Query() query: GetDriverTripsQueryDto,
+    @Query() query: TripListQueryDto,
   ) {
-    return this.tripsService.getMyTrips(user.id, {
-      page: query.page,
-      limit: query.limit,
-      status: query.status,
-    });
+    return this.broker.runUsecases([this.getMyTripUsecase], {id: user.sub, dto: query})
   }
 
   /**
@@ -131,23 +131,12 @@ async createTrip(
     description: 'Trip details retrieved',
     type: DriverTripDetailResponseDto,
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Trip not found',
-  })
+
   async getTripDetail(
     @AuthUser() user: string,
     @Param('tripId') tripId: string,
   ) {
-    const trip = await this.tripsService.getTripById(tripId);
-
-    return {
-      success: true,
-      data: {
-        ...this.mapTripToResponse(trip),
-        bookingsCount: trip.bookedSeats, // Could be enhanced with actual booking count
-      },
-    };
+    return this.broker.runUsecases([this.getTripUsecase], {id: user.sub, tripId: tripId})
   }
 
   /**
@@ -170,26 +159,13 @@ async createTrip(
     status: 400,
     description: 'Cannot update trip (e.g., has confirmed bookings)',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Trip not found or does not belong to you',
-  })
+ 
   async updateTrip(
     @AuthUser() user: any,
     @Param('tripId') tripId: string,
     @Body() dto: UpdateDriverTripDto,
-  ): Promise<{
-    success: boolean;
-    message: string;
-    data: DriverTripResponseDto;
-  }> {
-    const trip = await this.driverTripService.updateTrip(user.id, tripId, dto);
-
-    return {
-      success: true,
-      message: 'Trip updated successfully',
-      data: this.mapTripToResponse(trip),
-    };
+  ) {
+    return this.broker.runUsecases([this.updateDriverTripUsecase], {id: user.sub, tripId: tripId, dto: dto})
   }
 
   /**
@@ -208,26 +184,12 @@ async createTrip(
     description: 'Trip activated successfully',
     type: ActivateTripResponseDto,
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Trip is not in PENDING status',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Trip not found',
-  })
+
   async activateTrip(
     @AuthUser() user: any,
     @Param('tripId') tripId: string,
-    @Body() _dto?: ActivateDriverTripDto,
-  ): Promise<ActivateTripResponseDto> {
-    const trip = await this.driverTripService.activateTrip(user.id, tripId);
-
-    return {
-      success: true,
-      message: 'Trip activated successfully',
-      data: this.mapTripToResponse(trip),
-    };
+  ) {
+     return this.broker.runUsecases([this.activateDriverTripUsecase], {id:user.sub, tripId: tripId})
   }
 
   /**
@@ -251,32 +213,13 @@ async createTrip(
     status: 400,
     description: 'Trip cannot be cancelled (already completed or cancelled)',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Trip not found',
-  })
+
   async cancelTrip(
     @AuthUser() user: any,
     @Param('tripId') tripId: string,
     @Body() dto: CancelDriverTripDto,
-  ): Promise<CancelTripResponseDto> {
-    const { trip, refundedBookings, totalRefundAmount } = await this.driverTripService.cancelTrip(
-      user.id,
-      tripId,
-      dto,
-    );
-
-    return {
-      success: true,
-      message: 'Trip cancelled successfully',
-      data: {
-        tripId: trip.id,
-        reference: trip.reference,
-        status: trip.status,
-        refundedBookings,
-        totalRefundAmount,
-      },
-    };
+  ) {
+    return this.broker.runUsecases([this.cancleDriverTripUsecase], {id:user.sub, tripId:tripId, dto:dto})
   }
 
   /**
@@ -299,31 +242,13 @@ async createTrip(
     status: 400,
     description: 'Trip is not in ACTIVE status',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Trip not found',
-  })
+
   async completeTrip(
     @AuthUser() user: any,
     @Param('tripId') tripId: string,
     @Body() dto: CompleteDriverTripDto,
-  ): Promise<CompleteTripResponseDto> {
-    const { trip, completedBookings, totalEarnings, platformFee, netEarnings } =
-      await this.driverTripService.completeTrip(user.id, tripId, dto);
-
-    return {
-      success: true,
-      message: 'Trip completed successfully',
-      data: {
-        tripId: trip.id,
-        reference: trip.reference,
-        status: trip.status,
-        completedBookings,
-        totalEarnings,
-        platformFee,
-        netEarnings,
-      },
-    };
+  ){
+    return this.broker.runUsecases([this.completeDriverTripUseCase], {id: user.sub, tripId:tripId, dto: dto})
   }
 
   /**
@@ -342,21 +267,12 @@ async createTrip(
     description: 'Bookings retrieved successfully',
     type: [DriverBookingResponseDto],
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Trip not found',
-  })
+
   async getTripBookings(
     @AuthUser() user: any,
     @Param('tripId') tripId: string,
-    @Query() _query?: GetDriverTripsBookingsQueryDto,
   ) {
-    const bookings = await this.tripsService.getTripBookings(user.id, tripId);
-
-    return {
-      success: true,
-      data: bookings.map(booking => this.mapBookingToResponse(booking)),
-    };
+    return this.broker.runUsecases([this.getTripBookingsUseCase], {id: user.sub, tripId:tripId})
   }
 
   /**
@@ -382,58 +298,11 @@ async createTrip(
     @AuthUser() user: any,
     @Param('bookingId') bookingId: string,
   ) {
-    const booking = await this.tripsService.checkInPassenger(user.id, bookingId);
-
-    return {
-      success: true,
-      message: 'Passenger checked in successfully',
-      data: this.mapBookingToResponse(booking),
-    };
+   return this.broker.runUsecases([this.checkInPassengerUsecase], {id: user.sub, bookingId: bookingId})
   }
 
-  /**
-   * ─────────────────────────────────────────────────────────────────────────
-   * HELPER METHODS
-   * ─────────────────────────────────────────────────────────────────────────
-   */
 
-  private mapTripToResponse(trip: any): DriverTripResponseDto {
-    return {
-      id: trip.id,
-      reference: trip.reference,
-      origin: trip.origin,
-      destination: trip.destination,
-      departureTime: trip.departureTime,
-      totalSeats: trip.totalSeats,
-      bookedSeats: trip.bookedSeats,
-      availableSeats: trip.totalSeats - trip.bookedSeats,
-      pricePerSeat: trip.pricePerSeat,
-      description: trip.description,
-      status: trip.status,
-      createdAt: trip.createdAt,
-      updatedAt: trip.updatedAt,
-    };
-  }
 
-  private mapBookingToResponse(booking: any): DriverBookingResponseDto {
-    return {
-      id: booking.id,
-      bookingCode: booking.bookingCode,
-      tripId: booking.tripId,
-      tripDestination: booking.trip?.destination || '',
-      passengerId: booking.passengerId,
-      passengerName: booking.passenger?.user?.name || '',
-      passengerPhone: booking.passenger?.phoneNumber || '',
-      seats: booking.seats,
-      totalAmount: booking.totalAmount,
-      discountAmount: booking.discountAmount,
-      amountPaid: booking.amountPaid,
-      status: booking.status,
-      paymentStatus: booking.paymentStatus,
-      isCheckedIn: booking.isCheckedIn,
-      checkedInAt: booking.checkedInAt,
-      createdAt: booking.createdAt,
-    };
-  }
+ 
 }
 

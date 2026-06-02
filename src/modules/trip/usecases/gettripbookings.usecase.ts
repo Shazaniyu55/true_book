@@ -4,12 +4,12 @@ import { Usecase } from '@broker/types';
 import { TripsService } from '../service/trip.service';
 
 @Injectable()
-export class GetTripUsecase extends Usecase {
+export class GetTripBookingsUsecase extends Usecase {
   constructor(private readonly tripserviceService: TripsService) {
     super();
   }
 
-  async execute(_entityManager: EntityManager, args: { tripId: string }) {
-    return this.tripserviceService.getTripById(args.tripId);
+  async execute(_entityManager: EntityManager, args: { id: string, tripId: string}) {
+    return this.tripserviceService.getTripBookings(args.id, args.tripId);
   }
 }
