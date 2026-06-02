@@ -58,7 +58,6 @@ import { BookTripUsecase } from '../usecases/booktrip.usecase';
 export class TripsController {
   constructor(
     private readonly broker: Broker,
-    private readonly tripsService: TripsService,
     private readonly createTripUsecase:CreateTripUsecase,
     private readonly searchTripeUsecase: SearchTripUsecase,
     private readonly getTripUsecase: GetTripUsecase,

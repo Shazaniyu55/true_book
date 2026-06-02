@@ -14,6 +14,11 @@ import { KycService } from './service/kyc.service';
 import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 import { User } from '@modules/core/entities/user.entity';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
+import { Broker } from '@broker/broker';
+import { GetDriverKycStatusUsecase } from './usecase/getDriverKycStatus.usecase';
+import { VerifyDriverLicenseUsecase } from './usecase/verifydriverlicense.usecase';
+import { VerifyDriverNinUsecase } from './usecase/verifyDriverNin.usecase';
+import { VerifyDriverBvnUsecase } from './usecase/verifyDriverBvn.usecase';
 
 @Module({
   imports: [
@@ -22,7 +27,19 @@ import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
     TypeOrmModule.forFeature([Driver, Passenger, DocumentVerification, User]),
   ],
   controllers: [KycController],
-  providers: [KycService, DojahAdapter, DojahProvider, RandomnessUtil],
+  providers: [
+    Broker, 
+    KycService, 
+    DojahAdapter, 
+    DojahProvider, 
+    RandomnessUtil,
+
+    GetDriverKycStatusUsecase,
+    VerifyDriverLicenseUsecase,
+    VerifyDriverNinUsecase,
+    VerifyDriverBvnUsecase
+  
+  ],
   exports: [KycService],
 })
 export class KycModule {}

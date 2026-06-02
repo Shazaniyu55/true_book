@@ -6,12 +6,14 @@ import { CreateNotificationDto } from '../dtos/create-notification.dto';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { ServiceName } from '@shared/decorators/servicename.decorators';
+import { Broker } from '@broker/broker';
 
 @ServiceName('notification') // For kill switch targeting
 @ApiTags('Notifications')
 @Controller('v1/notifications')
 export class NotificationController {
   constructor(
+    private readonly broker: Broker,
     private readonly createNotificationUseCase: CreateNotificationUseCase,
     private readonly sendPushNotificationUseCase: SendPushNotificationUseCase,
   ) {}
@@ -23,12 +25,9 @@ export class NotificationController {
     status: 201,
     description: 'Notification created successfully',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad Request',
-  })
-  async create(@Body() dto: CreateNotificationDto, @AuthUser() user: any) {
-    return this.createNotificationUseCase.execute(user.id, dto);
+
+  async create(@AuthUser() user: any, @Body() dto: CreateNotificationDto) {
+    return this.broker.runUsecases([this.createNotificationUseCase], {id: user.sub, dto: dto})
   }
 
   @UseGuards(JwtAuthGuard)
@@ -37,12 +36,10 @@ export class NotificationController {
     status: 200,
     description: 'Push notification sent successfully',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad Request',
-  })
+
   @Post('push')
-  async sendPush(@Body() body: any, @AuthUser() user: any) {
-    return this.sendPushNotificationUseCase.execute(user.id);
+  async sendPush( @AuthUser() user: any) {
+    return this.broker.runUsecases([this.sendPushNotificationUseCase], user.sub)
+    
   }
 }

@@ -343,7 +343,7 @@ export class TripRepository extends Repository<Trip> {
 
         const booking = await this.bookingRepo.findOne({
       where: { id: bookingId },
-      relations: ['trips', 'passengers', 'passengers.user'],
+      relations: ['trip', 'passenger', 'passenger.user'],
     });
 
         if (!booking) throw new NotFoundException('Booking not found');

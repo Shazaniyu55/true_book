@@ -15,6 +15,11 @@ import {
   VerifyDriverNinDto,
 } from '../dtos/kyc.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Broker } from '@broker/broker';
+import { GetDriverKycStatusUsecase } from '../usecase/getDriverKycStatus.usecase';
+import { VerifyDriverLicenseUsecase } from '../usecase/verifydriverlicense.usecase';
+import { VerifyDriverNinUsecase } from '../usecase/verifyDriverNin.usecase';
+import { VerifyDriverBvnUsecase } from '../usecase/verifyDriverBvn.usecase';
 
 @ApiTags('Driver - KYC')
 @ApiBearerAuth()
@@ -22,7 +27,15 @@ import { FileInterceptor } from '@nestjs/platform-express';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/drivers/kyc')
 export class KycController {
-  constructor(private readonly kycService: KycService) {}
+  constructor(
+    private readonly broker: Broker,
+    private readonly kycService: KycService,
+    private readonly getDriverKycStatusUsecase:GetDriverKycStatusUsecase,
+    private readonly verifyDriverLicensUsecase:VerifyDriverLicenseUsecase,
+    private readonly verifyDriverNinUsecase:VerifyDriverNinUsecase,
+    private readonly verifyDriverBvnUsecase: VerifyDriverBvnUsecase
+  
+  ) {}
 
 
   @DriverOnly()
@@ -32,21 +45,21 @@ export class KycController {
     description: 'Returns BVN/NIN/license verification flags, documents, and completion %.',
   })
   getStatus(@AuthUser() user: any) {
-    return this.kycService.getDriverKycStatus(user.id);
+    return this.broker.runUsecases([this.getDriverKycStatusUsecase], {id: user.sub})
   }
 
   @DriverOnly()
   @Post('bvn')
   @ApiOperation({ summary: 'Verify driver BVN via Dojah' })
   verifyBvn(@AuthUser() user: any, @Body() dto: VerifyDriverBvnDto) {
-    return this.kycService.verifyDriverBvn(user.id, dto);
+    return this.broker.runUsecases([this.verifyDriverBvnUsecase], {id: user.sub, dto: dto})
   }
 
   @DriverOnly()
   @Post('nin')
   @ApiOperation({ summary: 'Verify driver NIN via Dojah' })
   verifyNin(@AuthUser() user: any, @Body() dto: VerifyDriverNinDto) {
-    return this.kycService.verifyDriverNin(user.id, dto);
+    return this.broker.runUsecases([this.verifyDriverNinUsecase], {id: user.sub, dto: dto})
   }
 
   @DriverOnly()
@@ -56,7 +69,7 @@ export class KycController {
     description: 'Requires BVN or NIN to be verified first.',
   })
   verifyLicense(@AuthUser() user: any, @Body() dto: VerifyDriverLicenseDto) {
-    return this.kycService.verifyDriverLicense(user.id, dto);
+    return this.broker.runUsecases([this.verifyDriverLicensUsecase], {id: user.sub, dto: dto})
   }
 
   @DriverOnly()

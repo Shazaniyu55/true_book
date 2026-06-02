@@ -6,7 +6,7 @@ import { CreateNotificationDto } from '../dtos/create-notification.dto';
 export class CreateNotificationUseCase {
   constructor(private readonly notificationService: NotificationService) {}
 
-  async execute(id: string, data: CreateNotificationDto) {
-    return this.notificationService.createNotification(id, data);
+  async execute(args:{id: string, dto: CreateNotificationDto}) {
+    return this.notificationService.createNotification(args.id, args.dto);
   }
 }

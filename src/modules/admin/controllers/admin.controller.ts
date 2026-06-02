@@ -334,7 +334,7 @@ export class AdminController {
   @UseRoles({ resource: Permission.PAYOUT_APPROVE, action: 'read', possession: 'any' })
   @Patch('payouts/:id/approve')
   @ApiOperation({ summary: 'Approve and execute a payout via Paystack' })
-  approvePayout(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
+  approvePayout(@Param('id') id: number, @AuthUser() user: any) {
     return this.broker.runUsecases([this.approvePayoutUsecase], {
       id,
       adminEmail: user.email,
