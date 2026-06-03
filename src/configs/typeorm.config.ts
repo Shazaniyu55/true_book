@@ -23,7 +23,7 @@ export const dataSource = {
   migrationsRun: process.env.NODE_ENV === 'test',
   dropSchema: process.env.NODE_ENV === 'test',
   migrationsTableName: 'migrations',
-  migrations: ['src/migrations/**/*{.ts,.js}'],
+  migrations: ['dist/migrations/**/*{.ts,.js}'],
   retryAttempts: parseInt(process.env.DATABASE_RETRY_ATTEMPTS),
   //ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false, // ← changed
   ssl: {
