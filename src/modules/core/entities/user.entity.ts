@@ -1,8 +1,9 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, DeleteDateColumn, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { Exclude } from 'class-transformer';
 import { UserRole, UserStatus } from '../../../types/enums';
 import { BaseEntity } from './base.entity';
 import { Role } from './role.entity';
+import { IsDateString } from 'class-validator';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -20,6 +21,9 @@ export class User extends BaseEntity {
 
   @Column({ type: 'varchar' })
   firstName: string;
+
+    @Column({ type: 'varchar' })
+    fullName: string;
 
   @Column({ type: 'varchar' })
   lastName: string;
@@ -45,7 +49,7 @@ export class User extends BaseEntity {
   isPhoneVerified: boolean;
 
   @Column({ type: 'varchar', nullable: true })
-  profilePhoto: string;
+  profileImage: string;
 
   @Column({ type: 'varchar', nullable: true })
   referralCode: string;
@@ -54,7 +58,10 @@ export class User extends BaseEntity {
   referredBy: string;
 
   @Column({ type: 'varchar', nullable: true })
-  fcmToken: string;
+  expoToken: string;
+
+    @Column({ type: 'varchar', nullable: true })
+    deleteReason: string;
 
   @Column({ type: 'varchar', nullable: true })
   deviceType: string;
@@ -62,6 +69,11 @@ export class User extends BaseEntity {
   @Exclude({ toPlainOnly: true })
   @Column({ type: 'varchar', nullable: true })
   otpCode: string;
+
+    @IsDateString()
+    @Exclude({ toPlainOnly: true })
+    @DeleteDateColumn()
+    dob?: Date;
 
   @Exclude({ toPlainOnly: true })
   @Column({ type: 'varchar', nullable: true })

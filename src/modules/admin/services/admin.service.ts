@@ -30,80 +30,10 @@ export class AdminService {
   private readonly roleRepository: Repository<Role>
   ) {}
 
-  async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
-    const existingUser = await this.adminRepo.findByEmail(dto.email);
-
-    if (existingUser) {
-      throw new Error('Email already in use');
-    }
-
-    const role = await this.roleRepository.findOne({ 
-  where: { name: dto.role } 
-});
-
-if (!role) {
-  throw new NotFoundException(`Role '${dto.role}' not found`);
-}
-
-    const hashedPassword = await this.hashingUtil.hash(dto.password);
-        const otp = this.randomnessUtil.generateOtp();
-        await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
-            await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.role });
-
-       const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
-        
-    const user = await this.adminRepo.createAdmin(
-     {
-      email: dto.email,
-      fullName: `${dto.firstName} ${dto.lastName}`,  // ← entity uses fullName
-      phone: dto.phoneNumber,                         // ← entity uses phone
-      roleId: role.id,                                // ← entity uses roleId, not roleName
-      password: hashedPassword,
-      role:role.name,
-      otpCode: otp,
-      otpExpiresAt,
-      status: UserStatus.PENDING,
-      metadata: dto.meta,
-    },
-      entityManager,
-    );
-
-   
-
-    return user;
-  }
-
-  async loginAdmin(
-    dto: LoginAdminDto,
-  ): Promise<{ user: Admin; accessToken: string; refreshToken: string }> {
-    const user = await this.adminRepo.findByEmail(dto.email);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
-
-    const isPasswordValid = await this.hashingUtil.compare(dto.password, user.password);
-    if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
-
-    if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
-
-    if (user.status === UserStatus.SUSPENDED)
-      throw new UnauthorizedException('Your account has been suspended');
-
-    const tokens = this.generateTokens(user);
-    return { user, ...tokens };
-  }
 
 
-    async verifyOtp(email: string, otp: string, entityManager?: EntityManager): Promise<Admin> {
-      const user = await this.adminRepo.findByEmail(email);
-      if (!user) throw new UnauthorizedException('User not found');
-      if (user.otpCode !== otp) throw new UnauthorizedException('Invalid OTP');
-      if (isOtpExpired(user.otpExpiresAt)) throw new UnauthorizedException('OTP has expired');
-  
-      return this.adminRepo.updateUser(
-        user.id,
-        { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
-        entityManager,
-      );
-    }
+
+
 
   async getDashboardStats() {
     return await this.adminRepo.getDashboardStats();

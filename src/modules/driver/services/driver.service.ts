@@ -8,6 +8,7 @@ import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { BookingStatus, EscrowStatus, TripStatus } from 'src/types/enums';
 import { Booking } from '@modules/core/entities/booking.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
+import { Vehicle } from '@modules/core/entities/vehicle.entity';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -30,6 +31,8 @@ export class DriverTripService {
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
+    @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
+
     
     
     
@@ -48,6 +51,30 @@ export class DriverTripService {
           throw new NotFoundException('Driver profile not found');
         }
 
+        // ── Eligibility checks ──────────────────────────────────────────
+if (!driver.licenseVerified) {
+  throw new BadRequestException(
+    "Please verify your driver's license before creating a trip",
+  );
+}
+
+
+
+const vehicle = await this.vehicleRepo.findOne({
+  where: { driverId: driver.id  },
+});
+if (!vehicle) {
+  throw new BadRequestException(
+    'Please register a vehicle before creating a trip',
+  );
+}
+
+if (!vehicle.isVerified) {
+  throw new BadRequestException(
+    'Your vehicle is pending verification. You can create trips once it is approved.',
+  );
+}
+
     // Validate trip data
     this.validateTripData(dto);
 
@@ -62,7 +89,7 @@ export class DriverTripService {
           totalSeats: dto.totalSeats,
           pricePerSeat: dto.pricePerSeat,
           description: dto.description?.trim() || null,
-          vehicleId: dto.vehicleId ?? null,
+          vehicleId: vehicle.id,
           reference,
           driverId: driver.id,
           status: TripStatus.PENDING,
@@ -400,7 +427,7 @@ export class DriverTripService {
         return 0;
       }
 
-       private async releaseEscrowsForTrip(
+    private async releaseEscrowsForTrip(
     tripId: string,
     manager: EntityManager,
   ): Promise<{ completedCount: number; totalEarnings: number; platformFeeTotal: number }> {

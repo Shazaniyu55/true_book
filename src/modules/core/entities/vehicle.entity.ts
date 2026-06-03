@@ -5,8 +5,8 @@ import { BaseEntity } from './base.entity';
 
 @Entity('vehicles')
 export class Vehicle extends BaseEntity {
-  @Column({ type: 'integer' })
-  driverId: number;
+  @Column({ type: 'uuid' })
+  driverId: string;
 
   @ManyToOne(() => Driver)
   @JoinColumn({ name: 'driverId' })

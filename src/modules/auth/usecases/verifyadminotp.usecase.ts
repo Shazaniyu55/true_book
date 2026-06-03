@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
-import { AdminService } from '../services/admin.service';
-import { LoginAdminDto } from '../dtos/login.dto';
+
 import { VerifyOtpDto } from '@modules/auth/dtos/verify-otp.dto';
+import { AuthService } from '../services/auth.service';
 
 @Injectable()
 export class VerifyAdminOtpUsecase extends Usecase {
-  constructor(private readonly adminService: AdminService) {
+  constructor(private readonly authService: AuthService) {
     super();
   }
 
   async execute(_entityManager: EntityManager, args: VerifyOtpDto) {
-    return this.adminService.verifyOtp(args.email, args.otp, _entityManager);
+    return this.authService.verifyAdminOtp(args.email, args.otp, _entityManager);
   }
 }

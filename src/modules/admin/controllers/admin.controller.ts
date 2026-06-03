@@ -29,13 +29,9 @@ import {
   RejectDocumentDto,
   SuspendUserDto,
 } from '../dtos/admin.dto';
-import { CreateAdminDto } from '../dtos/create-admin.dto';
-import { LoginAdminDto } from '../dtos/login.dto';
+
 import { ToggleKillSwitchDto } from '../../kill-switch/kill-switch.dto';
 
-// ─── Auth Usecases ───────────────────────────────────────────────────────────
-import { RegisterAdminUsecase } from '../usecases/create.usecase';
-import { LoginAdminUsecase } from '../usecases/login.usecase';
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 import { GetDashboardUsecase } from '../usecases/getdashboard.usecase';
@@ -77,25 +73,21 @@ import {
   ListCouponsUsecase,
 } from '../usecases/cupons.usecase';
 import { ServiceName } from '@shared/decorators/servicename.decorators';
-import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
-import { VerifyOtpDto } from '@modules/auth/dtos/verify-otp.dto';
-import { ACGuard, UseRoles } from 'nest-access-control';
 import { Permission } from 'src/types/enums/permission.enums';
+import { PermissionsGuard } from '@shared/guards/permissions.guard';
+import { RequirePermissions } from '@shared/decorators/permissions.decorator';
 
 
 @ServiceName('admin') // For kill switch targeting
 @ApiTags('Admin')
-@UseGuards(JwtAuthGuard, RolesGuard, ACGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 @Controller('v1/admin')
 export class AdminController {
   constructor(
     private readonly broker: Broker,
     private readonly killSwitchService: KillSwitchService,
 
-    // Auth
-    private readonly registerAdminUsecase: RegisterAdminUsecase,
-    private readonly loginAdminUsecase: LoginAdminUsecase,
-    private readonly verifyAdminOtp: VerifyAdminOtpUsecase,
+
 
     // Dashboard
     private readonly getDashboardUsecase: GetDashboardUsecase,
@@ -131,29 +123,10 @@ export class AdminController {
     private readonly deactivateCouponUsecase: DeactivateCouponUsecase,
   ) {}
 
-  // ─── Auth ────────────────────────────────────────────────────────────────────
 
-  @Post('create')
-  @ApiOperation({ summary: 'Create a new admin' })
-  @ApiBody({ type: CreateAdminDto })
-  createAdmin(@Body() dto: CreateAdminDto) {
-    return this.broker.runUsecases([this.registerAdminUsecase], dto);
-  }
 
-  @Post('login')
-  @ApiOperation({ summary: 'Admin login' })
-  @ApiBody({ type: LoginAdminDto })
-  loginAdmin(@Body() dto: LoginAdminDto) {
-    return this.broker.runUsecases([this.loginAdminUsecase], dto);
-  }
 
-  @Post('verify')
-  @ApiOperation({summary: 'verify admin otp'})
-  @ApiBody({type: VerifyOtpDto})
-  verifyOtp(@Body() dto: VerifyOtpDto){
-    return this.broker.runUsecases([this.verifyAdminOtp], dto)
 
-  }
 
   // ─── Dashboard ───────────────────────────────────────────────────────────────
 
@@ -208,7 +181,7 @@ export class AdminController {
   @AdminOnly()
   @Get('users/:id')
   @ApiOperation({ summary: 'Get user by ID' })
-  getUser(@Param('id', ParseIntPipe) id: number) {
+  getUser(@Param('id') id: string) {
     return this.broker.runUsecases([this.getUserUsecase], { id });
   }
 
@@ -217,7 +190,7 @@ export class AdminController {
   @Patch('users/:id/suspend')
   @ApiOperation({ summary: 'Suspend a user account' })
   suspendUser(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: SuspendUserDto,
   ) {
     return this.broker.runUsecases([this.suspendUserUsecase], {
@@ -230,7 +203,7 @@ export class AdminController {
   @AdminOnly()
   @Patch('users/:id/activate')
   @ApiOperation({ summary: 'Activate a user account' })
-  activateUser(@Param('id', ParseIntPipe) id: number) {
+  activateUser(@Param('id') id: string) {
     return this.broker.runUsecases([this.activateUserUsecase], { id });
   }
 
@@ -248,7 +221,7 @@ export class AdminController {
   @AdminOnly()
   @Patch('documents/:id/approve')
   @ApiOperation({ summary: 'Approve a KYC document' })
-  approveDocument(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
+  approveDocument(@Param('id') id: string, @AuthUser() user: any) {
     return this.broker.runUsecases([this.approveDocumentUsecase], {
       id,
       adminEmail: user.email,
@@ -260,7 +233,7 @@ export class AdminController {
   @Patch('documents/:id/reject')
   @ApiOperation({ summary: 'Reject a KYC document' })
   rejectDocument(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: RejectDocumentDto,
     @AuthUser() user: any,
   ) {
@@ -285,7 +258,7 @@ export class AdminController {
   @AdminOnly()
   @Get('trips/:id')
   @ApiOperation({ summary: 'Get trip detail' })
-  getTrip(@Param('id', ParseIntPipe) id: number) {
+  getTrip(@Param('id') id: string) {
     return this.broker.runUsecases([this.getTripUsecase], { id });
   }
 
@@ -322,8 +295,8 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
-  @UseRoles({ resource: Permission.PAYOUT_VIEW, action: 'read', possession: 'any' })
-  @Get('payouts')
+@RequirePermissions(Permission.PAYOUT_VIEW)
+   @Get('payouts')
   @ApiOperation({ summary: 'List all payout requests' })
   listPayouts(@Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.listPayoutsUsecase], query);
@@ -331,8 +304,8 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
-  @UseRoles({ resource: Permission.PAYOUT_APPROVE, action: 'read', possession: 'any' })
-  @Patch('payouts/:id/approve')
+@RequirePermissions(Permission.PAYOUT_APPROVE)  
+@Patch('payouts/:id/approve')
   @ApiOperation({ summary: 'Approve and execute a payout via Paystack' })
   approvePayout(@Param('id') id: number, @AuthUser() user: any) {
     return this.broker.runUsecases([this.approvePayoutUsecase], {
@@ -343,8 +316,7 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
-  @UseRoles({ resource: Permission.PAYOUT_DECLINE, action: 'read', possession: 'any' })
-
+  @RequirePermissions(Permission.PAYOUT_DECLINE)
   @Patch('payouts/:id/decline')
   @ApiOperation({ summary: 'Decline a payout request' })
   declinePayout(

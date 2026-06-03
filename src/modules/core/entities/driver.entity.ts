@@ -76,6 +76,7 @@ export class Driver extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   bankName: string;
 
+
   // ── PIN ──────────────────────────────────────────────────────────────────
   @Column({ type: 'varchar', nullable: true })
   transactionPin: string;
@@ -85,4 +86,11 @@ export class Driver extends BaseEntity {
 
   @Column({ type: 'boolean', default: false })
   isPinSet: boolean;
+  
+  // ── Ratings ──────────────────────────────────────────────────────────────
+  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0 })
+  averageRating: number;   // 0.00 – 5.00
+
+  @Column({ type: 'integer', default: 0 })
+  ratingCount: number;
 }

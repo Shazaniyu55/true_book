@@ -11,6 +11,7 @@ import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 import { Broker } from '@broker/broker';
 import { GetPassengerProfileUsecase } from './usecases/getprofile.usecase';
 import { GetPassengerDashBoardUsecase } from './usecases/getdashboard.usecase';
+import { DeleteUserAccountUsecase } from './usecases/deleteacct.usecase';
 
 
 
@@ -25,6 +26,7 @@ import { GetPassengerDashBoardUsecase } from './usecases/getdashboard.usecase';
     PassengerService,
     PassengerRepository,
     GetPassengerProfileUsecase,
+    DeleteUserAccountUsecase,
     GetPassengerDashBoardUsecase
   
   ],

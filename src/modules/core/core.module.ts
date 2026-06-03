@@ -13,6 +13,7 @@ import { DocumentVerification } from './entities/document-verification.entity';
 import { Payout } from './entities/payout.entity';
 import { Coupon } from './entities/coupon.entity';
 import { ContactSupport } from './entities/contact-support.entity';
+import { Review } from './entities/review.entity';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { ContactSupport } from './entities/contact-support.entity';
       ContactSupport,
       Payout,
       Coupon,
+      Review
     ]),
   ],
   providers: [],

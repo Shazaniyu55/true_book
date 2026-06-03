@@ -34,11 +34,16 @@ import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 import { DojahProvider } from '@adapters/kyc/dojah/providers/dojah.provider';
 import { VerifyPhoneOtpUsecase } from './usecases/verifyphone-otp.usecase';
 import { ResendPhoneOtpUsecase } from './usecases/resendphoneotp.usecase';
+import { AdminModule } from '@modules/admin/admin.module';
+import { RegisterAdminUsecase } from './usecases/createadmin.usecase';
+import { LoginAdminUsecase } from './usecases/loginadmin.usecase';
+import { VerifyAdminOtpUsecase } from './usecases/verifyadminotp.usecase';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([ User, Driver, Passenger, Admin, Booking, Role]),
     PassportModule,
+    AdminModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -67,6 +72,9 @@ import { ResendPhoneOtpUsecase } from './usecases/resendphoneotp.usecase';
     RandomnessUtil,
     RegisterUsecase,
     LoginUsecase,
+    RegisterAdminUsecase,
+    LoginAdminUsecase,
+    VerifyAdminOtpUsecase,
     VerifyOtpUsecase,
     VerifyPhoneOtpUsecase,
     ForgotPasswordUsecase,

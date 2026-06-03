@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Patch,
+  Delete,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -28,6 +29,8 @@ import { RolesGuard } from '@shared/guards/roles.guard';
 import { Broker } from '@broker/broker';
 import { GetPassengerProfileUsecase } from '../usecases/getprofile.usecase';
 import { GetPassengerDashBoardUsecase } from '../usecases/getdashboard.usecase';
+import { DeleteUserAccountUsecase } from '../usecases/deleteacct.usecase';
+import { DeleteUserDto } from '@modules/auth/dtos/deleteuser.dto';
 
 @ApiTags('Passenger')
 @ApiBearerAuth()
@@ -39,7 +42,8 @@ export class PassengerController {
     private readonly broker: Broker,
     private readonly passengerService: PassengerService,
     private readonly getPassengerProfileUsecase:GetPassengerProfileUsecase,
-    private readonly getPassengerDashBoardUsecase:GetPassengerDashBoardUsecase
+    private readonly getPassengerDashBoardUsecase:GetPassengerDashBoardUsecase,
+    private readonly deleteAccountUsecase:DeleteUserAccountUsecase
   
   ) {}
 
@@ -73,6 +77,15 @@ export class PassengerController {
   })
   getDashboard(@AuthUser() user: JwtPayload) {
     return this.broker.runUsecases([this.getPassengerDashBoardUsecase], {id: user.sub})
-    //return this.passengerService.getDashboard(user.sub);
+  }
+
+  @PassengerOnly()
+  @Delete('delete-acct')
+  @ApiOperation({
+    summary: 'delete my account',
+    description: 'delete my account',
+  })
+  deleteAccount(@AuthUser() user: JwtPayload, dto: DeleteUserDto) {
+    return this.broker.runUsecases([this.deleteAccountUsecase], {id: user.sub, dto: dto})
   }
 }

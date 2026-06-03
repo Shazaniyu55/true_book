@@ -32,8 +32,8 @@ export class KycController {
     private readonly kycService: KycService,
     private readonly getDriverKycStatusUsecase:GetDriverKycStatusUsecase,
     private readonly verifyDriverLicensUsecase:VerifyDriverLicenseUsecase,
-    private readonly verifyDriverNinUsecase:VerifyDriverNinUsecase,
-    private readonly verifyDriverBvnUsecase: VerifyDriverBvnUsecase
+    // private readonly verifyDriverNinUsecase:VerifyDriverNinUsecase,
+    // private readonly verifyDriverBvnUsecase: VerifyDriverBvnUsecase
   
   ) {}
 
@@ -48,19 +48,6 @@ export class KycController {
     return this.broker.runUsecases([this.getDriverKycStatusUsecase], {id: user.sub})
   }
 
-  @DriverOnly()
-  @Post('bvn')
-  @ApiOperation({ summary: 'Verify driver BVN via Dojah' })
-  verifyBvn(@AuthUser() user: any, @Body() dto: VerifyDriverBvnDto) {
-    return this.broker.runUsecases([this.verifyDriverBvnUsecase], {id: user.sub, dto: dto})
-  }
-
-  @DriverOnly()
-  @Post('nin')
-  @ApiOperation({ summary: 'Verify driver NIN via Dojah' })
-  verifyNin(@AuthUser() user: any, @Body() dto: VerifyDriverNinDto) {
-    return this.broker.runUsecases([this.verifyDriverNinUsecase], {id: user.sub, dto: dto})
-  }
 
   @DriverOnly()
   @Post('license')

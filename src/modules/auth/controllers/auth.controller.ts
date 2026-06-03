@@ -1,5 +1,5 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Broker } from '@broker/broker';
 import { Public } from '@shared/decorators/isPublic.decorator';
 import { RegisterDto, RegisterPassangerDto } from '../dtos/register.dto';
@@ -15,6 +15,12 @@ import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { ResendOtpUsecase } from '../usecases/resendotp.usecase';
 import { VerifyPhoneOtpUsecase } from '../usecases/verifyphone-otp.usecase';
 import { ResendPhoneOtpUsecase } from '../usecases/resendphoneotp.usecase';
+import { RegisterAdminUsecase } from '../usecases/createadmin.usecase';
+import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
+import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
+import { LoginAdminUsecase } from '../usecases/loginadmin.usecase';
+import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
+
 
 @ApiTags('Auth')
 @ServiceName('auth')
@@ -29,7 +35,10 @@ export class AuthController {
     private readonly resetPasswordUsecase: ResetPasswordUsecase,
     private readonly resendotpUsecase: ResendOtpUsecase,
     private readonly verifyphoneUsecase: VerifyPhoneOtpUsecase,
-    private readonly resendPhoneOtpUsecase:ResendPhoneOtpUsecase
+    private readonly resendPhoneOtpUsecase:ResendPhoneOtpUsecase,
+    private readonly registerAdminUsecase: RegisterAdminUsecase,
+    private readonly loginAdminUsecase: LoginAdminUsecase,
+    private readonly verifyAdminOtpUsecase: VerifyAdminOtpUsecase
   ) {}
 
   @Public()
@@ -39,7 +48,19 @@ export class AuthController {
     return this.broker.runUsecases([this.registerUsecase], dto);
   }
 
+    @Post('register-admin')
+    @ApiOperation({ summary: 'Create a new admin' })
+    @ApiBody({ type: CreateAdminDto })
+    createAdmin(@Body() dto: CreateAdminDto) {
+      return this.broker.runUsecases([this.registerAdminUsecase], dto);
+    }
 
+  @Post('login-admin')
+  @ApiOperation({ summary: 'Admin login' })
+  @ApiBody({ type: LoginAdminDto })
+  loginAdmin(@Body() dto: LoginAdminDto) {
+    return this.broker.runUsecases([this.loginAdminUsecase], dto);
+  }
 
   @Public()
   @Post('login')
@@ -54,6 +75,14 @@ export class AuthController {
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.broker.runUsecases([this.verifyOtpUsecase], dto);
   }
+
+    @Post('verify-admin-otp')
+    @ApiOperation({summary: 'verify admin otp'})
+    @ApiBody({type: VerifyOtpDto})
+    verifyAdminOtp(@Body() dto: VerifyOtpDto){
+      return this.broker.runUsecases([this.verifyAdminOtpUsecase], dto)
+  
+    }
 
   @Public()
   @Post('verify-phone-otp')
@@ -99,4 +128,6 @@ export class AuthController {
   resetPassword(@Body() dto: ResetPassowrdDto) {
     return this.broker.runUsecases([this.resetPasswordUsecase], dto);
   }
+
+
 }

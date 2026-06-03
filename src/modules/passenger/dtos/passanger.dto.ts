@@ -9,11 +9,14 @@ export class UpdatePassengerProfileDto {
   @ApiPropertyOptional({ example: 'Okafor' })
   @IsOptional() @IsString() lastName?: string;
 
+    @ApiPropertyOptional({ example: 'Okafor Emeka' })
+  @IsOptional() @IsString() fullName?: string;
+
   @ApiPropertyOptional({ example: '+2348012345678' })
   @IsOptional() @IsString() phone?: string;
 
   @ApiPropertyOptional({ description: 'Profile photo URL (after Cloudinary upload)' })
-  @IsOptional() @IsString() profilePhoto?: string;
+  @IsOptional() @IsString() profileImage?: string;
 
   @ApiPropertyOptional({ example: 'Lagos' })
   @IsOptional() @IsString() state?: string;

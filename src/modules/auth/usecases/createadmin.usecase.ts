@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import {  EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
-import { CreateAdminDto } from '../dtos/create-admin.dto';
-import { AdminService } from '../services/admin.service';
 import { Admin } from '../../core/entities/admin.entity';
+import { AuthService } from '../services/auth.service';
+import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
 
 @Injectable()
 export class RegisterAdminUsecase extends Usecase<{ user: Admin }> {
-  constructor(private readonly adminService: AdminService) { super(); }
+  constructor(private readonly authService: AuthService) { super(); }
 
   async execute(entityManager: EntityManager, args: CreateAdminDto): Promise<{ user: Admin }> {
-    const user = await this.adminService.createAdmin(args, entityManager);
+    const user = await this.authService.createAdmin(args, entityManager);
     
     return {user};
 

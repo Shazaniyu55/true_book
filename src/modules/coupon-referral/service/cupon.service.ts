@@ -171,7 +171,7 @@ export class CouponService {
     try {
       await this.emailService.sendWelcomeCoupon({
         to: user.email,
-        firstName: user.firstName,
+        firstName: user.fullName,
         couponCode: welcomeCoupon.code,
         discountValue: Number(welcomeCoupon.value),
         discountType: welcomeCoupon.type,

@@ -19,7 +19,6 @@ import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { AdminOnly, PassengerOnly } from '@shared/decorators/roles.decorator';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
-import { Public } from '@shared/decorators/isPublic.decorator';
 import { CouponService } from '../service/cupon.service';
 import {
   CouponListQueryDto,
@@ -32,7 +31,7 @@ import {
 @ApiTags('Coupons')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('v1/coupons')
+@Controller('v1/admin/coupons')
 export class CouponController {
   constructor(private readonly couponService: CouponService) {}
 
@@ -46,7 +45,7 @@ export class CouponController {
   }
 
   @AdminOnly()
-  @Put(':id')
+  @Put(':id/update')
   @ApiOperation({ summary: 'Admin: Update a coupon' })
   @ApiParam({ name: 'id', description: 'Coupon UUID' })
   update(@Param('id') id: string, @Body() dto: UpdateCouponDto) {

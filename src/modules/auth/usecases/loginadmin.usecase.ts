@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
-import { AdminService } from '../services/admin.service';
-import { LoginAdminDto } from '../dtos/login.dto';
+import { AuthService } from '../services/auth.service';
+import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
 
 @Injectable()
 export class LoginAdminUsecase extends Usecase {
-  constructor(private readonly adminService: AdminService) {
+  constructor(private readonly authService: AuthService) {
     super();
   }
 
   async execute(_entityManager: EntityManager, args: LoginAdminDto) {
-    return this.adminService.loginAdmin(args);
+    return this.authService.loginAdmin(args);
   }
 }

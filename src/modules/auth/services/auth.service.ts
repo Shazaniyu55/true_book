@@ -20,6 +20,11 @@ import { ReferralService } from '@modules/coupon-referral/service/referal.servic
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from '@modules/core/entities/role.entity';
 import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
+import { DeleteUserDto } from '../dtos/deleteuser.dto';
+import { AdminRepository } from '@adapters/repositories/admin.repository';
+import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
+import { Admin } from '@modules/core/entities/admin.entity';
+import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
 
 @Injectable()
 export class AuthService {
@@ -36,6 +41,8 @@ export class AuthService {
     private readonly referralService: ReferralService,
     private readonly couponService: CouponService,
     private readonly dojahAdapter: DojahAdapter,
+    private readonly adminRepo: AdminRepository,
+    
 
 
     @InjectRepository(Role)
@@ -66,7 +73,7 @@ export class AuthService {
 
 
     await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
-    await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.role });
+    await this.emailService.sendWelcome({ to: dto.email, firstName: dto.lastName, role: dto.role });
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
 
     const user = await this.userRepository.createUser(
@@ -134,9 +141,9 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
   
 
      // SEND PUSH NOTIFICATION
-  if (user.fcmToken) {
+  if (user.expoToken) {
     await this.expoService.sendPushNotification(
-      user.fcmToken,
+      user.expoToken,
       'Welcome',
       `Your ${user.role} account was created successfully`,
       {
@@ -166,6 +173,68 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
     return { user, ...tokens };
   }
 
+  async loginAdmin(
+      dto: LoginAdminDto,
+    ): Promise<{ user: Admin; accessToken: string; refreshToken: string }> {
+      const user = await this.adminRepo.findByEmail(dto.email);
+      if (!user) throw new UnauthorizedException('Invalid credentials');
+  
+      const isPasswordValid = await this.hashingUtil.compare(dto.password, user.password);
+      if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+  
+      if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
+  
+      if (user.status === UserStatus.SUSPENDED)
+        throw new UnauthorizedException('Your account has been suspended');
+  
+      const tokens = this.generateAdminTokens(user);
+      return { user, ...tokens };
+    }
+
+     async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
+        const existingUser = await this.adminRepo.findByEmail(dto.email);
+    
+        if (existingUser) {
+          throw new Error('Email already in use');
+        }
+    
+        const role = await this.roleRepository.findOne({ 
+      where: { name: dto.role } 
+    });
+    
+    if (!role) {
+      throw new NotFoundException(`Role '${dto.role}' not found`);
+    }
+    
+        const hashedPassword = await this.hashingUtil.hash(dto.password);
+            const otp = this.randomnessUtil.generateOtp();
+            await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
+                await this.emailService.sendWelcome({ to: dto.email, firstName: dto.firstName, role: dto.role });
+    
+           const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
+            
+        const user = await this.adminRepo.createAdmin(
+         {
+          email: dto.email,
+          fullName: `${dto.firstName} ${dto.lastName}`,  // ← entity uses fullName
+          phone: dto.phoneNumber,                         // ← entity uses phone
+          roleId: role.id,                                // ← entity uses roleId, not roleName
+          password: hashedPassword,
+          role:role.name,
+          otpCode: otp,
+          otpExpiresAt,
+          status: UserStatus.PENDING,
+          metadata: dto.meta,
+        },
+          entityManager,
+        );
+    
+       
+    
+        return user;
+      }
+
+    
   async verifyOtp(email: string, otp: string, entityManager?: EntityManager): Promise<User> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) throw new BadRequestException('User not found');
@@ -192,7 +261,18 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
   
   }
 
-
+    async verifyAdminOtp(email: string, otp: string, entityManager?: EntityManager): Promise<Admin> {
+      const user = await this.adminRepo.findByEmail(email);
+      if (!user) throw new UnauthorizedException('User not found');
+      if (user.otpCode !== otp) throw new UnauthorizedException('Invalid OTP');
+      if (isOtpExpired(user.otpExpiresAt)) throw new UnauthorizedException('OTP has expired');
+  
+      return this.adminRepo.updateUser(
+        user.id,
+        { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
+        entityManager,
+      );
+    }
 
 
   async resendOtp({email}: ResendOtpDto, entityManager?: EntityManager): Promise<void> {
@@ -249,7 +329,25 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
     );
   }
 
+  async deleteAccount(userId: string, dto: DeleteUserDto, entityManager?: EntityManager){
+    const del = await this.userRepository.deleteUser(userId, dto, entityManager)
+    return del;
+  }
+
   generateTokens(user: User): { accessToken: string; refreshToken: string } {
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('common.auth.jwt.accessSecret'),
+      expiresIn: this.configService.get<string>('common.auth.jwt.accessExpiresIn'),
+    });
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get<string>('common.auth.jwt.refreshSecret'),
+      expiresIn: this.configService.get<string>('common.auth.jwt.refreshExpiresIn'),
+    });
+    return { accessToken, refreshToken };
+  }
+
+    generateAdminTokens(user: Admin): { accessToken: string; refreshToken: string } {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('common.auth.jwt.accessSecret'),

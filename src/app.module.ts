@@ -29,6 +29,8 @@ import { KillSwitchModule } from '@modules/kill-switch/kill-switch.module';
 import { TripsModule } from '@modules/trip/trip.module';
 import { KycModule } from '@modules/kyc/kyc.module';
 import { AppAccessControlModule } from '@shared/access-control/access-control.module';
+import { ReviewModule } from '@modules/review/review.module';
+import { VehicleModule } from '@modules/vehicle/vehicle.module';
 
 
 
@@ -70,7 +72,9 @@ import { AppAccessControlModule } from '@shared/access-control/access-control.mo
     WebhookModule,
     ContactSupportModule,
     TripsModule,
-    KycModule
+    KycModule,
+    ReviewModule,
+    VehicleModule
    
   ],
   controllers: [],

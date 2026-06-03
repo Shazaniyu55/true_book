@@ -6,6 +6,7 @@ import { UpdatePassengerProfileDto } from '@modules/passenger/dtos/passanger.dto
 import { User } from '@modules/core/entities/user.entity';
 import { Booking } from '@modules/core/entities/booking.entity';
 import { BookingStatus } from 'src/types/enums';
+import { DeleteUserDto } from '@modules/auth/dtos/deleteuser.dto';
 
 @Injectable()
 export class PassengerRepository extends Repository<Passenger> {
@@ -55,7 +56,8 @@ export class PassengerRepository extends Repository<Passenger> {
   if (dto.firstName) userUpdates.firstName = dto.firstName;
   if (dto.lastName) userUpdates.lastName = dto.lastName;
   if (dto.phone) userUpdates.phone = dto.phone;
-  if (dto.profilePhoto) userUpdates.profilePhoto = dto.profilePhoto;
+  if (dto.fullName) userUpdates.lastName = dto.fullName;
+  if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
 
   if (Object.keys(userUpdates).length > 0) {
     await manager.update(User, passenger.user.id, userUpdates);
@@ -134,6 +136,18 @@ export class PassengerRepository extends Repository<Passenger> {
   return this.passengerRepository.save(
     this.passengerRepository.create({ userId } as any),
   ) as unknown as Passenger;
+}
+
+async deleteUser(id: string, data: DeleteUserDto, entityManager?: EntityManager): Promise<User> {
+  const manager = entityManager || this.entityManager;
+  const user = await manager.findOne(User, { where: { id } });
+  if (!user) throw new NotFoundException('User not found');
+  if (data && Object.keys(data).length > 0) {
+    await manager.update(User, id, data);
+  }
+
+  await manager.softDelete(User, id);                         
+  return manager.findOne(User, { where: { id }, withDeleted: true });
 }
      
 }

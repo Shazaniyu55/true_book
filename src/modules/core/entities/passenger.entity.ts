@@ -19,33 +19,20 @@ export class Passenger extends BaseEntity {
   @Column({ type: 'integer', default: 0 })
   totalTrips: number;
 
-  // ── KYC ──────────────────────────────────────────────────────────────────
-  @Column({ type: 'varchar', enum: KycStatus, default: KycStatus.NOT_STARTED })
-  kycStatus: KycStatus;
 
   @Column({ type: 'varchar', nullable: true })
-  bvn: string;
-
-  @Column({ type: 'boolean', default: false })
-  bvnVerified: boolean;
-
-  @Column({ type: 'jsonb', nullable: true })
-  bvnData: Record<string, any>;
-
-  @Column({ type: 'timestamp with time zone', nullable: true })
-  bvnVerifiedAt: Date;
+  nxt_kin_name: string;
 
   @Column({ type: 'varchar', nullable: true })
-  nin: string;
+  nxt_kin_relationship: string;
 
-  @Column({ type: 'boolean', default: false })
-  ninVerified: boolean;
+  @Column({ type: 'varchar', nullable: true })
+  nxt_kin_telephone: string;
+
 
   @Column({ type: 'jsonb', nullable: true })
-  ninData: Record<string, any>;
+  payment_details: Record<string, any>;
 
-  @Column({ type: 'timestamp with time zone', nullable: true })
-  ninVerifiedAt: Date;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;

@@ -7,6 +7,7 @@ import { Passenger } from '@modules/core/entities/passenger.entity';
 import { UpdatePassengerProfileDto } from '../dtos/passanger.dto';
 import { PassengerRepository } from '@adapters/repositories/passenger.repository';
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
+import { DeleteUserDto } from '@modules/auth/dtos/deleteuser.dto';
 
 @Injectable()
 export class PassengerService {
@@ -36,7 +37,7 @@ export class PassengerService {
         folder: `passengers/${id}/profile`,
         resource_type: 'image',
       });
-      dto.profilePhoto = uploaded.secure_url; // repository maps this onto User.profilePhoto
+      dto.profileImage = uploaded.secure_url; // repository maps this onto User.profilePhoto
     }
     return this.passangerRepository.updatePassenger(id, dto, entityManager);
   }
@@ -57,5 +58,9 @@ export class PassengerService {
 async ensureProfile(id: string): Promise<Passenger> {
   return await this.passangerRepository.ensureProfile(id);
 }
+async deleteAccount(userId: string, dto: DeleteUserDto, entityManager?: EntityManager){
+    const del = await this.passangerRepository.deleteUser(userId, dto, entityManager)
+    return del;
+  }
 
 }

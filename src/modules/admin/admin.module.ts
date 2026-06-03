@@ -27,9 +27,7 @@ import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
 import { AdminService } from './services/admin.service';
 import { AdminController } from './controllers/admin.controller';
 
-// ─── Auth Usecases ───────────────────────────────────────────────────────────
-import { RegisterAdminUsecase } from './usecases/create.usecase';
-import { LoginAdminUsecase } from './usecases/login.usecase';
+
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 import { GetDashboardUsecase } from './usecases/getdashboard.usecase';
@@ -70,14 +68,11 @@ import {
   DeactivateCouponUsecase,
   ListCouponsUsecase,
 } from './usecases/cupons.usecase';
-import { VerifyAdminOtpUsecase } from './usecases/verifyadminotp.usecase';
 
 
 
 const USECASES = [
-  // Auth
-  RegisterAdminUsecase,
-  LoginAdminUsecase,
+  
   // Dashboard
   GetDashboardUsecase,
   // Users
@@ -85,7 +80,6 @@ const USECASES = [
   GetUserUsecase,
   SuspendUserUsecase,
   ActivateUserUsecase,
-  VerifyAdminOtpUsecase,
   // Documents
   ListPendingDocumentsUsecase,
   ApproveDocumentUsecase,

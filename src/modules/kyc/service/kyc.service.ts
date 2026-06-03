@@ -18,9 +18,7 @@ import {
   VerifyDriverBvnDto,
   VerifyDriverLicenseDto,
   VerifyDriverNinDto,
-  VerifyPassengerBvnDto,
-  VerifyPassengerNinDto,
-  VerifyPhoneDto,
+
 } from '../dtos/kyc.dto';
 import { DocumentStatus, KycStatus } from '../../../types/enums';
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
@@ -231,11 +229,11 @@ async sendPhoneOtp(userId: string) {
     }
 
     // Must have BVN or NIN verified first
-    if (!driver.bvnVerified && !driver.ninVerified) {
-      throw new BadRequestException(
-        'Please verify your BVN or NIN before verifying your driving license',
-      );
-    }
+    // if (!driver.bvnVerified && !driver.ninVerified) {
+    //   throw new BadRequestException(
+    //     'Please verify your BVN or NIN before verifying your driving license',
+    //   );
+    // }
 
     this.logger.log(`Verifying driver's license for driver ${driver.id}`);
 
@@ -321,132 +319,8 @@ async uploadDriverDocument(
     return { success: true, message: 'Document uploaded and queued for review', data: saved };
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PASSENGER KYC
-  // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Returns the KYC status for a passenger.
-   */
-  async getPassengerKycStatus(userId: string) {
-    const passenger = await this.getPassengerOrThrow(userId);
 
-    return {
-      kycStatus: passenger.kycStatus,
-      bvnVerified: passenger.bvnVerified,
-      bvnVerifiedAt: passenger.bvnVerifiedAt,
-      ninVerified: passenger.ninVerified,
-      ninVerifiedAt: passenger.ninVerifiedAt,
-      completionPercentage: this.calculatePassengerKycCompletion(passenger),
-    };
-  }
-
-  /**
-   * Verify passenger BVN via Dojah.
-   */
-  async verifyPassengerBvn(userId: string, dto: VerifyPassengerBvnDto) {
-    const passenger = await this.getPassengerOrThrow(userId);
-
-    if (passenger.bvnVerified) {
-      throw new ConflictException('BVN is already verified');
-    }
-
-    this.logger.log(`Verifying BVN for passenger ${passenger.id}`);
-
-    let verificationResult: any;
-    try {
-      verificationResult = await this.dojahAdapter.verifyBvn({ bvn: dto.bvn });
-    } catch (err) {
-      this.logger.error(`Dojah BVN verification failed for passenger ${passenger.id}`, err?.message);
-      throw new BadRequestException(err?.message || 'BVN verification failed. Please check your BVN and try again.');
-    }
-
-    const entity = verificationResult.entity ?? {};
-    const nameMatchResult = this.crossCheckName(passenger.user, entity);
-
-    await this.passengerRepo.update(passenger.id, {
-      bvn: dto.bvn,
-      bvnVerified: nameMatchResult.passed,
-      bvnData: {
-        ...entity,
-        nameMatch: nameMatchResult,
-        verifiedAt: new Date().toISOString(),
-      },
-      bvnVerifiedAt: nameMatchResult.passed ? new Date() : null,
-    });
-
-    if (!nameMatchResult.passed) {
-      throw new BadRequestException(
-        `BVN name mismatch. Expected "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}".`,
-      );
-    }
-
-    await this.recalculatePassengerKycStatus(passenger.id);
-
-    return {
-      success: true,
-      message: 'BVN verified successfully',
-      data: {
-        bvnVerified: true,
-        firstName: entity.first_name,
-        lastName: entity.last_name,
-        phone: this.maskPhone(entity.phone_number1 || entity.phone),
-      },
-    };
-  }
-
-  /**
-   * Verify passenger NIN via Dojah.
-   */
-  async verifyPassengerNin(userId: string, dto: VerifyPassengerNinDto) {
-    const passenger = await this.getPassengerOrThrow(userId);
-
-    if (passenger.ninVerified) {
-      throw new ConflictException('NIN is already verified');
-    }
-
-    this.logger.log(`Verifying NIN for passenger ${passenger.id}`);
-
-    let verificationResult: any;
-    try {
-      verificationResult = await this.dojahAdapter.verifyNin({ nin: dto.nin });
-    } catch (err) {
-      this.logger.error(`Dojah NIN verification failed for passenger ${passenger.id}`, err?.message);
-      throw new BadRequestException(err?.message || 'NIN verification failed. Please check your NIN and try again.');
-    }
-
-    const entity = verificationResult.entity ?? {};
-    const nameMatchResult = this.crossCheckName(passenger.user, entity);
-
-    await this.passengerRepo.update(passenger.id, {
-      nin: dto.nin,
-      ninVerified: nameMatchResult.passed,
-      ninData: {
-        ...entity,
-        nameMatch: nameMatchResult,
-        verifiedAt: new Date().toISOString(),
-      },
-      ninVerifiedAt: nameMatchResult.passed ? new Date() : null,
-    });
-
-    if (!nameMatchResult.passed) {
-      throw new BadRequestException(
-        `NIN name mismatch. Expected "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}".`,
-      );
-    }
-
-    await this.recalculatePassengerKycStatus(passenger.id);
-
-    return {
-      success: true,
-      message: 'NIN verified successfully',
-      data: {
-        ninVerified: true,
-        firstName: entity.firstname,
-        lastName: entity.surname,
-      },
-    };
-  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
@@ -477,28 +351,7 @@ async uploadDriverDocument(
     await this.driverRepo.update(driverId, { kycStatus: newStatus });
   }
 
-  /**
-   * Recalculate passenger KYC — COMPLETED once BVN or NIN is verified.
-   */
-  private async recalculatePassengerKycStatus(passengerId: string): Promise<void> {
-    const passenger = await this.passengerRepo.findOne({ where: { id: passengerId } });
-    if (!passenger) return;
-
-    let newStatus = KycStatus.NOT_STARTED;
-
-    if (passenger.bvnVerified || passenger.ninVerified) {
-      newStatus = KycStatus.IN_PROGRESS;
-    }
-
-    if (passenger.bvnVerified && passenger.ninVerified) {
-      newStatus = KycStatus.COMPLETED;
-    } else if (passenger.bvnVerified || passenger.ninVerified) {
-      // At least one identity check passed — mark completed for passengers
-      newStatus = KycStatus.COMPLETED;
-    }
-
-    await this.passengerRepo.update(passengerId, { kycStatus: newStatus });
-  }
+ 
 
   /**
    * Cross-checks the name returned by Dojah against the user's profile.
@@ -559,12 +412,7 @@ async uploadDriverDocument(
     return Math.min(score, 100);
   }
 
-  private calculatePassengerKycCompletion(passenger: Passenger): number {
-    let score = 0;
-    if (passenger.bvnVerified) score += 50;
-    if (passenger.ninVerified) score += 50;
-    return score;
-  }
+
 
   private maskPhone(phone: string): string {
     if (!phone || phone.length < 7) return '***';

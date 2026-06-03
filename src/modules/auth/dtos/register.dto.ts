@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { UserRole } from '../../../types/enums';
 
@@ -13,6 +13,16 @@ export class RegisterDto {
   @IsNotEmpty()
   @IsString()
   lastName: string;
+
+  @ApiProperty({ example: 'john Doe' })
+  @IsNotEmpty()
+  @IsString()
+  fullName: string;
+
+  @ApiProperty({ example: '1999-6-05' })
+  @IsNotEmpty()
+  @IsDateString()
+  dob: Date;
 
   @ApiProperty({ example: 'john@example.com' })
   @IsNotEmpty()

@@ -14,6 +14,7 @@ import { PaymentFactory } from '@adapters/payment/payment.factory';
 import { Passenger } from '@modules/core/entities/passenger.entity';
 import { Coupon } from '@modules/core/entities/coupon.entity';
 import { PagedDto } from '@shared/interface/paged.interface';
+import { Vehicle } from '@modules/core/entities/vehicle.entity';
 
 
 /** Platform fee rate (deducted from driver payout) */
@@ -34,7 +35,10 @@ export class TripRepository extends Repository<Trip> {
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
-     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
+    @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
+
+    @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
+
     
     
     
@@ -57,6 +61,21 @@ export class TripRepository extends Repository<Trip> {
         if (!driver) {
           throw new NotFoundException('Driver profile not found');
         }
+
+        if (!driver.licenseVerified) {
+  throw new BadRequestException(
+    "Please verify your driver's license before creating a trip",
+  );
+}
+
+const vehicleCount = await manager.count(Vehicle, {
+  where: { driverId: driver.id as any },
+});
+if (vehicleCount === 0) {
+  throw new BadRequestException(
+    'Please register a vehicle before creating a trip',
+  );
+}
 
         const reference = this.randomnessUtil.generateReference('TRP');
 
