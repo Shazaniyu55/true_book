@@ -6,7 +6,10 @@ import {
   HttpStatus,
   Logger,
   Post,
+  RawBodyRequest,
+  Req
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -19,12 +22,14 @@ import { Escrow } from '@modules/core/entities/escro.entity';
 import { DocumentVerification } from '@modules/core/entities/document-verification.entity';
 import { Notification } from '@modules/core/entities/notification.entity';
 import { Driver } from '@modules/core/entities/driver.entity';
-import { BookingStatus, DocumentStatus, EscrowStatus, KycStatus, NotificationType, PaymentStatus } from '../../../types/enums';
+import {  DocumentStatus, EscrowStatus, KycStatus, PaymentStatus } from '../../../types/enums';
 import { TripsService } from '@modules/trip/service/trip.service';
 import { ExpoService } from '@modules/notification/services/expo.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('Webhooks')
 @ServiceName('webhooks')
+@SkipThrottle()
 @Controller('webhook')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
@@ -52,14 +57,21 @@ export class WebhookController {
   })
   async handlePaystack(
     @Headers('x-paystack-signature') signature: string,
+    @Req() req: RawBodyRequest<Request>,
     @Body() rawBody: any,
   ) {
     // 1. Verify signature
-    const bodyString = JSON.stringify(rawBody);
-    if (!this.paystackAdapter.verifyWebhookSignature(bodyString, signature)) {
+       const raw = req.rawBody?.toString('utf8');
+    if (!raw || !this.paystackAdapter.verifyWebhookSignature(raw, signature)) {
       this.logger.warn('Paystack webhook: invalid signature — ignored');
       return { received: false };
     }
+
+    // const bodyString = JSON.stringify(rawBody);
+    // if (!this.paystackAdapter.verifyWebhookSignature(bodyString, signature)) {
+    //   this.logger.warn('Paystack webhook: invalid signature — ignored');
+    //   return { received: false };
+    // }
 
     const { event, data } = rawBody;
     this.logger.log(`Paystack event: ${event} | ref: ${data?.reference}`);
@@ -123,6 +135,32 @@ export class WebhookController {
       this.logger.log(`charge.success ref ${reference} — not a trip booking, skipped`);
       return;
     }
+
+      //  Re-verify with Paystack directly (never trust webhook payload alone)
+      let verified;
+  try {
+    verified = await this.paystackAdapter.verifyPayment(reference);
+  } catch (err) {
+    this.logger.error(`Verify failed for ref ${reference}`, err?.message);
+    return;
+  }
+  if (!verified.status) {
+    this.logger.warn(`charge.success ref ${reference} — verification not successful, skipped`);
+    return;
+  }
+
+  // Assert the amount matches what we expect for this booking
+  const booking = await this.bookingRepo.findOne({ where: { id: bookingId } });
+  if (!booking) {
+    this.logger.warn(`charge.success ref ${reference} — booking ${bookingId} not found`);
+    return;
+  }
+  if (Number(verified.amount) < Number(booking.amountPaid)) {
+    this.logger.error(
+      `Amount mismatch ref ${reference}: paid ${verified.amount} < expected ${booking.amountPaid}`,
+    );
+    return;
+  }
 
     try {
       await this.tripsService.confirmBookingPayment(bookingId, reference);

@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeepPartial, EntityManager, FindManyOptions, Repository } from 'typeorm';
 import { Trip } from '@modules/core/entities/trip.entity';
-import { BookingStatus, CouponType, EscrowStatus, PaymentStatus, TripStatus } from '../../types/enums';
+import { BookingStatus, CouponType, EscrowStatus, PaymentStatus, TicketStatus, TripStatus } from '../../types/enums';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { BookTripDto, CancelBookingDto, CancelTripDto, CompleteTripDto, CreateTripDto, SearchTripsDto, UpdateTripDto } from '@modules/trip/dtos/trip.dto';
@@ -204,7 +204,70 @@ if (vehicleCount === 0) {
       return await manager.save(Trip, trip);
     }
 
+    async scanTicket(
+  driverUserId: string,
+  payload: { bookingCode: string; ticketToken: string },
+  entityManager?: EntityManager,
+) {
+  const manager = entityManager || this.entityManager;
 
+  const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
+  if (!driver) throw new NotFoundException('Driver profile not found');
+
+  const booking = await this.bookingRepo.findOne({
+    where: { bookingCode: payload.bookingCode },
+    relations: ['trip', 'passenger', 'passenger.user'],
+  });
+  if (!booking) throw new NotFoundException('Ticket not found');
+
+  // ownership — ticket must belong to this driver's trip
+  if (booking.trip?.driverId !== driver.id)
+    throw new ForbiddenException('This ticket is not for your trip');
+
+  // authenticity
+  if (!booking.ticketToken || booking.ticketToken !== payload.ticketToken)
+    throw new BadRequestException('Invalid ticket');
+
+  // must be paid & confirmed
+  if (booking.paymentStatus !== PaymentStatus.SUCCESS || booking.status !== BookingStatus.CONFIRMED)
+    throw new BadRequestException('Ticket is not active');
+
+  // idempotent — re-scanning never double-credits
+  if (booking.ticketStatus === TicketStatus.SCANNED) {
+    return { alreadyScanned: true, booking, credited: 0 };
+  }
+
+  booking.ticketStatus = TicketStatus.SCANNED;
+  booking.scannedAt = new Date();
+  booking.scannedBy = driver.id;
+  booking.isCheckedIn = true;
+  booking.checkedInAt = new Date();
+  await manager.save(Booking, booking);
+
+  const credited = await this.releaseEscrowForBooking(booking, manager);
+
+  return { success: true, booking, credited };
+}
+
+private async releaseEscrowForBooking(booking: Booking, manager: EntityManager): Promise<number> {
+  const escrow = await this.escrowRepo.findOne({ where: { bookingId: booking.id } });
+  if (!escrow || escrow.status !== EscrowStatus.HELD) return 0; // idempotent
+
+  escrow.status = EscrowStatus.RELEASED;
+  escrow.releasedAt = new Date();
+  escrow.releaseReason = 'Ticket scanned at boarding';
+  await manager.save(Escrow, escrow);
+
+  await manager.increment(
+    Driver,
+    { id: escrow.driverId },
+    'walletBalance',
+    Number(escrow.netDriverAmount),
+  );
+
+  this.logger.log(`Escrow ${escrow.reference} released on scan → driver ${escrow.driverId} +${escrow.netDriverAmount}`);
+  return Number(escrow.netDriverAmount);
+}
 
     async searchTrips(query: {page?: number, limit?:number, origin?: string, destination?:string, date?:string, seats?:number, maxPrice?:number, sortBy?:string, status?:string}): Promise<PagedDto<any>> {
         const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = query;
@@ -293,9 +356,9 @@ if (vehicleCount === 0) {
     });
 
     if (existing) throw new BadRequestException('You already have a pending booking for this trip');
-      const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, trip.pricePerSeat * dto.seats);
+      const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, trip.price * dto.seats);
 
-       const totalAmount = trip.pricePerSeat * dto.seats;
+       const totalAmount = trip.price * dto.seats;
     const amountPaid = totalAmount - discountAmount;
     const bookingCode = this.randomnessUtil.generateBookingCode(8);
     const paymentReference = this.randomnessUtil.generateReference('BKG');
@@ -345,7 +408,7 @@ if (vehicleCount === 0) {
         destination: trip.destination,
         departureTime: trip.departureTime,
         seats: dto.seats,
-        pricePerSeat: trip.pricePerSeat,
+        pricePerSeat: trip.price,
         totalAmount,
         discountAmount,
         amountPaid,
@@ -371,6 +434,12 @@ if (vehicleCount === 0) {
     booking.status = BookingStatus.CONFIRMED;
     booking.paymentStatus = PaymentStatus.SUCCESS;
     booking.paymentReference = paymentReference;
+
+    // ── issue boarding ticket ──
+    booking.ticketToken = this.randomnessUtil.generateSecureToken(40);
+    booking.ticketStatus = TicketStatus.ISSUED;
+    booking.ticketIssuedAt = new Date();
+
     await manager.save(Booking, booking);
 
         // Create escrow record

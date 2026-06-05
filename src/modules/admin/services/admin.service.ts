@@ -1,20 +1,19 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 import { Admin } from '@modules/core/entities/admin.entity';
-import { CreateAdminDto } from '../dtos/create-admin.dto';
 import { AdminRepository } from '@adapters/repositories/admin.repository';
 import { EntityManager, Repository } from 'typeorm';
-import { AdminListQueryDto } from '../dtos/admin.dto';
-import { LoginAdminDto } from '../dtos/login.dto';
+import { AdminListQueryDto, UpdateAdminProfileDto, UpdateDriverDocumentDto } from '../dtos/admin.dto';
 import { HashingUtil } from '@shared/utils/hashing/hashing.utils';
-import { UserStatus } from 'src/types/enums';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from '@modules/email/email.service';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
-import { getOtpExpiry, isOtpExpired } from '@shared/utils/helpers/common.utils';
 import { Role } from '@modules/core/entities/role.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
+import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
+import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
 
 @Injectable()
 export class AdminService {
@@ -25,18 +24,29 @@ export class AdminService {
     private readonly emailService: EmailService,
     private readonly randomnessUtil: RandomnessUtil,
     private readonly configService: ConfigService,
+    private readonly cloudinaryService: CloudinaryService,
 
     @InjectRepository(Role)
   private readonly roleRepository: Repository<Role>
   ) {}
 
 
+  async getDashboardStats(query: { page?: number; limit?: number }) {
+    return await this.adminRepo.getDashboardStats(query);
+  }
 
+  async getDrivers(query: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  kycStatus?: string;
+  status?: string;
+}){
+    return await this.adminRepo.getDrivers(query)
+  }
 
-
-
-  async getDashboardStats() {
-    return await this.adminRepo.getDashboardStats();
+  async getDriverById(id: string){
+    return await this.adminRepo.getDriverById(id)
   }
 
   async listUsers(query: AdminListQueryDto) {
@@ -55,6 +65,45 @@ export class AdminService {
     return await this.adminRepo.activateUser(id);
   }
 
+  async activateDriver(id: string){
+    return await this.adminRepo.activateDriver(id);
+  }
+
+  async getDriverDocHistory(id: string){
+    return await this.adminRepo.getDriverDocumentHistory(id);
+  }
+
+  async updateDriverDocuments(id: string, dto:UpdateDriverDocumentDto){
+    return await this.adminRepo.updateDriverDocuments(id, dto)
+  }
+  
+  async addDriverDocuments(id: string, dto: AddDriverDocumentsDto){
+    return await this.adminRepo.addDriverDocuments(id, dto)
+  }
+
+  async deleteDriverDocHistory(id: string){
+    return await this.adminRepo.deleteDriverDocumentHistory(id); 
+  }
+
+ async updateProfile(
+    id: string,
+    dto: UpdateAdminProfileDto,
+    file?: Express.Multer.File,
+    entityManager?: EntityManager,
+  ) {
+    if (file) {
+      const uploaded = await this.cloudinaryService.upload(file, {
+        folder: `admin/${id}/profile`,
+        resource_type: 'image',
+      });
+      dto.profilePhoto = uploaded.secure_url; // repository maps this onto User.profilePhoto
+    }
+    return this.adminRepo.updateUser(id, dto, entityManager);
+  }
+
+  async getProfile(id: string) {
+    return await this.adminRepo.getProfile(id);
+  }
   async listPendingDocuments(query: AdminListQueryDto) {
     return await this.adminRepo.listPendingDocuments(query);
   }
@@ -114,6 +163,27 @@ export class AdminService {
   async deactivateCoupon(couponId: string) {
     return await this.adminRepo.deactivateCoupon(couponId);
   }
+
+  async updatePassword(
+  adminId: string,
+  dto:UpdatePasswordDto,
+
+): Promise<{ message: string }> {
+  const admin = await this.adminRepo.findByIdWithPassword(adminId);
+
+  const isMatch = await this.hashingUtil.compare(dto.currentPassword, admin.password);
+  if (!isMatch) throw new BadRequestException('Current password is incorrect');
+
+  const isSame = await this.hashingUtil.compare(dto.newPassword, admin.password);
+  if (isSame)
+    throw new BadRequestException(
+      'New password must be different from the current password',
+    );
+
+  const hashed = await this.hashingUtil.hash(dto.newPassword);
+  return this.adminRepo.updatePassword(adminId, hashed);
+}
+
 
   generateTokens(user: Admin): { accessToken: string; refreshToken: string } {
     const payload = { sub: user.id, email: user.email, role: user.role };

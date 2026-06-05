@@ -12,6 +12,12 @@ export enum PermissionLevel {
   FULL = 'full',
 }
 
+export enum TicketStatus {
+  PENDING = 'pending',   // booking created, payment not confirmed
+  ISSUED = 'issued',     // paid → QR ticket is live
+  SCANNED = 'scanned',   // boarded + driver credited
+  VOID = 'void',         // cancelled / refunded
+}
 
 export enum UserStatus {
   ACTIVE = 'active',

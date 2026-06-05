@@ -1,17 +1,22 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Query,
+  Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -28,6 +33,8 @@ import {
   DeclinePayoutDto,
   RejectDocumentDto,
   SuspendUserDto,
+  UpdateAdminProfileDto,
+  UpdateDriverDocumentDto,
 } from '../dtos/admin.dto';
 
 import { ToggleKillSwitchDto } from '../../kill-switch/kill-switch.dto';
@@ -76,6 +83,19 @@ import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { Permission } from 'src/types/enums/permission.enums';
 import { PermissionsGuard } from '@shared/guards/permissions.guard';
 import { RequirePermissions } from '@shared/decorators/permissions.decorator';
+import { AdminService } from '../services/admin.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { GetAdminProfileUsecase } from '../usecases/getprofile.usecase';
+import { UpdatePasswordUsecase } from '../usecases/updatepassword.usecase';
+import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
+import { GetDriversUsecase } from '../usecases/getdrivers.usecase';
+import { GetDriverByIdUsecase } from '../usecases/getdriverbyid.usecase';
+import { ActivateDriverUsecase } from '../usecases/activatedriver.usecase';
+import { GetDriverHistoryUsecase } from '../usecases/getdriverdochistory.usecase';
+import { DeleteDriverDocHistoryUsecase } from '../usecases/deletedriverdochis.usecase';
+import { UpdateDriverDocUsecase } from '../usecases/updatedriverdoc.usecase';
+import { AddDriverDocUsecase } from '../usecases/adddriverdoc.usecase';
+import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
 
 
 @ServiceName('admin') // For kill switch targeting
@@ -86,8 +106,15 @@ export class AdminController {
   constructor(
     private readonly broker: Broker,
     private readonly killSwitchService: KillSwitchService,
-
-
+    private readonly adminService: AdminService,
+    
+    private readonly getDriversUsecase:GetDriversUsecase,
+    private readonly getDriversByIdUsecase:GetDriverByIdUsecase,
+    private readonly activateDriverUsecase:ActivateDriverUsecase,
+    private readonly getDriverDocHistoryUsecase:GetDriverHistoryUsecase,
+    private readonly deleteDriverDocHistoryUsecase:DeleteDriverDocHistoryUsecase,
+    private readonly updateDriverDocUsecase:UpdateDriverDocUsecase,
+    private readonly addDriverDocUsecase:AddDriverDocUsecase,
 
     // Dashboard
     private readonly getDashboardUsecase: GetDashboardUsecase,
@@ -97,7 +124,7 @@ export class AdminController {
     private readonly getUserUsecase: GetUserUsecase,
     private readonly suspendUserUsecase: SuspendUserUsecase,
     private readonly activateUserUsecase: ActivateUserUsecase,
-
+    private readonly getAdminProfileUsecase:GetAdminProfileUsecase,
     // Documents
     private readonly listPendingDocumentsUsecase: ListPendingDocumentsUsecase,
     private readonly approveDocumentUsecase: ApproveDocumentUsecase,
@@ -121,6 +148,7 @@ export class AdminController {
     private readonly listCouponsUsecase: ListCouponsUsecase,
     private readonly createCouponUsecase: CreateCouponUsecase,
     private readonly deactivateCouponUsecase: DeactivateCouponUsecase,
+    private readonly updatePasswordUsecase:UpdatePasswordUsecase
   ) {}
 
 
@@ -134,9 +162,83 @@ export class AdminController {
   @AdminOnly()
   @Get('dashboard')
   @ApiOperation({ summary: 'Platform dashboard statistics' })
-  getDashboard() {
-    return this.broker.runUsecases([this.getDashboardUsecase], {});
+  getDashboard(@Query() query: AdminListQueryDto) {
+    return this.broker.runUsecases([this.getDashboardUsecase], query);
   }
+
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('drivers')
+  @ApiOperation({ summary: 'get all drivers' })
+  getDrivers(@Query() query: AdminListQueryDto) {
+    return this.broker.runUsecases([this.getDriversUsecase], query);
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('drivers/:id')
+  @ApiOperation({ summary: 'Get driver by ID' })
+  getDriver(@Param('id') id: string) {
+    return this.broker.runUsecases([this.getDriversByIdUsecase], { id });
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('drivers/document-history/:id')
+  @ApiOperation({ summary: 'Get driver doc history by ID' })
+  getDriverDocHistory(@Param('id') id: string) {
+    return this.broker.runUsecases([this.getDriverDocHistoryUsecase], { id });
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Delete('drivers/delete-document/:id')
+  @ApiOperation({ summary: 'delete driver doc history by ID' })
+  deleteDriverDocHistory(@Param('id') id: string) {
+    return this.broker.runUsecases([this.deleteDriverDocHistoryUsecase], { id });
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Post('drivers/update-document/:id')
+  @ApiOperation({ summary: 'update driver doc  by ID' })
+  updateDriverDoc(@Param('id') id: string, @Body() dto: UpdateDriverDocumentDto) {
+    return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto:dto });
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Post('drivers/add-document/:id')
+  @ApiOperation({ summary: 'update driver doc  by ID' })
+  addDriverDoc(@Param('id') id: string, @Body() dto: AddDriverDocumentsDto) {
+    return this.broker.runUsecases([this.addDriverDocUsecase], { id: id, dto:dto });
+  }
+
+  @AdminOnly()
+  @Patch('password-update')
+  async updatePassword(
+    @AuthUser() user: any,
+    @Body() dto: UpdatePasswordDto,
+  ) {
+    return this.broker.runUsecases([this.updatePasswordUsecase], {id: user.sub, dto:dto})
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Patch('drivers/toggle-status/:id')
+  @ApiOperation({ summary: 'Activate a driver account' })
+  activateDriver(@Param('id') id: string) {
+    return this.broker.runUsecases([this.activateDriverUsecase], { id });
+  }
+
+
+    @AdminOnly()
+    @Get('get-profile')
+    @ApiOperation({ summary: 'Get my passenger profile' })
+    getProfile(@AuthUser() user: any) {
+      return this.broker.runUsecases([this.getAdminProfileUsecase], { id: user.sub });
+    }
 
   // ─── Kill Switch ─────────────────────────────────────────────────────────────
 
@@ -166,6 +268,21 @@ export class AdminController {
   deactivateKillSwitch(@Body() dto: ToggleKillSwitchDto, @AuthUser() user: any) {
     return this.killSwitchService.deactivate(user.email, dto.deactivationCode, dto.twoFaCode);
   }
+
+    @AdminOnly()
+    @Patch('update-profile')
+    @UseInterceptors(FileInterceptor('file'))
+    @ApiConsumes('multipart/form-data')
+    @ApiOperation({ summary: 'Update my profile (name, phone, photo, state)' })
+    updateProfile(
+      @AuthUser() user: any,
+      @UploadedFile() file: Express.Multer.File,
+      @Body() dto: UpdateAdminProfileDto,
+  
+    ) {
+      
+      return this.adminService.updateProfile(user.id, dto, file);
+    }
 
   // ─── Users ───────────────────────────────────────────────────────────────────
 

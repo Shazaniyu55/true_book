@@ -18,6 +18,32 @@ export class CreateAdminDto {
   @IsNotEmpty()
   firstName: string;
 
+  @ApiProperty({ example: 'Abuja' })
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @ApiProperty({ example: 'Abuja 4 wuse' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiProperty({ example: 'male' })
+  @IsString()
+  @IsNotEmpty()
+  gender: string;
+
+  @ApiProperty({ example: 'Nigeria' })
+  @IsString()
+  @IsNotEmpty()
+  country: string;
+
+  @ApiProperty({ example: '1999-05-18' })
+  @IsString()
+  @IsNotEmpty()
+  dob: string;
+
+
   @ApiProperty({ example: 'Doe' })
   @IsString()
   @IsNotEmpty()
@@ -37,10 +63,6 @@ export class CreateAdminDto {
   role: string;
 
 
-
-
-  // @IsUUID()
-  // roleId: string;
 
   @ApiProperty({ example: UserRole.ADMIN, default: UserRole.ADMIN })
   @IsEnum(UserRole)

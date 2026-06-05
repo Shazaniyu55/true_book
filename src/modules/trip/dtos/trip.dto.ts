@@ -132,6 +132,11 @@ export class CompleteTripDto {
   @IsOptional() @IsString() notes?: string;
 }
 
+export class ScanTicketDto {
+  @ApiProperty() @IsNotEmpty() @IsString() bookingCode: string;
+  @ApiProperty() @IsNotEmpty() @IsString() ticketToken: string;
+}
+
 // ─── Driver cancels trip ───────────────────────────────────────────────────
 
 export class CancelTripDto {

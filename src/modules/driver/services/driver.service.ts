@@ -82,21 +82,30 @@ if (!vehicle.isVerified) {
     const reference = this.randomnessUtil.generateReference('TRP');
 
      // Create trip entity
-        const trip = manager.create(Trip, {
-          origin: dto.origin.trim(),
-          destination: dto.destination.trim(),
-          departureTime: new Date(dto.departureTime),
-          totalSeats: dto.totalSeats,
-          pricePerSeat: dto.pricePerSeat,
-          description: dto.description?.trim() || null,
-          vehicleId: vehicle.id,
-          reference,
-          driverId: driver.id,
-          status: TripStatus.PENDING,
-          bookedSeats: 0,
-          amenities: dto.amenities ? this.parseAmenities(dto.amenities) : null,
-          metadata: dto.metadata || { createdFrom: 'driver_portal' },
-        });
+     const trip = this.tripRepo.create({
+  driverId: driver.id,                       // from authed user
+  departureDate: dto.departureDate,
+  departureTime: dto.departureTime,
+  departureLocation: dto.departureLocation,
+  departureLatlong: dto.departureLatlong,
+  arrivalDate: dto.arrivalDate,
+  arrivalTime: dto.arrivalTime,
+  arrivalDestination: dto.arrivalDestination,
+  pickStation: dto.pickStation,
+  dropOffStation: dto.dropOffStation,
+  busStop: dto.busStop,
+  busstopLatlong: dto.busstopLatlong,
+  tripSpecification: dto.tripSpecification,
+  state: dto.state,
+  bookingClosingDate: dto.bookingClosingDate,
+  bookingClosingTime: dto.bookingClosingTime,
+  price: dto.price,
+  vehicleId: dto.vehicleId,
+  availableSeats: vehicle?.capacity ?? 10,   // the Laravel `creating` hook logic
+  status: TripStatus.PENDING,
+});
+
+await this.tripRepo.save(trip);
     
         const savedTrip = await manager.save(Trip, trip);
     
@@ -352,17 +361,17 @@ if (!vehicle.isVerified) {
       }
   
       // Origin and destination must be different
-      if (dto.origin.toLowerCase() === dto.destination.toLowerCase()) {
+      if (dto.pickStation.toLowerCase() === dto.dropOffStation.toLowerCase()) {
         throw new BadRequestException('Origin and destination must be different');
       }
   
       // Validate price is reasonable (min 100, max 50000)
-      if (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000) {
+      if (dto.price < 100 || dto.price > 50000) {
         throw new BadRequestException('Price per seat must be between 100 and 50000');
       }
   
       // Validate seats
-      if (dto.totalSeats < 1 || dto.totalSeats > 50) {
+      if (dto.availableSeats < 1 || dto.availableSeats > 50) {
         throw new BadRequestException('Total seats must be between 1 and 50');
       }
     }

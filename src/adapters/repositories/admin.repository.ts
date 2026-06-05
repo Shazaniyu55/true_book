@@ -21,6 +21,8 @@ import {
 } from 'src/types/enums';
 import { Role } from '@modules/core/entities/role.entity';
 import { PagedDto } from '@shared/interface/paged.interface';
+import { Agent } from '@modules/core/entities/agent.entity';
+import { AddDriverDocumentsDto } from '@modules/admin/dtos/adddoc.dto';
 
 @Injectable()
 export class AdminRepository extends Repository<Admin> {
@@ -35,6 +37,7 @@ export class AdminRepository extends Repository<Admin> {
     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
     @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
+    @InjectRepository(Agent) private readonly agentRepo: Repository<Agent>,
     private readonly entityManager: EntityManager,
     private readonly paystackAdapter: PaystackAdapter,
 
@@ -49,6 +52,14 @@ export class AdminRepository extends Repository<Admin> {
     return manager.save(Admin, user);
   }
 
+  async getProfile(id: string) {
+      const admin = await this.adminRepository.findOne({
+        where: { id },
+      });
+      if (!admin) throw new NotFoundException('Admin profile not found');
+      return admin;
+    }
+
   async findByEmail(email: string): Promise<Admin> {
     return this.findOne({ where: { email: email.toLowerCase() } });
   }
@@ -59,9 +70,70 @@ export class AdminRepository extends Repository<Admin> {
     return manager.findOne(Admin, { where: { id } });
   }
 
+async getDrivers(query: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  kycStatus?: string;
+  status?: string;
+}): Promise<PagedDto<any>> {
+  const { page = 1, limit = 20, search, kycStatus, status } = query;
+  const skip = (page - 1) * limit;
+
+  const qb = this.driverRepo
+    .createQueryBuilder('driver')
+    .leftJoinAndSelect('driver.user', 'user')
+    .where('driver.deletedAt IS NULL')
+    .orderBy('driver.createdAt', 'DESC')
+    .skip(skip)
+    .take(limit);
+
+  if (kycStatus) {
+    qb.andWhere('driver.kycStatus = :kycStatus', { kycStatus });
+  }
+
+  if (status) {
+    qb.andWhere('driver.status = :status', { status });
+  }
+
+  if (search) {
+    qb.andWhere(
+      '(driver.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search)',
+      { search: `%${search}%` },
+    );
+  }
+
+  const [data, total] = await qb.getManyAndCount();
+
+  const pagedDto = new PagedDto();
+  pagedDto.data = data;
+  pagedDto.meta = {
+    page,
+    limit,
+    count: data.length,
+    previousPage: page > 1 ? page - 1 : false,
+    nextPage: skip + limit < total ? page + 1 : false,
+    pageCount: Math.ceil(total / limit),
+    totalRecords: total,
+  };
+  return pagedDto;
+}
+
+async getDriverById(id: string) {
+  const driver = await this.driverRepo.findOne({
+    where: { id },
+    relations: ['user', 'documents', 'vehicle'],
+  });
+  if (!driver) throw new NotFoundException('Driver not found');
+  return driver;
+}
+
   // ─── Dashboard ───────────────────────────────────────────────────────────────
 
-  async getDashboardStats() {
+  async getDashboardStats(query: { page?: number; limit?: number } = {}) {
+      const { page = 1, limit = 20 } = query;
+  const skip = (page - 1) * limit;
+
     const [
       totalUsers,
       totalDrivers,
@@ -70,6 +142,8 @@ export class AdminRepository extends Repository<Admin> {
       totalBookings,
       pendingPayouts,
       pendingDocuments,
+      totalAgents,
+
     ] = await Promise.all([
       this.userRepo.count({ where: { deletedAt: null } }),
       this.driverRepo.count({ where: { deletedAt: null } }),
@@ -78,6 +152,7 @@ export class AdminRepository extends Repository<Admin> {
       this.bookingRepo.count({ where: { deletedAt: null } }),
       this.payoutRepo.count({ where: { status: PayoutStatus.PENDING } }),
       this.docRepo.count({ where: { status: DocumentStatus.PENDING } }),
+      this.agentRepo.count({where: {deletedAt: null}})
     ]);
 
     // Revenue: sum of all paid bookings
@@ -87,16 +162,93 @@ export class AdminRepository extends Repository<Admin> {
       .where('b.paymentStatus = :s', { s: 'success' })
       .getRawOne();
 
-    return {
-      users: { total: totalUsers, drivers: totalDrivers, passengers: totalPassengers },
-      trips: { total: totalTrips },
-      bookings: { total: totalBookings },
-      finance: {
-        totalRevenue: parseFloat(revenueResult?.total ?? '0'),
-        pendingPayouts,
+    const graphData = await this.bookingRepo
+  .createQueryBuilder('b')
+  .select("TO_CHAR(b.createdAt, 'YYYY-MM')", 'month')
+  .addSelect('SUM(b.amountPaid)', 'total')
+  .where('b.paymentStatus = :s', { s: 'success' })
+  .groupBy('month')
+  .orderBy('month', 'ASC')
+  .getRawMany();  
+
+        // paginated recent users
+  const [recentUsers, recentUsersTotal] = await this.userRepo.findAndCount({
+    where: { deletedAt: null },
+    skip,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+  const [activeTrips, activeTripsTotal] = await this.tripRepo.findAndCount({
+    where: { status: 'active' as any },
+    relations: ['driver', 'vehicle'],
+    skip,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+    const [completedTrips, completedTotal] = await this.tripRepo.findAndCount({
+    where: { status: 'completed' as any },
+    relations: ['driver', 'vehicle'],
+    skip,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+  return {
+    users: {
+      total: totalUsers,
+      drivers: totalDrivers,
+      passengers: totalPassengers,
+      agents: totalAgents,
+      recent:recentUsers,
+      totalRecentUsers: recentUsersTotal
+    },
+    trips: { total: totalTrips },
+    bookings: { total: totalBookings },
+    finance: {
+      totalRevenue: parseFloat(revenueResult?.total ?? '0'),
+      pendingPayouts,
+    },
+    graphData: graphData.map((g) => ({
+      month: g.month,
+      total: parseFloat(g.total ?? '0'),
+    })),
+    
+    kyc: { pendingDocuments },
+    activeTrips: {
+      data: activeTrips,
+      meta: {
+        page,
+        limit,
+        count: activeTrips.length,
+        pageCount: Math.ceil(activeTripsTotal / limit),
+        totalRecords: activeTripsTotal,
       },
-      kyc: { pendingDocuments },
-    };
+    },
+
+    completedTrips:{
+      data: completedTrips,
+      meta:{
+        page,
+        limit,
+        count: completedTrips.length,
+        pageCount: Math.ceil(completedTotal/limit),
+        totalRecords: completedTotal
+      }
+    }
+  };
+
+    // return {
+    //   users: { total: totalUsers, drivers: totalDrivers, passengers: totalPassengers },
+    //   trips: { total: totalTrips },
+    //   bookings: { total: totalBookings },
+    //   finance: {
+    //     totalRevenue: parseFloat(revenueResult?.total ?? '0'),
+    //     pendingPayouts,
+    //   },
+    //   kyc: { pendingDocuments },
+    // };
   }
 
   // ─── User Management ─────────────────────────────────────────────────────────
@@ -153,6 +305,71 @@ export class AdminRepository extends Repository<Admin> {
     user.status = UserStatus.ACTIVE;
     return this.userRepo.save(user);
   }
+
+    async activateDriver(id: string) {
+    const user = await this.getDriverById(id);
+    user.status = UserStatus.ACTIVE;
+    return this.userRepo.save(user);
+  }
+
+  async getDriverDocumentHistory(driverId: string) {
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) throw new NotFoundException('Driver not found');
+
+  const documents = await this.docRepo.find({
+    where: { driverId },
+    order: { createdAt: 'DESC' },
+  });
+
+  return documents;
+}
+
+async deleteDriverDocumentHistory(driverId: string): Promise<{ message: string; deleted: number }> {
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) throw new NotFoundException('Driver not found');
+
+  const result = await this.docRepo.delete({ driverId });
+
+  return {
+    message: 'Driver document history deleted successfully',
+    deleted: result.affected ?? 0,
+  };
+}
+
+async updateDriverDocuments(
+  driverId: string,
+  data: Partial<DocumentVerification>,
+): Promise<{ message: string; updated: number }> {
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) throw new NotFoundException('Driver not found');
+
+  const result = await this.docRepo.update({ driverId }, data);
+
+  return {
+    message: 'Driver documents updated successfully',
+    updated: result.affected ?? 0,
+  };
+}
+
+async addDriverDocuments(
+  driverId: string,
+  dto: AddDriverDocumentsDto,
+): Promise<DocumentVerification[]> {
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) throw new NotFoundException('Driver not found');
+
+  const documents = dto.documents.map((doc) =>
+    this.docRepo.create({
+      driverId,
+      documentType: doc.documentType,
+      documentUrl: doc.documentUrl,
+      verificationData: doc.verificationData,
+      status: DocumentStatus.PENDING, // new uploads start pending review
+    }),
+  );
+
+  return this.docRepo.save(documents);
+}
 
   // ─── Driver / KYC Management ─────────────────────────────────────────────────
 
@@ -484,6 +701,24 @@ async listCoupons(query: {
       relations: ['trip', 'passenger', 'passenger.user'],
     });
   }
+
+async findByIdWithPassword(adminId: string): Promise<Admin> {
+  const admin = await this.adminRepository.findOne({
+    where: { id: adminId },
+    select: ['id', 'email', 'password'],
+  });
+  if (!admin) throw new NotFoundException('Admin not found');
+  return admin;
+}
+
+async updatePassword(
+  adminId: string,
+  hashedPassword: string,
+): Promise<{ message: string }> {
+  await this.adminRepository.update(adminId, { password: hashedPassword });
+  return { message: 'Password updated successfully' };
+}
+
 
 
 }

@@ -15,6 +15,7 @@ import {
   CancelTripDto,
   CompleteTripDto,
   CreateTripDto,
+  ScanTicketDto,
   SearchTripsDto,
   TripListQueryDto,
   UpdateTripDto,
@@ -75,6 +76,10 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
   async searchTrips(query: SearchTripsDto) {
     return await this.tripRepository.searchTrips(query);
   }
+
+  async scanTicket(driverUserId: string, dto: ScanTicketDto, em?: EntityManager) {
+  return this.tripRepository.scanTicket(driverUserId, dto, em);
+}
 
   // ─── Passenger: Get single trip ───────────────────────────────────────────
 

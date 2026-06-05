@@ -81,7 +81,7 @@ export class AgentService {
     });
     if (!passenger) throw new NotFoundException('Passenger not found');
 
-    const totalAmount = trip.pricePerSeat * dto.seats;
+    const totalAmount = trip.price * dto.seats;
     const couponDiscount = await this.applyCouponDiscount(dto.couponCode);
     const amountPaid = totalAmount - couponDiscount;
     const bookingCode = this.randomnessUtil.generateBookingCode(8);

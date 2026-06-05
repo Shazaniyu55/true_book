@@ -121,7 +121,7 @@ export class ReferralService {
     // Send email
     await this.emailService.sendReferralReward({
       to: referrer.email,
-      firstName: referrer.fullName,
+      firstName: referrer.firstName,
       couponCode: coupon.code,
       rewardValue: Number(config.rewardValue),
       rewardType: config.rewardType,

@@ -1,10 +1,8 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
+
 } from 'typeorm';
 import { User } from './user.entity';
 import { Permission } from './permission.entity';

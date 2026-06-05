@@ -4,11 +4,13 @@ import {
   IsISO8601,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsPositive,
   IsString,
+  ValidateIf,
 } from 'class-validator';
-import { CouponType } from '../../../types/enums';
+import { CouponType, DocumentStatus } from '../../../types/enums';
 import { Type } from 'class-transformer';
 
 export class SuspendUserDto {
@@ -62,6 +64,26 @@ export class AdminListQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() role?: string;
 }
 
+export class UpdateAdminProfileDto {
+  @ApiPropertyOptional({ example: 'Emeka' })
+  @IsOptional() @IsString() firstName?: string;
+
+  @ApiPropertyOptional({ example: 'Okafor' })
+  @IsOptional() @IsString() lastName?: string;
+
+    @ApiPropertyOptional({ example: 'Okafor Emeka' })
+  @IsOptional() @IsString() fullName?: string;
+
+  @ApiPropertyOptional({ example: '+2348012345678' })
+  @IsOptional() @IsString() phone?: string;
+
+  @ApiPropertyOptional({ description: 'Profile photo URL (after Cloudinary upload)' })
+  @IsOptional() @IsString() profilePhoto?: string;
+
+  @ApiPropertyOptional({ example: 'Lagos' })
+  @IsOptional() @IsString() state?: string;
+}
+
 export class CreateAdminDto {
   @ApiProperty({ example: 'John' })
   @IsString()
@@ -72,4 +94,29 @@ export class CreateAdminDto {
   @IsString()
   @IsNotEmpty()
   lastName: string;
+}
+
+
+export class UpdateDriverDocumentDto {
+  @IsString()
+  @IsOptional()
+  documentType?: string;
+
+  @IsString()
+  @IsOptional()
+  documentUrl?: string;
+
+  @IsEnum(DocumentStatus)
+  @IsOptional()
+  status?: DocumentStatus;
+
+  // require a reason when (and only when) the doc is being rejected
+  @ValidateIf((o) => o.status === DocumentStatus.REJECTED)
+  @IsString()
+  @IsNotEmpty({ message: 'rejectionReason is required when status is REJECTED' })
+  rejectionReason?: string;
+
+  @IsObject()
+  @IsOptional()
+  verificationData?: Record<string, any>;
 }

@@ -68,6 +68,17 @@ import {
   DeactivateCouponUsecase,
   ListCouponsUsecase,
 } from './usecases/cupons.usecase';
+import { Agent } from '@modules/core/entities/agent.entity';
+import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
+import { GetAdminProfileUsecase } from './usecases/getprofile.usecase';
+import { UpdatePasswordUsecase } from './usecases/updatepassword.usecase';
+import { GetDriversUsecase } from './usecases/getdrivers.usecase';
+import { GetDriverByIdUsecase } from './usecases/getdriverbyid.usecase';
+import { ActivateDriverUsecase } from './usecases/activatedriver.usecase';
+import { GetDriverHistoryUsecase } from './usecases/getdriverdochistory.usecase';
+import { DeleteDriverDocHistoryUsecase } from './usecases/deletedriverdochis.usecase';
+import { UpdateDriverDocUsecase } from './usecases/updatedriverdoc.usecase';
+import { AddDriverDocUsecase } from './usecases/adddriverdoc.usecase';
 
 
 
@@ -87,10 +98,19 @@ const USECASES = [
   // Trips
   ListTripsUsecase,
   GetTripUsecase,
+  UpdatePasswordUsecase,
+  GetDriversUsecase,
+  GetDriverByIdUsecase,
+  ActivateDriverUsecase,
+  GetDriverHistoryUsecase,
+  DeleteDriverDocHistoryUsecase,
+  UpdateDriverDocUsecase,
+  AddDriverDocUsecase,
   // Bookings
   ListBookingsUsecase,
   GetBookingUsecase,
   RefundBookingUsecase,
+  GetAdminProfileUsecase,
   // Payouts
   ListPayoutsUsecase,
   ApprovePayoutUsecase,
@@ -106,7 +126,9 @@ const USECASES = [
 
 @Module({
   imports: [
+    CloudinaryModule,
     TypeOrmModule.forFeature([
+      
       Admin,
       Role,
       User,
@@ -117,6 +139,7 @@ const USECASES = [
       DocumentVerification,
       Coupon,
       Passenger,
+      Agent
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -61,6 +61,7 @@ export default registerAs('common', () => ({
       publicKey: process.env.FLW_PUBLIC_KEY,
       secretKey: process.env.FLW_SECRET_KEY,
       encryptionKey: process.env.FLW_ENCRYPTION_KEY,
+      webhookHash: process.env.FLW_WEBHOOK_HASH,  
     },
   },
 

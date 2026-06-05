@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { User } from '@modules/core/entities/user.entity';
 import { Admin } from '@modules/core/entities/admin.entity';
 import { JwtPayload } from '../../../types/interfaces';
+import { UserStatus } from 'src/types/enums';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -41,10 +42,14 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!entity) {
       throw new UnauthorizedException('User not found');
     }
+      if ((entity as any).status === UserStatus.SUSPENDED) {
+      throw new UnauthorizedException('Account suspended');
+    }
     
     const role = 'role' in entity ? entity.role : null;
     return { 
-      id: entity.id, 
+      id: entity.id,
+      sub: entity.id, 
       email: entity.email, 
       role,
       roleId: (entity as any).roleId ?? null,

@@ -1,5 +1,5 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { BookingStatus, PaymentStatus } from '../../../types/enums';
+import { BookingStatus, PaymentStatus, TicketStatus } from '../../../types/enums';
 import { Trip } from './trip.entity';
 import { Passenger } from './passenger.entity';
 import { BaseEntity } from './base.entity';
@@ -57,6 +57,21 @@ export class Booking extends BaseEntity {
 
   @Column({ type: 'timestamp with time zone', nullable: true })
   checkedInAt: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+ticketToken: string;                 // opaque high-entropy token encoded in the QR
+
+@Column({ type: 'varchar', enum: TicketStatus, default: TicketStatus.PENDING })
+ticketStatus: TicketStatus;
+
+@Column({ type: 'timestamp with time zone', nullable: true })
+ticketIssuedAt: Date;
+
+@Column({ type: 'timestamp with time zone', nullable: true })
+scannedAt: Date;
+
+@Column({ type: 'varchar', nullable: true })
+scannedBy: string;                   // driver id who scanned
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;

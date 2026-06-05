@@ -3,15 +3,18 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import { IFlutterwave } from '../flutterwave.interface';
 import { BankListItem, NameEnquiryResponse, PaymentInitiatePayload, PaymentVerifyResponse } from '../../../../types/interfaces';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class FlutterwaveProvider implements IFlutterwave {
   private readonly client: AxiosInstance;
   private readonly logger = new Logger(FlutterwaveProvider.name);
   private readonly secretKey: string;
+  private readonly webhookHash: string;
 
   constructor(private readonly configService: ConfigService) {
     this.secretKey = this.configService.get<string>('common.payment.flutterwave.secretKey');
+    this.webhookHash = this.configService.get<string>('common.payment.flutterwave.webhookHash');
     this.client = axios.create({
       baseURL: 'https://api.flutterwave.com/v3',
       headers: { Authorization: `Bearer ${this.secretKey}`, 'Content-Type': 'application/json' },
@@ -90,7 +93,11 @@ export class FlutterwaveProvider implements IFlutterwave {
     }
   }
 
-  verifyWebhookSignature(payload: string, signature: string): boolean {
-    return signature === this.secretKey;
+  verifyWebhookSignature(_payload: string, signature: string): boolean {
+    if (!signature || !this.webhookHash) return false;
+    const a = Buffer.from(signature);
+    const b = Buffer.from(this.webhookHash);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   }
 }

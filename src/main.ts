@@ -18,7 +18,7 @@ async function bootstrap() {
   dotenv.config();
    //Load secrets from Vault (or env in local mode) — BEFORE app creation
   await loadSecretsFromVault();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {rawBody: true});
 
   const configService = app.get(ConfigService);
   const { port, swaggerApiRoot } = configService.get('common');
@@ -29,15 +29,25 @@ async function bootstrap() {
 
   // Determine the allowed origins
   const whitelist = configService
-    .get<string>('CORS_WHITELIST')
-    .split(',')
-    .map((pattern) => new RegExp(pattern));
+  .get<string>('CORS_WHITELIST')
+  .split(',')
+  .map((p) => p.trim())
+  .filter(Boolean)
+  .map((pattern) => new RegExp(`^${pattern}$`));   // ← anchored
 
-  // Enable localhost on dev/staging servers only
-  if ([undefined, 'development', 'localhost'].includes(process.env.NODE_ENV)) {
-    // whitelist.push(/http(s)?:\/\/localhost:3000/);
-    whitelist.push(/http(s)?:\/\/localhost:/);
-  }
+if ([undefined, 'development', 'localhost'].includes(process.env.NODE_ENV)) {
+  whitelist.push(/^https?:\/\/localhost(:\d+)?$/);
+}
+  // const whitelist = configService
+  //   .get<string>('CORS_WHITELIST')
+  //   .split(',')
+  //   .map((pattern) => new RegExp(pattern));
+
+  // // Enable localhost on dev/staging servers only
+  // if ([undefined, 'development', 'localhost'].includes(process.env.NODE_ENV)) {
+  //   // whitelist.push(/http(s)?:\/\/localhost:3000/);
+  //   whitelist.push(/http(s)?:\/\/localhost:/);
+  // }
 
   Logger.log(`Approved domains: ${whitelist.join(',')}`);
 
@@ -80,6 +90,9 @@ async function bootstrap() {
   Logger.log(
     `${PRODUCT_NAME} core service running on port ${port}: visit http://localhost:${port}/${swaggerApiRoot}`,
   );
+  Logger.log(
+      `${PRODUCT_NAME}🔌 WebSocket gateway active on ws://localhost:${port}`
+  )
 }
 
 bootstrap();

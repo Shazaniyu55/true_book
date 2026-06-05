@@ -22,9 +22,6 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar' })
   firstName: string;
 
-    @Column({ type: 'varchar' })
-    fullName: string;
-
   @Column({ type: 'varchar' })
   lastName: string;
 
@@ -87,4 +84,12 @@ export class User extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
+
+  @Exclude({ toPlainOnly: true })
+@Column({ type: 'integer', default: 0 })
+otpAttempts: number;
+
+@Exclude({ toPlainOnly: true })
+@Column({ type: 'integer', default: 0 })
+phoneOtpAttempts: number;
 }

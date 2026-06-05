@@ -31,6 +31,7 @@ import { KycModule } from '@modules/kyc/kyc.module';
 import { AppAccessControlModule } from '@shared/access-control/access-control.module';
 import { ReviewModule } from '@modules/review/review.module';
 import { VehicleModule } from '@modules/vehicle/vehicle.module';
+import { LocationModule } from '@modules/location/location.module';
 
 
 
@@ -49,7 +50,7 @@ import { VehicleModule } from '@modules/vehicle/vehicle.module';
         configService.get('typeorm'),
     }),
     
-    ThrottlerModule.forRoot([{ ttl: 30000, limit: 10 }]),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
 
@@ -74,7 +75,8 @@ import { VehicleModule } from '@modules/vehicle/vehicle.module';
     TripsModule,
     KycModule,
     ReviewModule,
-    VehicleModule
+    VehicleModule,
+    LocationModule
    
   ],
   controllers: [],

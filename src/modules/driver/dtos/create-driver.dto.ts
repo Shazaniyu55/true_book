@@ -1,50 +1,112 @@
-import { IsString, IsNumber, IsDate, IsOptional, IsEnum, Min, Max, IsNotEmpty, ValidateNested, IsArray, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Matches, Min, Max, IsNotEmpty, ValidateNested, IsArray, IsDateString } from 'class-validator';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
  * DRIVER TRIP CREATION DTOs
  * ═══════════════════════════════════════════════════════════════════════════
  */
+const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
 
 export class CreateDriverTripDto {
-  @IsString()
-  @IsNotEmpty()
-  origin: string;
 
-  @IsString()
-  @IsNotEmpty()
-  destination: string;
-
+  
+  // ── departure ──
   @IsDateString()
   @IsNotEmpty()
+  departureDate: string;
+
+  @IsString()
+  @Matches(TIME_REGEX, { message: 'departureTime must be in HH:mm format' })
+  @IsNotEmpty()
   departureTime: string;
+
+  @IsString()
+  @IsNotEmpty()
+  departureLocation: string;
+
+  @IsArray()
+  @IsOptional()
+  departureLatlong?: any[];
+
+  // ── arrival ──
+  @IsDateString()
+  @IsOptional()
+  arrivalDate?: string;
+
+  @IsString()
+  @Matches(TIME_REGEX, { message: 'arrivalTime must be in HH:mm format' })
+  @IsOptional()
+  arrivalTime?: string;
+
+  @IsArray()
+  @IsOptional()
+  arrivalDestination?: any[];
+
+    @IsString()
+  @IsOptional()
+  amenities?: string; 
+
+    @IsOptional()
+  @ValidateNested()
+ 
+  metadata?: Record<string, any>;
+
+  // ── stations / stops ──
+  @IsString()
+  @IsOptional()
+  pickStation?: string;
+
+  @IsString()
+  @IsOptional()
+  dropOffStation?: string;
 
   @IsNumber()
   @Min(1)
   @Max(50)
-  totalSeats: number;
+ availableSeats: number;
 
-  @IsNumber()
-  @Min(100)
-  pricePerSeat: number;
+  @IsArray()
+  @IsOptional()
+  busStop?: any[];
+
+  @IsArray()
+  @IsOptional()
+  busstopLatlong?: any[];
+
+  // ── trip details ──
+  @IsArray()
+  @IsOptional()
+  tripSpecification?: any[];
 
   @IsString()
+  @IsOptional()
+  state?: string;
+
+  // ── booking window ──
+  @IsDateString()
+  @IsOptional()
+  bookingClosingDate?: string;
+
+  @IsString()
+  @Matches(TIME_REGEX, { message: 'bookingClosingTime must be in HH:mm format' })
+  @IsOptional()
+  bookingClosingTime?: string;
+
+  // ── money ──
+  @IsNumber()
+  @Min(100)
+  price: number;
+
+    @IsString()
   @IsOptional()
   description?: string;
 
+  // ── vehicle ──
   @IsString()
   @IsOptional()
   vehicleId?: string;
-
-  @IsString()
-  @IsOptional()
-  amenities?: string; // JSON string or comma-separated
-
-  @IsOptional()
-  @ValidateNested()
- 
-  metadata?: Record<string, any>;
 }
+
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -285,4 +347,19 @@ export class CompleteTripResponseDto {
     platformFee: number;
     netEarnings: number;
   };
+}
+
+export class PassengerFeedbackDto {
+  @IsString()
+  @IsNotEmpty()
+  bookingId: string;
+
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  rating: number;
+
+  @IsString()
+  @IsOptional()
+  comment?: string;
 }

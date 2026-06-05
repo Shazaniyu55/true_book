@@ -25,6 +25,7 @@ import { AdminRepository } from '@adapters/repositories/admin.repository';
 import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
 import { Admin } from '@modules/core/entities/admin.entity';
 import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
+import { dot } from 'node:test/reporters';
 
 @Injectable()
 export class AuthService {
@@ -42,15 +43,13 @@ export class AuthService {
     private readonly couponService: CouponService,
     private readonly dojahAdapter: DojahAdapter,
     private readonly adminRepo: AdminRepository,
-    
-
-
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>
     
     
     
   ) {}
+    private static readonly MAX_OTP_ATTEMPTS = 5;
 
   async register(dto: RegisterDto, entityManager?: EntityManager): Promise<User> {
     const existingUser = await this.userRepository.findByEmail(dto.email);
@@ -59,8 +58,15 @@ export class AuthService {
     const existingPhone = await this.userRepository.findByPhone(dto.phone);
     if (existingPhone) throw new ConflictException('Phone number already in use');
 
+      // Public signup may ONLY create passenger or driver accounts.
+  const ALLOWED_PUBLIC_ROLES = [UserRole.PASSENGER, UserRole.DRIVER, UserRole.AGENT];
+  const requestedRole = (dto.role ?? UserRole.PASSENGER) as UserRole;
+  const safeRole = ALLOWED_PUBLIC_ROLES.includes(requestedRole)
+    ? requestedRole
+    : UserRole.PASSENGER;
+
       const role = await this.roleRepository.findOne({ 
-      where: { name: dto.role } 
+      where: { name: safeRole } 
     });
     
     if (!role) {
@@ -70,10 +76,11 @@ export class AuthService {
     const hashedPassword = await this.hashingUtil.hash(dto.password);
     const referralCode = this.randomnessUtil.generateRandomStringWithNumbers(8);
     const otp = this.randomnessUtil.generateOtp();
+    const hasedOtp = await this.hashingUtil.hash(otp)
 
 
     await this.emailService.sendOtp({ to: dto.email, firstName: dto.firstName, otp });
-    await this.emailService.sendWelcome({ to: dto.email, firstName: dto.lastName, role: dto.role });
+    await this.emailService.sendWelcome({ to: dto.email, firstName: dto.lastName, role: safeRole });
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
 
     const user = await this.userRepository.createUser(
@@ -81,10 +88,10 @@ export class AuthService {
         ...dto,
         password: hashedPassword,
         referralCode,
-        otpCode: otp,
+        otpCode: hasedOtp,
         otpExpiresAt,
         roleId: role.id,
-        role: dto.role || UserRole.PASSENGER,
+        role: safeRole,
         status: UserStatus.PENDING,
       },
       entityManager,
@@ -105,13 +112,14 @@ export class AuthService {
 if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DRIVER)) {
   const minutes = this.configService.get<number>('common.otp.durationMinutes');
   const phoneOtp = this.randomnessUtil.generateOtp();
+  const hasedphone = await this.hashingUtil.hash(phoneOtp);
 
   await this.userRepository.updateUser(
     user.id,
-    { phoneOtpCode: phoneOtp, phoneOtpExpiresAt: getOtpExpiry(minutes) },
+    { phoneOtpCode: hasedphone, phoneOtpExpiresAt: getOtpExpiry(minutes) },
     entityManager,
   );
-  user.phoneOtpCode = phoneOtp;
+  user.phoneOtpCode = hasedphone;
   user.phoneOtpExpiresAt = getOtpExpiry(minutes);
 
   this.dojahAdapter
@@ -216,11 +224,18 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
         const user = await this.adminRepo.createAdmin(
          {
           email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
           fullName: `${dto.firstName} ${dto.lastName}`,  // ← entity uses fullName
           phone: dto.phoneNumber,                         // ← entity uses phone
           roleId: role.id,                                // ← entity uses roleId, not roleName
           password: hashedPassword,
           role:role.name,
+          country:dto.country,
+          address: dto.address,
+          city: dto.city,
+          gender: dto.gender,
+          dob: dto.dob,
           otpCode: otp,
           otpExpiresAt,
           status: UserStatus.PENDING,
@@ -238,8 +253,31 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
   async verifyOtp(email: string, otp: string, entityManager?: EntityManager): Promise<User> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) throw new BadRequestException('User not found');
-    if (user.otpCode !== otp) throw new BadRequestException('Invalid OTP');
+    // if (user.otpCode !== otp) throw new BadRequestException('Invalid OTP');
     if (isOtpExpired(user.otpExpiresAt)) throw new BadRequestException('OTP has expired');
+
+      if ((user.otpAttempts ?? 0) >= AuthService.MAX_OTP_ATTEMPTS) {
+    // Invalidate so a fresh OTP must be requested
+    await this.userRepository.updateUser(
+      user.id,
+      { otpCode: null, otpExpiresAt: null },
+      entityManager,
+    );
+    throw new BadRequestException('Too many attempts. Please request a new code.');
+  }
+
+    const valid = user.otpCode
+    ? await this.hashingUtil.compare(otp, user.otpCode)
+    : false;
+
+      if (!valid) {
+    await this.userRepository.updateUser(
+      user.id,
+      { otpAttempts: (user.otpAttempts ?? 0) + 1 },
+      entityManager,
+    );
+    throw new BadRequestException('Invalid OTP');
+  }
 
     return this.userRepository.updateUser(
       user.id,
@@ -247,11 +285,35 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
       entityManager,
     );
   }
+
   async verifyPhoneOtp(phone: string, otp:string, entityManager?: EntityManager): Promise<User>{
      const user = await this.userRepository.findByPhone(phone);
      if (!user) throw new BadRequestException('User not found');
-     if (user.phoneOtpCode !== otp) throw new BadRequestException('Invalid OTP');
+    //  if (user.phoneOtpCode !== otp) throw new BadRequestException('Invalid OTP');
      if (isOtpExpired(user.phoneOtpExpiresAt)) throw new BadRequestException('OTP has expired');
+
+    if ((user.phoneOtpAttempts ?? 0) >= AuthService.MAX_OTP_ATTEMPTS) {
+    // Invalidate so a fresh OTP must be requested
+    await this.userRepository.updateUser(
+      user.id,
+      { phoneOtpCode: null, phoneOtpExpiresAt: null },
+      entityManager,
+    );
+    throw new BadRequestException('Too many attempts. Please request a new code.');
+  }
+
+    const valid = user.phoneOtpCode
+    ? await this.hashingUtil.compare(otp, user.phoneOtpCode)
+    : false;
+
+      if (!valid) {
+    await this.userRepository.updateUser(
+      user.id,
+      { phoneOtpAttempts: (user.phoneOtpAttempts ?? 0) + 1 },
+      entityManager,
+    );
+    throw new BadRequestException('Invalid OTP');
+  }
 
     return this.userRepository.updateUser(
       user.id,

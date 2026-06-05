@@ -130,10 +130,17 @@ export class PaystackProvider implements IPaystack {
     }
   }
 
-  verifyWebhookSignature(payload: string, signature: string): boolean {
-    const hash = crypto.createHmac('sha512', this.secretKey).update(payload).digest('hex');
-    return hash === signature;
-  }
+verifyWebhookSignature(payload: string, signature: string): boolean {
+  if (!signature) return false;
+  const hash = crypto
+    .createHmac('sha512', this.secretKey)
+    .update(payload)
+    .digest('hex');
+  const a = Buffer.from(hash);
+  const b = Buffer.from(signature);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
 
   async initiateRefund(reference: string, amount?: number): Promise<boolean> {
     try {

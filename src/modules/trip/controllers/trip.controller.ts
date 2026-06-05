@@ -29,6 +29,7 @@ import {
   CancelTripDto,
   CompleteTripDto,
   CreateTripDto,
+  ScanTicketDto,
   SearchTripsDto,
   TripListQueryDto,
   UpdateTripDto,
@@ -49,6 +50,7 @@ import { CheckInPassengerUsecase } from '../usecases/checkinpassenger.usecase';
 import { CancleBookingUsecase } from '../usecases/canclebooking.usecase';
 import { GetBookingCodeUsecase } from '../usecases/getbookingcode.usecase';
 import { BookTripUsecase } from '../usecases/booktrip.usecase';
+import { ScanTicketUsecase } from '../usecases/scanticket.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -71,7 +73,8 @@ export class TripsController {
     private readonly checkInPassengerUsecase:CheckInPassengerUsecase,
     private readonly cancleBookingUsecase:CancleBookingUsecase,
     private readonly getBookingCodeUsecase:GetBookingCodeUsecase,
-    private readonly bookTripUsecase:BookTripUsecase
+    private readonly bookTripUsecase:BookTripUsecase,
+    private readonly scanTicketUsecase:ScanTicketUsecase
   
   ) {}
 
@@ -218,4 +221,11 @@ export class TripsController {
   getBooking(@AuthUser() user: any, @Param('code') code: string) {
     return this.broker.runUsecases([this.getBookingCodeUsecase], {id: user.sub, bookingCode:code})
   }
+
+  @DriverOnly()
+@Post('tickets/scan')
+@ApiOperation({ summary: 'Driver: Scan a boarding ticket — credits driver instantly' })
+scanTicket(@AuthUser() user: any, @Body() dto: ScanTicketDto) {
+  return this.broker.runUsecases([this.scanTicketUsecase], { id: user.sub, dto });
+}
 }
