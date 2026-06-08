@@ -84,6 +84,7 @@ export enum VehicleType {
 }
 
 export enum NotificationType {
+  TRIP_CREATED= 'trip_created',
   TRIP_BOOKED = 'trip_booked',
   TRIP_CANCELLED = 'trip_cancelled',
   TRIP_COMPLETED = 'trip_completed',
@@ -134,4 +135,40 @@ export enum EscrowStatus {
   RELEASED = 'released',
   REFUNDED = 'refunded',
   DISPUTED = 'disputed',
+}
+
+export interface PriceControlDto {
+  agentEarningAmount: number;     // max an agent can earn per referred driver
+  platformCommissionRate: number; // % platform takes per booking
+  driverEarningRate: number;      // % driver earns per booking
+  minTripPrice: number;           // minimum price for a trip
+  maxTripPrice: number;           // maximum price for a trip
+}
+
+export interface ReferralProgramDto {
+  earningPerTrip: number;         // how much agent earns per completed trip
+  maxEarningPerDriver: number;   // cap on earnings per referred driver
+  referralBonus: number;           // one-time bonus on first referral
+  isActive: boolean;               // toggle the whole program on/off
+}
+
+export enum SystemSettingEnum {
+  PRICE_CONTROL = 'price_control',
+  REFERRAL_PROGRAM = 'referral_program',
+}
+
+export interface CreateContactSupportDto {
+  subject: string;
+  message: string;
+  firstName: string;   // for guest users
+  lastName: string;    // for guest users
+  email: string;       // for guest users
+}
+
+export interface ContactSupportQueryDto {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: ContactSupportStatus;
+  userType?: UserRole;
 }

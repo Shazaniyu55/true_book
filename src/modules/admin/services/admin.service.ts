@@ -39,14 +39,95 @@ export class AdminService {
   page?: number;
   limit?: number;
   search?: string;
-  kycStatus?: string;
-  status?: string;
 }){
+  
     return await this.adminRepo.getDrivers(query)
   }
 
+async getPassengers(query: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}){
+  
+    return await this.adminRepo.getPassengers(query)
+  }
+
+  async getTripsWithPassenger(tripId: string, query: { page?: number; limit?: number }){
+    return await this.adminRepo.getTripWithPassengers(tripId, query)
+  }
+
+  async getDriverWithDetalis(id: string, query: { page?: number; limit?: number }){
+    return await this.adminRepo.getDriverWithDetails(id, query)
+  }
+
+  async getPassengerWithDetails(id: string, query: { page?: number; limit?: number }){
+    return await this.adminRepo.getPassengerWithDetails(id, query)
+  }
+
+  async toggleDriverStatus(id:string){
+    return await this.adminRepo.toggleDriverStatus(id)
+  }
+// -------------------------
+  async getFinancialReport(query: { page?: number; limit?: number }){
+      return await this.adminRepo.getFinancialReport(query)
+  }
+
+  async getRevenueGraph(){
+    return await this.adminRepo.getRevenueGraph()
+  }
+
+  async getTransactionHistory(query: { page?: number; limit?: number }){
+    return await this.adminRepo.getTransactionHistory(query)
+  }
+
+  async getRefundRequests(query: { page?: number; limit?: number }){
+    return await this.adminRepo.getRefundRequests(query)
+  }
+
+  async getDriversEarnings(query: { page?: number; limit?: number }){
+    return await this.adminRepo.getDriversEarnings(query)
+  }
+
+  async getAgentsEarnings(query: { page?: number; limit?: number }){
+    return await this.adminRepo.getAgentsEarnings(query)
+  }
+
+  // --------------------------
+  async togglePassengerStatus(id: string){
+    return this.adminRepo.togglePassengerStatus(id)
+  }
+
+  async toggleAgentStatus(id: string){
+    return this.adminRepo.toggleAgentStatus(id);
+  }
+
+  async getAgentReferrals(id: string, query: { page?: number; limit?: number }){
+    return this.adminRepo.getAgentReferrals(id, query)
+  }
+
+  async getAgentWithDetails(id: string){
+    return this.adminRepo.getAgentWithDetails(id)
+  }
+
+  async getAgentById(id: string){
+    this.adminRepo.getAgentById(id)
+  }
+
+  async getAgents(query: { page?: number; limit?: number }){
+    return this.adminRepo.getAgents(query);
+  }
+  // ---------------------------------//
   async getDriverById(id: string){
     return await this.adminRepo.getDriverById(id)
+  }
+
+  async getDriverVehicleId(id:string){
+    return await this.adminRepo.getDriverVehicle(id);
+  }
+
+  async getPassengerById(id: string){
+    return await this.adminRepo.getPassengerById(id)
   }
 
   async listUsers(query: AdminListQueryDto) {

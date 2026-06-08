@@ -79,6 +79,20 @@ import { GetDriverHistoryUsecase } from './usecases/getdriverdochistory.usecase'
 import { DeleteDriverDocHistoryUsecase } from './usecases/deletedriverdochis.usecase';
 import { UpdateDriverDocUsecase } from './usecases/updatedriverdoc.usecase';
 import { AddDriverDocUsecase } from './usecases/adddriverdoc.usecase';
+import { Beneficiary } from '@modules/core/entities/beneficiary.entity';
+import { GetPassengersUsecase } from './usecases/getpassenger.usecase';
+import { GetPassengerByIdUsecase } from './usecases/getpassengerid.usecase';
+import { Vehicle } from '@modules/core/entities/vehicle.entity';
+import { GetDriverVehicleByIdUsecase } from './usecases/getdrivervehicle.usecase';
+import { Review } from '@modules/core/entities/review.entity';
+import { GetAgentsUsecase } from './usecases/getagents.usecase';
+import { GetAgentByIdUsecase } from './usecases/getagentbyid.usecase';
+import { GetAgentWithDetailUsecase } from './usecases/getagentdetails.usecase';
+import { GetAgentReferralUsecase } from './usecases/getagentreferral.usecase';
+import { ToggleAgentStatusUsecase } from './usecases/toggleagent.usecase';
+import { TogglePassengerStatusUsecase } from './usecases/togglepassenger.usecase';
+import { ToggledriverStatusUsecase } from './usecases/toggledriver.usecase';
+import { GetFinacialReportUsecase } from './usecases/getfinacialreport.usecase';
 
 
 
@@ -88,13 +102,24 @@ const USECASES = [
   GetDashboardUsecase,
   // Users
   ListUsersUsecase,
+  GetAgentByIdUsecase,
+  GetAgentWithDetailUsecase,
+  GetAgentReferralUsecase,
+  ToggleAgentStatusUsecase,
+  TogglePassengerStatusUsecase,
+  ToggledriverStatusUsecase,
+  GetAgentsUsecase,
   GetUserUsecase,
   SuspendUserUsecase,
   ActivateUserUsecase,
+  GetDriverVehicleByIdUsecase,
+  GetFinacialReportUsecase,
   // Documents
   ListPendingDocumentsUsecase,
   ApproveDocumentUsecase,
   RejectDocumentUsecase,
+  GetPassengersUsecase,
+  GetPassengerByIdUsecase,
   // Trips
   ListTripsUsecase,
   GetTripUsecase,
@@ -139,7 +164,10 @@ const USECASES = [
       DocumentVerification,
       Coupon,
       Passenger,
-      Agent
+      Agent,
+      Beneficiary,
+      Vehicle,
+      Review,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

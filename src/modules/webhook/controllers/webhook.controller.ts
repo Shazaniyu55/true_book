@@ -254,7 +254,7 @@ export class WebhookController {
     // Check if all driver documents are now approved
     const allDocs = await this.docRepo.find({ where: { driverId } });
     if (allDocs.length && allDocs.every((d) => d.status === DocumentStatus.APPROVED)) {
-      await this.driverRepo.update(driverId, { kycStatus: KycStatus.COMPLETED });
+      await this.driverRepo.update(driverId, { kycComplete: KycStatus.COMPLETED });
     }
 
 

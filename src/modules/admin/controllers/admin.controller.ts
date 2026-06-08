@@ -18,6 +18,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -96,6 +97,16 @@ import { DeleteDriverDocHistoryUsecase } from '../usecases/deletedriverdochis.us
 import { UpdateDriverDocUsecase } from '../usecases/updatedriverdoc.usecase';
 import { AddDriverDocUsecase } from '../usecases/adddriverdoc.usecase';
 import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
+import { GetPassengersUsecase } from '../usecases/getpassenger.usecase';
+import { GetPassengerByIdUsecase } from '../usecases/getpassengerid.usecase';
+import { GetDriverVehicleByIdUsecase } from '../usecases/getdrivervehicle.usecase';
+import { GetAgentByIdUsecase } from '../usecases/getagentbyid.usecase';
+import { GetAgentWithDetailUsecase } from '../usecases/getagentdetails.usecase';
+import { GetAgentReferralUsecase } from '../usecases/getagentreferral.usecase';
+import { GetAgentsUsecase } from '../usecases/getagents.usecase';
+import { ToggleAgentStatusUsecase } from '../usecases/toggleagent.usecase';
+import { ToggledriverStatusUsecase } from '../usecases/toggledriver.usecase';
+import { TogglePassengerStatusUsecase } from '../usecases/togglepassenger.usecase';
 
 
 @ServiceName('admin') // For kill switch targeting
@@ -115,6 +126,9 @@ export class AdminController {
     private readonly deleteDriverDocHistoryUsecase:DeleteDriverDocHistoryUsecase,
     private readonly updateDriverDocUsecase:UpdateDriverDocUsecase,
     private readonly addDriverDocUsecase:AddDriverDocUsecase,
+    private readonly getPassengersUsecase:GetPassengersUsecase,
+    private readonly getPassegerByIdUsecase:GetPassengerByIdUsecase,
+    private readonly getDriverVehicleByIdUsecase:GetDriverVehicleByIdUsecase,
 
     // Dashboard
     private readonly getDashboardUsecase: GetDashboardUsecase,
@@ -148,7 +162,15 @@ export class AdminController {
     private readonly listCouponsUsecase: ListCouponsUsecase,
     private readonly createCouponUsecase: CreateCouponUsecase,
     private readonly deactivateCouponUsecase: DeactivateCouponUsecase,
-    private readonly updatePasswordUsecase:UpdatePasswordUsecase
+    private readonly updatePasswordUsecase:UpdatePasswordUsecase,
+
+    private readonly getAgentByIdUsecase:GetAgentByIdUsecase,
+    private readonly getAgentWithDetailUsecase:GetAgentWithDetailUsecase,
+    private readonly getAgentReferralUsecase:GetAgentReferralUsecase,
+    private readonly getAgentUsecase:GetAgentsUsecase,
+    private readonly toggleAgentStatusUsecase:ToggleAgentStatusUsecase,
+    private readonly toggleDriverStatusUsecase:ToggledriverStatusUsecase,
+    private readonly togglePassengerStatusUsecase:TogglePassengerStatusUsecase
   ) {}
 
 
@@ -162,31 +184,126 @@ export class AdminController {
   @AdminOnly()
   @Get('dashboard')
   @ApiOperation({ summary: 'Platform dashboard statistics' })
+  @ApiBody({ type: AdminListQueryDto })
   getDashboard(@Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.getDashboardUsecase], query);
   }
 
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('agent:id')
+  @ApiOperation({ summary: 'get Agent by Id' })
+  @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
+  getAgentById(@Param('id') id: string) {
+    return this.broker.runUsecases([this.getAgentByIdUsecase], {id: id});
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('agent-details:id')
+  @ApiOperation({ summary: 'get Agent-details by Id' })
+  @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
+  getAgentDetail(@Param('id') id: string) {
+    return this.broker.runUsecases([this.getAgentWithDetailUsecase], {id: id});
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('agent-referral:id')
+  @ApiOperation({ summary: 'get Agent-referral by Id' })
+  @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
+  @ApiBody({ type: AdminListQueryDto })
+  getAgentReferral(@Param('id') id: string, @Query() query: AdminListQueryDto) {
+    return this.broker.runUsecases([this.getAgentReferralUsecase], {id: id, query: query});
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('agents')
+  @ApiOperation({ summary: 'get Agents ' })
+  @ApiBody({ type: AdminListQueryDto })
+  getAgents(@Query() query: AdminListQueryDto) {
+    return this.broker.runUsecases([this.getAgentUsecase], {query: query});
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Patch('toggle-agents')
+  @ApiOperation({ summary: 'toggle-Agents ' })
+  @ApiParam({ name: 'id', type: String, description: 'toggle Agent UUID' })
+  toogleAgent(@Param() id: string) {
+    return this.broker.runUsecases([this.toggleAgentStatusUsecase], {id: id});
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Patch('toggle-driver')
+  @ApiOperation({ summary: 'toggle-driver ' })
+  @ApiParam({ name: 'id', type: String, description: 'toggle driver UUID' })
+
+  toogleDriver(@Param() id: string) {
+    return this.broker.runUsecases([this.toggleDriverStatusUsecase], {id: id});
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Patch('toggle-passenger')
+  @ApiOperation({ summary: 'toggle-passenger ' })
+  @ApiParam({ name: 'id', type: String, description: 'toggle passenger UUID' })
+  tooglePassenger(@Param() id: string) {
+    return this.broker.runUsecases([this.togglePassengerStatusUsecase], {id: id});
+  }
 
   @ApiBearerAuth()
   @AdminOnly()
   @Get('drivers')
   @ApiOperation({ summary: 'get all drivers' })
+  @ApiBody({ type: AdminListQueryDto })
   getDrivers(@Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.getDriversUsecase], query);
   }
 
   @ApiBearerAuth()
   @AdminOnly()
+  @Get('passengers')
+  @ApiOperation({ summary: 'get all passengers' })
+  @ApiBody({ type: AdminListQueryDto })
+  getPassengers(@Query() query: AdminListQueryDto) {
+    return this.broker.runUsecases([this.getPassengersUsecase], query);
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
   @Get('drivers/:id')
   @ApiOperation({ summary: 'Get driver by ID' })
-  getDriver(@Param('id') id: string) {
+  @ApiParam({ name: 'id', type: String, description: 'get driver by id' })
+  getDriverById(@Param('id') id: string) {
     return this.broker.runUsecases([this.getDriversByIdUsecase], { id });
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('drivers/vehicles/:id')
+  @ApiOperation({ summary: 'Get driver vehicles by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Get driver vehicles by ID' })
+  getDriverVehicle(@Param('id') id: string) {
+    return this.broker.runUsecases([this.getDriverVehicleByIdUsecase], { id });
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('passengers/:id')
+  @ApiOperation({ summary: 'Get passenger by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Get passenger by ID' })
+  getPassengerById(@Param('id') id: string) {
+    return this.broker.runUsecases([this.getPassegerByIdUsecase], { id });
   }
 
   @ApiBearerAuth()
   @AdminOnly()
   @Get('drivers/document-history/:id')
   @ApiOperation({ summary: 'Get driver doc history by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Get driver doc history by ID' })
   getDriverDocHistory(@Param('id') id: string) {
     return this.broker.runUsecases([this.getDriverDocHistoryUsecase], { id });
   }
@@ -195,6 +312,7 @@ export class AdminController {
   @AdminOnly()
   @Delete('drivers/delete-document/:id')
   @ApiOperation({ summary: 'delete driver doc history by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'delete driver doc history by ID' })
   deleteDriverDocHistory(@Param('id') id: string) {
     return this.broker.runUsecases([this.deleteDriverDocHistoryUsecase], { id });
   }
@@ -203,6 +321,8 @@ export class AdminController {
   @AdminOnly()
   @Post('drivers/update-document/:id')
   @ApiOperation({ summary: 'update driver doc  by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'update driver doc  by ID' })
+  @ApiBody({ type: UpdateDriverDocumentDto })
   updateDriverDoc(@Param('id') id: string, @Body() dto: UpdateDriverDocumentDto) {
     return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto:dto });
   }
@@ -211,12 +331,17 @@ export class AdminController {
   @AdminOnly()
   @Post('drivers/add-document/:id')
   @ApiOperation({ summary: 'update driver doc  by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'update driver doc  by ID' })
+  @ApiBody({ type: AddDriverDocumentsDto })
   addDriverDoc(@Param('id') id: string, @Body() dto: AddDriverDocumentsDto) {
     return this.broker.runUsecases([this.addDriverDocUsecase], { id: id, dto:dto });
   }
 
+  @ApiBearerAuth()
   @AdminOnly()
   @Patch('password-update')
+  @ApiBody({ type: UpdatePasswordDto })
+
   async updatePassword(
     @AuthUser() user: any,
     @Body() dto: UpdatePasswordDto,
@@ -228,6 +353,7 @@ export class AdminController {
   @AdminOnly()
   @Patch('drivers/toggle-status/:id')
   @ApiOperation({ summary: 'Activate a driver account' })
+  @ApiParam({ name: 'id', type: String, description: 'Activate a driver account' })
   activateDriver(@Param('id') id: string) {
     return this.broker.runUsecases([this.activateDriverUsecase], { id });
   }
@@ -256,6 +382,8 @@ export class AdminController {
   @SkipKillSwitch()
   @Post('kill-switch/activate')
   @ApiOperation({ summary: 'Activate kill switch — takes the API offline immediately' })
+  @ApiBody({ type: ToggleKillSwitchDto })
+
   activateKillSwitch(@Body() dto: ToggleKillSwitchDto, @AuthUser() user: any) {
     return this.killSwitchService.activate(user.email, dto.deactivationCode, dto.reason);
   }
@@ -265,6 +393,7 @@ export class AdminController {
   @SkipKillSwitch()
   @Post('kill-switch/deactivate')
   @ApiOperation({ summary: 'Deactivate kill switch — requires deactivation code + 2FA' })
+  @ApiBody({ type: ToggleKillSwitchDto })
   deactivateKillSwitch(@Body() dto: ToggleKillSwitchDto, @AuthUser() user: any) {
     return this.killSwitchService.deactivate(user.email, dto.deactivationCode, dto.twoFaCode);
   }
@@ -274,6 +403,8 @@ export class AdminController {
     @UseInterceptors(FileInterceptor('file'))
     @ApiConsumes('multipart/form-data')
     @ApiOperation({ summary: 'Update my profile (name, phone, photo, state)' })
+    @ApiBody({ type: UpdateAdminProfileDto })
+
     updateProfile(
       @AuthUser() user: any,
       @UploadedFile() file: Express.Multer.File,
@@ -290,6 +421,8 @@ export class AdminController {
   @AdminOnly()
   @Get('users')
   @ApiOperation({ summary: 'List all users' })
+  @ApiBody({ type: AdminListQueryDto })
+
   listUsers(@Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.listUsersUsecase], query);
   }
@@ -298,6 +431,8 @@ export class AdminController {
   @AdminOnly()
   @Get('users/:id')
   @ApiOperation({ summary: 'Get user by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Get user by ID' })
+
   getUser(@Param('id') id: string) {
     return this.broker.runUsecases([this.getUserUsecase], { id });
   }
@@ -306,6 +441,8 @@ export class AdminController {
   @AdminOnly()
   @Patch('users/:id/suspend')
   @ApiOperation({ summary: 'Suspend a user account' })
+  @ApiParam({ name: 'id', type: String, description: 'Suspend a user account' })
+  @ApiBody({ type: SuspendUserDto })
   suspendUser(
     @Param('id') id: string,
     @Body() dto: SuspendUserDto,
@@ -320,6 +457,7 @@ export class AdminController {
   @AdminOnly()
   @Patch('users/:id/activate')
   @ApiOperation({ summary: 'Activate a user account' })
+  @ApiParam({ name: 'id', type: String, description: 'Activate a user account' })
   activateUser(@Param('id') id: string) {
     return this.broker.runUsecases([this.activateUserUsecase], { id });
   }
@@ -338,6 +476,7 @@ export class AdminController {
   @AdminOnly()
   @Patch('documents/:id/approve')
   @ApiOperation({ summary: 'Approve a KYC document' })
+  @ApiParam({ name: 'id', type: String, description: 'Approve a KYC document' })
   approveDocument(@Param('id') id: string, @AuthUser() user: any) {
     return this.broker.runUsecases([this.approveDocumentUsecase], {
       id,
@@ -349,6 +488,8 @@ export class AdminController {
   @AdminOnly()
   @Patch('documents/:id/reject')
   @ApiOperation({ summary: 'Reject a KYC document' })
+  @ApiParam({ name: 'id', type: String, description: 'Reject KYC document' })
+  @ApiBody({ type: RejectDocumentDto })
   rejectDocument(
     @Param('id') id: string,
     @Body() dto: RejectDocumentDto,
@@ -367,6 +508,7 @@ export class AdminController {
   @AdminOnly()
   @Get('trips')
   @ApiOperation({ summary: 'List all trips' })
+  @ApiBody({ type: AdminListQueryDto })
   listTrips(@Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.listTripsUsecase], query);
   }
@@ -375,6 +517,7 @@ export class AdminController {
   @AdminOnly()
   @Get('trips/:id')
   @ApiOperation({ summary: 'Get trip detail' })
+  @ApiParam({ name: 'id', type: String, description: 'Get trip detail' })
   getTrip(@Param('id') id: string) {
     return this.broker.runUsecases([this.getTripUsecase], { id });
   }
@@ -385,6 +528,7 @@ export class AdminController {
   @AdminOnly()
   @Get('bookings')
   @ApiOperation({ summary: 'List all bookings' })
+  @ApiBody({ type: AdminListQueryDto })
   listBookings(@Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.listBookingsUsecase], query);
   }
@@ -393,7 +537,8 @@ export class AdminController {
   @AdminOnly()
   @Get('bookings/:id')
   @ApiOperation({ summary: 'Get booking detail' })
-  getBooking(@Param('id', ParseIntPipe) id: number) {
+  @ApiParam({ name: 'id', type: String, description: 'Get booking detail' })
+  getBooking(@Param('id') id: string) {
     return this.broker.runUsecases([this.getBookingUsecase], { id });
   }
 
@@ -401,7 +546,9 @@ export class AdminController {
   @AdminOnly()
   @Patch('bookings/:id/refund')
   @ApiOperation({ summary: 'Issue a refund for a booking' })
-  refundBooking(@Param('id', ParseIntPipe) id: number, @AuthUser() user: any) {
+  @ApiParam({ name: 'id', type: String, description: 'Issue a refund for a booking' })
+ 
+  refundBooking(@Param('id') id: string, @AuthUser() user: any) {
     return this.broker.runUsecases([this.refundBookingUsecase], {
       id,
       adminEmail: user.email,
@@ -412,9 +559,10 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
-@RequirePermissions(Permission.PAYOUT_VIEW)
-   @Get('payouts')
+  @RequirePermissions(Permission.PAYOUT_VIEW)
+  @Get('payouts')
   @ApiOperation({ summary: 'List all payout requests' })
+  @ApiBody({type: AdminListQueryDto})
   listPayouts(@Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.listPayoutsUsecase], query);
   }
@@ -437,7 +585,7 @@ export class AdminController {
   @Patch('payouts/:id/decline')
   @ApiOperation({ summary: 'Decline a payout request' })
   declinePayout(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: DeclinePayoutDto,
     @AuthUser() user: any,
   ) {
@@ -462,6 +610,7 @@ export class AdminController {
   @AdminOnly()
   @Post('coupons')
   @ApiOperation({ summary: 'Create a new coupon' })
+  @ApiBody({type: CreateCouponDto})
   createCoupon(@Body() dto: CreateCouponDto, @AuthUser() user: any) {
     return this.broker.runUsecases([this.createCouponUsecase], {
       ...dto,
@@ -473,7 +622,7 @@ export class AdminController {
   @AdminOnly()
   @Patch('coupons/:id/deactivate')
   @ApiOperation({ summary: 'Deactivate a coupon' })
-  deactivateCoupon(@Param('id', ParseIntPipe) id: number) {
+  deactivateCoupon(@Param('id') id: string) {
     return this.broker.runUsecases([this.deactivateCouponUsecase], { id });
   }
 }

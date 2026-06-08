@@ -27,6 +27,10 @@ import { Permission } from './entities/permission.entity';
 import { Referral } from './entities/referal.entity';
 import { ReferralConfig } from './entities/referalconfig.entity';
 import { Role } from './entities/role.entity';
+import { AppVersionHistory } from './entities/appversion.entity';
+import { AgentReferral } from './entities/agent-referral.entity';
+import { SystemSetting } from './entities/system-setting.entity';
+import { SystemRecord } from './entities/system-record.entity';
 
 @Module({
   imports: [
@@ -56,7 +60,11 @@ import { Role } from './entities/role.entity';
       Permission,
       Referral,
       ReferralConfig,
-      Role
+      Role,
+      AppVersionHistory,
+      AgentReferral,
+      SystemSetting,
+      SystemRecord
     ]),
   ],
   providers: [],

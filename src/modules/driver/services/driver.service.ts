@@ -5,10 +5,11 @@ import { CreateDriverTripDto, UpdateDriverTripDto, CancelDriverTripDto, Complete
 import { InjectRepository } from '@nestjs/typeorm';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
-import { BookingStatus, EscrowStatus, TripStatus } from 'src/types/enums';
+import { BookingStatus, EscrowStatus, NotificationType, TripStatus } from 'src/types/enums';
 import { Booking } from '@modules/core/entities/booking.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
+import { NotificationService } from '@modules/notification/services/notification.service';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -32,6 +33,7 @@ export class DriverTripService {
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
+    private readonly notifiyService:NotificationService
 
     
     
@@ -83,7 +85,8 @@ if (!vehicle.isVerified) {
 
      // Create trip entity
      const trip = this.tripRepo.create({
-  driverId: driver.id,                       // from authed user
+  reference,                                  
+  driverId: driver.id,
   departureDate: dto.departureDate,
   departureTime: dto.departureTime,
   departureLocation: dto.departureLocation,
@@ -96,22 +99,53 @@ if (!vehicle.isVerified) {
   busStop: dto.busStop,
   busstopLatlong: dto.busstopLatlong,
   tripSpecification: dto.tripSpecification,
+  waypoints: dto.waypoints,                   // ← entity has it
   state: dto.state,
+  description: dto.description,               // ← entity has it
+  amenities: dto.amenities,                   // ← entity has it (string[])
+  metadata: dto.metadata,                     // ← entity has it
   bookingClosingDate: dto.bookingClosingDate,
   bookingClosingTime: dto.bookingClosingTime,
   price: dto.price,
   vehicleId: dto.vehicleId,
-  availableSeats: vehicle?.capacity ?? 10,   // the Laravel `creating` hook logic
+  totalSeats: dto.totalSeats,                 // ← from DTO now
+  availableSeats: dto.availableSeats,         // ← from DTO now
   status: TripStatus.PENDING,
 });
 
 await this.tripRepo.save(trip);
     
         const savedTrip = await manager.save(Trip, trip);
-    
+        
         this.logger.log(
           `Trip created successfully: ${reference} by driver ${driver.id}`,
         );
+
+        // Notify the driver
+await this.notifiyService.notify({
+  userId: userId,                          // driver's userId
+  title: 'Trip Created Successfully',
+  body: `Your trip (${reference}) from ${dto.departureLocation} to ${dto.arrivalDestination} has been created and is pending approval.`,
+  type: NotificationType.TRIP_CREATED,    
+  data: {
+    tripId: savedTrip.id,
+    reference: savedTrip.reference,
+    status: savedTrip.status,
+  },
+});
+
+// Notify all admins for review/approval
+// await this.notifiyService.notifyAdmins({
+//   title: 'New Trip Pending Approval',
+//   body: `Driver ${driver.id} submitted trip ${reference} from ${dto.departureLocation} to ${dto.arrivalDestination}.`,
+//   type: NotificationType.TRIP_CREATED,
+//   data: {
+//     tripId: savedTrip.id,
+//     reference: savedTrip.reference,
+//     driverId: driver.id,
+//   },
+// });
+
     
         return savedTrip;
 
@@ -345,36 +379,46 @@ await this.tripRepo.save(trip);
 
 
   //---------------Private Helper Method-----------// 
-   private validateTripData(dto: CreateDriverTripDto): void {
-      const departureDate = new Date(dto.departureTime);
-      const now = new Date();
-  
-      // Departure must be in the future
-      if (departureDate <= now) {
-        throw new BadRequestException('Departure time must be in the future');
-      }
-  
-      // Minimum advance notice (2 hours)
-      const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-      if (departureDate < twoHoursFromNow) {
-        throw new BadRequestException('Trip must be created at least 2 hours before departure');
-      }
-  
-      // Origin and destination must be different
-      if (dto.pickStation.toLowerCase() === dto.dropOffStation.toLowerCase()) {
-        throw new BadRequestException('Origin and destination must be different');
-      }
-  
-      // Validate price is reasonable (min 100, max 50000)
-      if (dto.price < 100 || dto.price > 50000) {
-        throw new BadRequestException('Price per seat must be between 100 and 50000');
-      }
-  
-      // Validate seats
-      if (dto.availableSeats < 1 || dto.availableSeats > 50) {
-        throw new BadRequestException('Total seats must be between 1 and 50');
-      }
-    }
+ private validateTripData(dto: CreateDriverTripDto): void {
+  // Combine the date and time into one real timestamp
+  const departure = new Date(`${dto.departureDate}T${dto.departureTime}:00`);
+  const now = new Date();
+
+  // Guard against an unparseable date
+  if (isNaN(departure.getTime())) {
+    throw new BadRequestException('Invalid departure date or time');
+  }
+
+  // Departure must be in the future
+  if (departure <= now) {
+    throw new BadRequestException('Departure time must be in the future');
+  }
+
+  // Minimum advance notice (2 hours)
+  const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+  if (departure < twoHoursFromNow) {
+    throw new BadRequestException('Trip must be created at least 2 hours before departure');
+  }
+
+  // Origin and destination must be different — but only if BOTH were provided
+  if (
+    dto.pickStation &&
+    dto.dropOffStation &&
+    dto.pickStation.toLowerCase() === dto.dropOffStation.toLowerCase()
+  ) {
+    throw new BadRequestException('Origin and destination must be different');
+  }
+
+  // Price (min 100, max 50000)
+  if (dto.price < 100 || dto.price > 50000) {
+    throw new BadRequestException('Price per seat must be between 100 and 50000');
+  }
+
+  // Seats
+  if (dto.availableSeats < 1 || dto.availableSeats > 50) {
+    throw new BadRequestException('Total seats must be between 1 and 50');
+  }
+}
 
     //-------------Private Helper method-----------// 
       private parseAmenities(amenitiesInput: string): string[] {

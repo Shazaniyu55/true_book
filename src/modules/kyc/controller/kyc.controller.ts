@@ -18,8 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Broker } from '@broker/broker';
 import { GetDriverKycStatusUsecase } from '../usecase/getDriverKycStatus.usecase';
 import { VerifyDriverLicenseUsecase } from '../usecase/verifydriverlicense.usecase';
-import { VerifyDriverNinUsecase } from '../usecase/verifyDriverNin.usecase';
-import { VerifyDriverBvnUsecase } from '../usecase/verifyDriverBvn.usecase';
+
 
 @ApiTags('Driver - KYC')
 @ApiBearerAuth()
@@ -32,8 +31,7 @@ export class KycController {
     private readonly kycService: KycService,
     private readonly getDriverKycStatusUsecase:GetDriverKycStatusUsecase,
     private readonly verifyDriverLicensUsecase:VerifyDriverLicenseUsecase,
-    // private readonly verifyDriverNinUsecase:VerifyDriverNinUsecase,
-    // private readonly verifyDriverBvnUsecase: VerifyDriverBvnUsecase
+
   
   ) {}
 

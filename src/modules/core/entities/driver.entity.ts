@@ -1,7 +1,9 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { KycStatus, UserStatus } from '../../../types/enums';
 import { User } from './user.entity';
 import { BaseEntity } from './base.entity';
+import { Beneficiary } from './beneficiary.entity';
+import { Vehicle } from './vehicle.entity';
 
 @Entity('drivers')
 export class Driver extends BaseEntity {
@@ -16,40 +18,25 @@ export class Driver extends BaseEntity {
   status: UserStatus;
 
   @Column({ type: 'varchar', enum: KycStatus, default: KycStatus.NOT_STARTED })
-  kycStatus: KycStatus;
+  kycComplete: KycStatus;
 
-  // ── BVN ──────────────────────────────────────────────────────────────────
-  @Column({ type: 'varchar', nullable: true })
-  bvn: string;
+  @Column({ type: 'uuid', nullable: true })
+  vehicleId: string;
 
-  @Column({ type: 'boolean', default: false })
-  bvnVerified: boolean;
-
-  @Column({ type: 'jsonb', nullable: true })
-  bvnData: Record<string, any>;
-
-  @Column({ type: 'timestamp with time zone', nullable: true })
-  bvnVerifiedAt: Date;
-
-  // ── NIN ──────────────────────────────────────────────────────────────────
-  @Column({ type: 'varchar', nullable: true })
-  nin: string;
-
-  @Column({ type: 'boolean', default: false })
-  ninVerified: boolean;
-
-  @Column({ type: 'jsonb', nullable: true })
-  ninData: Record<string, any>;
-
-  @Column({ type: 'timestamp with time zone', nullable: true })
-  ninVerifiedAt: Date;
+  @ManyToOne(() => Vehicle)
+  @JoinColumn({ name: 'vehicleId' })
+  vehicle: Vehicle;
+  
 
   // ── Driver's Licence ──────────────────────────────────────────────────────
   @Column({ type: 'varchar', nullable: true })
-  licenseNumber: string;
+  license: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  reason: string;
 
   @Column({ type: 'date', nullable: true })
-  licenseExpiry: Date;
+  yearOfExpire: Date;
 
   @Column({ type: 'boolean', default: false })
   licenseVerified: boolean;
@@ -62,24 +49,21 @@ export class Driver extends BaseEntity {
 
   // ── Wallet / Bank ────────────────────────────────────────────────────────
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
-  walletBalance: number;
+  currentBalance: number;
 
-  @Column({ type: 'varchar', nullable: true })
-  bankAccountName: string;
+  @Column({ type: 'boolean', default: false })
+  vehicleVerified: boolean;
 
-  @Column({ type: 'varchar', nullable: true })
-  bankAccountNumber: string;
+  @OneToMany(() => Beneficiary, (b) => b.driver)
+  beneficiaries: Beneficiary[];
+ 
 
-  @Column({ type: 'varchar', nullable: true })
-  bankCode: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  bankName: string;
-
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  vehicleVerifiedAt: Date;
 
   // ── PIN ──────────────────────────────────────────────────────────────────
   @Column({ type: 'varchar', nullable: true })
-  transactionPin: string;
+  pin: string;
 
   @Column({ type: 'integer', default: 0 })
   pinAttempts: number;

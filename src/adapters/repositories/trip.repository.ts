@@ -84,7 +84,7 @@ if (vehicleCount === 0) {
           reference,
           driverId: driver.id, 
           status: TripStatus.PENDING,
-          bookedSeats: 0,
+          //bookedSeats: 0,
         });
 
         return await manager.save(Trip, trip);
@@ -269,7 +269,7 @@ private async releaseEscrowForBooking(booking: Booking, manager: EntityManager):
   return Number(escrow.netDriverAmount);
 }
 
-    async searchTrips(query: {page?: number, limit?:number, origin?: string, destination?:string, date?:string, seats?:number, maxPrice?:number, sortBy?:string, status?:string}): Promise<PagedDto<any>> {
+async searchTrips(query: {page?: number, limit?:number, origin?: string, destination?:string, date?:string, seats?:number, maxPrice?:number, sortBy?:string, status?:string}): Promise<PagedDto<any>> {
         const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = query;
         const skip = (page - 1) * limit;
     
@@ -299,7 +299,7 @@ private async releaseEscrowForBooking(booking: Booking, manager: EntityManager):
     
         const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
             const pagedDto = new PagedDto();
-            pagedDto.data = data.map((t) => ({...t,availableSeats: t.totalSeats - t.bookedSeats,}));
+            pagedDto.data = data.map((t) => ({...t,availableSeats: t.totalSeats,}));
 
           pagedDto.meta = {
               page,
@@ -322,7 +322,7 @@ private async releaseEscrowForBooking(booking: Booking, manager: EntityManager):
       relations: ['driver', 'driver.user', 'vehicle'],
     });
     if (!trip) throw new NotFoundException('Trip not found');
-    return { ...trip, availableSeats: trip.totalSeats - trip.bookedSeats };
+    return { ...trip, availableSeats: trip.totalSeats  };
   }
 
 
@@ -337,7 +337,7 @@ private async releaseEscrowForBooking(booking: Booking, manager: EntityManager):
     if (trip.status !== TripStatus.ACTIVE)
       throw new BadRequestException('This trip is not accepting bookings');
 
-        const available = trip.totalSeats - trip.bookedSeats;
+        const available = trip.totalSeats ;
     if (dto.seats > available)
       throw new BadRequestException(`Only ${available} seat(s) available`);
 
@@ -404,8 +404,8 @@ private async releaseEscrowForBooking(booking: Booking, manager: EntityManager):
       booking: savedBooking,
       payment,
       summary: {
-        origin: trip.origin,
-        destination: trip.destination,
+        // origin: trip.origin,
+        // destination: trip.destination,
         departureTime: trip.departureTime,
         seats: dto.seats,
         pricePerSeat: trip.price,
@@ -538,12 +538,12 @@ return booking;
       where,
       skip,
       take: limit,
-      relations: ['vehicle'],
+      relations: ['vehicle', 'driver', 'driver.user'],
       order: { departureTime: 'DESC' },
     });
 
       const pagedDto = new PagedDto();
-      pagedDto.data = data.map((t) => ({...t,availableSeats: t.totalSeats - t.bookedSeats,}));
+      pagedDto.data = data.map((t) => ({...t,availableSeats: t.totalSeats,}));
 
           pagedDto.meta = {
               page,

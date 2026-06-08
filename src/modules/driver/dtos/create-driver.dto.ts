@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Matches, Min, Max, IsNotEmpty, ValidateNested, IsArray, IsDateString } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Matches, Min, Max, IsNotEmpty, ValidateNested, IsArray, IsDateString, IsObject, IsUUID } from 'class-validator';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -7,10 +7,108 @@ import { IsString, IsNumber, IsOptional, Matches, Min, Max, IsNotEmpty, Validate
  */
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
 
-export class CreateDriverTripDto {
+// export class CreateDriverTripDto {
 
   
-  // ── departure ──
+//   // ── departure ──
+//   @IsDateString()
+//   @IsNotEmpty()
+//   departureDate: string;
+
+//   @IsString()
+//   @Matches(TIME_REGEX, { message: 'departureTime must be in HH:mm format' })
+//   @IsNotEmpty()
+//   departureTime: string;
+
+//   @IsString()
+//   @IsNotEmpty()
+//   departureLocation: string;
+
+//   @IsArray()
+//   @IsOptional()
+//   departureLatlong?: any[];
+
+//   // ── arrival ──
+//   @IsDateString()
+//   @IsOptional()
+//   arrivalDate?: string;
+
+//   @IsString()
+//   @Matches(TIME_REGEX, { message: 'arrivalTime must be in HH:mm format' })
+//   @IsOptional()
+//   arrivalTime?: string;
+
+//   @IsArray()
+//   @IsOptional()
+//   arrivalDestination?: any[];
+
+//     @IsString()
+//   @IsOptional()
+//   amenities?: string; 
+
+//     @IsOptional()
+//   @ValidateNested()
+ 
+//   metadata?: Record<string, any>;
+
+//   // ── stations / stops ──
+//   @IsString()
+//   @IsOptional()
+//   pickStation?: string;
+
+//   @IsString()
+//   @IsOptional()
+//   dropOffStation?: string;
+
+//   @IsNumber()
+//   @Min(1)
+//   @Max(50)
+//  availableSeats: number;
+
+//   @IsArray()
+//   @IsOptional()
+//   busStop?: any[];
+
+//   @IsArray()
+//   @IsOptional()
+//   busstopLatlong?: any[];
+
+//   // ── trip details ──
+//   @IsArray()
+//   @IsOptional()
+//   tripSpecification?: any[];
+
+//   @IsString()
+//   @IsOptional()
+//   state?: string;
+
+//   // ── booking window ──
+//   @IsDateString()
+//   @IsOptional()
+//   bookingClosingDate?: string;
+
+//   @IsString()
+//   @Matches(TIME_REGEX, { message: 'bookingClosingTime must be in HH:mm format' })
+//   @IsOptional()
+//   bookingClosingTime?: string;
+
+//   // ── money ──
+//   @IsNumber()
+//   @Min(100)
+//   price: number;
+
+//     @IsString()
+//   @IsOptional()
+//   description?: string;
+
+//   // ── vehicle ──
+//   @IsString()
+//   @IsOptional()
+//   vehicleId?: string;
+// }
+
+export class CreateDriverTripDto {
+  // ── departure (required) ──
   @IsDateString()
   @IsNotEmpty()
   departureDate: string;
@@ -28,7 +126,7 @@ export class CreateDriverTripDto {
   @IsOptional()
   departureLatlong?: any[];
 
-  // ── arrival ──
+  // ── arrival (optional) ──
   @IsDateString()
   @IsOptional()
   arrivalDate?: string;
@@ -42,16 +140,7 @@ export class CreateDriverTripDto {
   @IsOptional()
   arrivalDestination?: any[];
 
-    @IsString()
-  @IsOptional()
-  amenities?: string; 
-
-    @IsOptional()
-  @ValidateNested()
- 
-  metadata?: Record<string, any>;
-
-  // ── stations / stops ──
+  // ── stations / stops (optional) ──
   @IsString()
   @IsOptional()
   pickStation?: string;
@@ -59,11 +148,6 @@ export class CreateDriverTripDto {
   @IsString()
   @IsOptional()
   dropOffStation?: string;
-
-  @IsNumber()
-  @Min(1)
-  @Max(50)
- availableSeats: number;
 
   @IsArray()
   @IsOptional()
@@ -73,16 +157,33 @@ export class CreateDriverTripDto {
   @IsOptional()
   busstopLatlong?: any[];
 
-  // ── trip details ──
+  // ── trip details (optional) ──
   @IsArray()
   @IsOptional()
   tripSpecification?: any[];
+
+  @IsArray()
+  @IsOptional()
+  waypoints?: any[];                     // ← ADDED: entity has it, DTO didn't
 
   @IsString()
   @IsOptional()
   state?: string;
 
-  // ── booking window ──
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  amenities?: string[];                  // ← CHANGED: entity is jsonb string[], not string
+
+  @IsObject()
+  @IsOptional()
+  metadata?: Record<string, any>;        // ← @ValidateNested needs a typed class; @IsObject is simpler for free-form jsonb
+
+  // ── booking window (optional) ──
   @IsDateString()
   @IsOptional()
   bookingClosingDate?: string;
@@ -92,21 +193,27 @@ export class CreateDriverTripDto {
   @IsOptional()
   bookingClosingTime?: string;
 
-  // ── money ──
+  // ── seats (required — entity totalSeats & availableSeats are NOT NULL) ──
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  totalSeats: number;                    // ← ADDED: entity requires it
+
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  availableSeats: number;
+
+  // ── money (required) ──
   @IsNumber()
   @Min(100)
   price: number;
 
-    @IsString()
+  // ── vehicle (optional) ──
+  @IsUUID()
   @IsOptional()
-  description?: string;
-
-  // ── vehicle ──
-  @IsString()
-  @IsOptional()
-  vehicleId?: string;
+  vehicleId?: string;                    // ← entity is uuid; @IsUUID validates the format
 }
-
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════

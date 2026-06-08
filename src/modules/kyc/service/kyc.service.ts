@@ -58,11 +58,7 @@ export class KycService {
     });
 
     return {
-      kycStatus: driver.kycStatus,
-      bvnVerified: driver.bvnVerified,
-      bvnVerifiedAt: driver.bvnVerifiedAt,
-      ninVerified: driver.ninVerified,
-      ninVerifiedAt: driver.ninVerifiedAt,
+      kycStatus: driver.kycComplete,
       licenseVerified: driver.licenseVerified,
       licenseVerifiedAt: driver.licenseVerifiedAt,
       documents,
@@ -74,67 +70,67 @@ export class KycService {
    * Verify driver BVN via Dojah.
    * Checks that the BVN matches the name on the driver's profile.
    */
-  async verifyDriverBvn(userId: string, dto: VerifyDriverBvnDto) {
-    const driver = await this.getDriverOrThrow(userId);
+  // async verifyDriverBvn(userId: string, dto: VerifyDriverBvnDto) {
+  //   const driver = await this.getDriverOrThrow(userId);
 
-    if (driver.bvnVerified) {
-      throw new ConflictException('BVN is already verified');
-    }
+  //   if (driver.bvnVerified) {
+  //     throw new ConflictException('BVN is already verified');
+  //   }
 
-    // Prevent re-submission of same BVN in rapid succession
-    if (driver.bvn && driver.bvn === dto.bvn) {
-      throw new BadRequestException('BVN verification is already pending or was previously attempted');
-    }
+  //   // Prevent re-submission of same BVN in rapid succession
+  //   if (driver.bvn && driver.bvn === dto.bvn) {
+  //     throw new BadRequestException('BVN verification is already pending or was previously attempted');
+  //   }
 
-    this.logger.log(`Verifying BVN for driver ${driver.id}`);
+  //   this.logger.log(`Verifying BVN for driver ${driver.id}`);
 
-    let verificationResult: any;
-    try {
-      verificationResult = await this.dojahAdapter.verifyBvn({
-        bvn: dto.bvn,
-        selfie_image: dto.selfieImage,
-      });
-    } catch (err) {
-      this.logger.error(`Dojah BVN verification failed for driver ${driver.id}`, err?.message);
-      throw new BadRequestException(err?.message || 'BVN verification failed. Please check your BVN and try again.');
-    }
+  //   let verificationResult: any;
+  //   try {
+  //     verificationResult = await this.dojahAdapter.verifyBvn({
+  //       bvn: dto.bvn,
+  //       selfie_image: dto.selfieImage,
+  //     });
+  //   } catch (err) {
+  //     this.logger.error(`Dojah BVN verification failed for driver ${driver.id}`, err?.message);
+  //     throw new BadRequestException(err?.message || 'BVN verification failed. Please check your BVN and try again.');
+  //   }
 
-    const entity = verificationResult.entity ?? {};
+  //   const entity = verificationResult.entity ?? {};
 
-    // Cross-check name against user profile
-    const nameMatchResult = this.crossCheckName(driver.user, entity);
+  //   // Cross-check name against user profile
+  //   const nameMatchResult = this.crossCheckName(driver.user, entity);
 
-    await this.driverRepo.update(driver.id, {
-      bvn: dto.bvn,
-      bvnVerified: nameMatchResult.passed,
-      bvnData: {
-        ...entity,
-        nameMatch: nameMatchResult,
-        verifiedAt: new Date().toISOString(),
-      },
-      bvnVerifiedAt: nameMatchResult.passed ? new Date() : null,
-    });
+  //   await this.driverRepo.update(driver.id, {
+  //     bvn: dto.bvn,
+  //     bvnVerified: nameMatchResult.passed,
+  //     bvnData: {
+  //       ...entity,
+  //       nameMatch: nameMatchResult,
+  //       verifiedAt: new Date().toISOString(),
+  //     },
+  //     bvnVerifiedAt: nameMatchResult.passed ? new Date() : null,
+  //   });
 
-    if (!nameMatchResult.passed) {
-      throw new BadRequestException(
-        `BVN name mismatch. Expected name similar to "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}". Please contact support if this is incorrect.`,
-      );
-    }
+  //   if (!nameMatchResult.passed) {
+  //     throw new BadRequestException(
+  //       `BVN name mismatch. Expected name similar to "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}". Please contact support if this is incorrect.`,
+  //     );
+  //   }
 
-    await this.recalculateDriverKycStatus(driver.id);
+  //   await this.recalculateDriverKycStatus(driver.id);
 
-    return {
-      success: true,
-      message: 'BVN verified successfully',
-      data: {
-        bvnVerified: true,
-        firstName: entity.first_name,
-        lastName: entity.last_name,
-        phone: this.maskPhone(entity.phone_number1 || entity.phone),
-        dateOfBirth: entity.date_of_birth,
-      },
-    };
-  }
+  //   return {
+  //     success: true,
+  //     message: 'BVN verified successfully',
+  //     data: {
+  //       bvnVerified: true,
+  //       firstName: entity.first_name,
+  //       lastName: entity.last_name,
+  //       phone: this.maskPhone(entity.phone_number1 || entity.phone),
+  //       dateOfBirth: entity.date_of_birth,
+  //     },
+  //   };
+  // }
 
     /**
    * Verify driver PhoneNumber via Dojah.
@@ -167,56 +163,56 @@ async sendPhoneOtp(userId: string) {
   /**
    * Verify driver NIN via Dojah.
    */
-  async verifyDriverNin(userId: string, dto: VerifyDriverNinDto) {
-    const driver = await this.getDriverOrThrow(userId);
+  // async verifyDriverNin(userId: string, dto: VerifyDriverNinDto) {
+  //   const driver = await this.getDriverOrThrow(userId);
 
-    if (driver.ninVerified) {
-      throw new ConflictException('NIN is already verified');
-    }
+  //   if (driver.ninVerified) {
+  //     throw new ConflictException('NIN is already verified');
+  //   }
 
-    this.logger.log(`Verifying NIN for driver ${driver.id}`);
+  //   this.logger.log(`Verifying NIN for driver ${driver.id}`);
 
-    let verificationResult: any;
-    try {
-      verificationResult = await this.dojahAdapter.verifyNin({ nin: dto.nin });
-    } catch (err) {
-      this.logger.error(`Dojah NIN verification failed for driver ${driver.id}`, err?.message);
-      throw new BadRequestException(err?.message || 'NIN verification failed. Please check your NIN and try again.');
-    }
+  //   let verificationResult: any;
+  //   try {
+  //     verificationResult = await this.dojahAdapter.verifyNin({ nin: dto.nin });
+  //   } catch (err) {
+  //     this.logger.error(`Dojah NIN verification failed for driver ${driver.id}`, err?.message);
+  //     throw new BadRequestException(err?.message || 'NIN verification failed. Please check your NIN and try again.');
+  //   }
 
-    const entity = verificationResult.entity ?? {};
-    const nameMatchResult = this.crossCheckName(driver.user, entity);
+  //   const entity = verificationResult.entity ?? {};
+  //   const nameMatchResult = this.crossCheckName(driver.user, entity);
 
-    await this.driverRepo.update(driver.id, {
-      nin: dto.nin,
-      ninVerified: nameMatchResult.passed,
-      ninData: {
-        ...entity,
-        nameMatch: nameMatchResult,
-        verifiedAt: new Date().toISOString(),
-      },
-      ninVerifiedAt: nameMatchResult.passed ? new Date() : null,
-    });
+  //   await this.driverRepo.update(driver.id, {
+  //     nin: dto.nin,
+  //     ninVerified: nameMatchResult.passed,
+  //     ninData: {
+  //       ...entity,
+  //       nameMatch: nameMatchResult,
+  //       verifiedAt: new Date().toISOString(),
+  //     },
+  //     ninVerifiedAt: nameMatchResult.passed ? new Date() : null,
+  //   });
 
-    if (!nameMatchResult.passed) {
-      throw new BadRequestException(
-        `NIN name mismatch. Expected "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}".`,
-      );
-    }
+  //   if (!nameMatchResult.passed) {
+  //     throw new BadRequestException(
+  //       `NIN name mismatch. Expected "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}".`,
+  //     );
+  //   }
 
-    await this.recalculateDriverKycStatus(driver.id);
+  //   await this.recalculateDriverKycStatus(driver.id);
 
-    return {
-      success: true,
-      message: 'NIN verified successfully',
-      data: {
-        ninVerified: true,
-        firstName: entity.firstname,
-        lastName: entity.surname,
-        dateOfBirth: entity.birthdate,
-      },
-    };
-  }
+  //   return {
+  //     success: true,
+  //     message: 'NIN verified successfully',
+  //     data: {
+  //       ninVerified: true,
+  //       firstName: entity.firstname,
+  //       lastName: entity.surname,
+  //       dateOfBirth: entity.birthdate,
+  //     },
+  //   };
+  // }
 
   /**
    * Verify driver's license via Dojah.
@@ -255,14 +251,14 @@ async sendPhoneOtp(userId: string) {
     const entity = verificationResult.entity ?? {};
 
     await this.driverRepo.update(driver.id, {
-      licenseNumber: dto.licenseNumber,
+      license: dto.licenseNumber,
       licenseVerified: true,
       licenseData: {
         ...entity,
         verifiedAt: new Date().toISOString(),
       },
       licenseVerifiedAt: new Date(),
-      licenseExpiry: entity.expiry_date ? new Date(entity.expiry_date) : null,
+      yearOfExpire: entity.expiry_date ? new Date(entity.expiry_date) : null,
     });
 
     await this.recalculateDriverKycStatus(driver.id);
@@ -336,7 +332,7 @@ async uploadDriverDocument(
 
     const docs = await this.docRepo.find({ where: { driverId } });
     const hasApprovedDoc = docs.some((d) => d.status === DocumentStatus.APPROVED);
-    const identityVerified = driver.bvnVerified || driver.ninVerified;
+    const identityVerified = driver.licenseVerified;
 
     let newStatus = KycStatus.NOT_STARTED;
 
@@ -348,7 +344,7 @@ async uploadDriverDocument(
       newStatus = KycStatus.COMPLETED;
     }
 
-    await this.driverRepo.update(driverId, { kycStatus: newStatus });
+    await this.driverRepo.update(driverId, { kycComplete: newStatus });
   }
 
  
@@ -404,8 +400,7 @@ async uploadDriverDocument(
 
   private calculateDriverKycCompletion(driver: Driver, docs: DocumentVerification[]): number {
     let score = 0;
-    if (driver.bvnVerified) score += 30;
-    if (driver.ninVerified) score += 20;
+    if (driver.licenseVerified) score += 30;
     if (driver.licenseVerified) score += 30;
     if (docs.some((d) => d.documentType === 'profile_photo' && d.status === DocumentStatus.APPROVED)) score += 10;
     if (docs.some((d) => d.documentType === 'vehicle_paper' && d.status === DocumentStatus.APPROVED)) score += 10;

@@ -40,6 +40,7 @@ import { GetTripBookingsUsecase } from '@modules/trip/usecases/gettripbookings.u
 import { CheckInPassengerUsecase } from '@modules/trip/usecases/checkinpassenger.usecase';
 import { GetTripUsecase } from '@modules/trip/usecases/gettrip.usecase';
 import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
+import { NotificationModule } from '@modules/notification/notification.module';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -56,6 +57,7 @@ import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
   imports: [
     ConfigModule,
     TripsModule,
+    NotificationModule,
     TypeOrmModule.forFeature([
       Trip,
       Driver,

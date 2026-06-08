@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { NotificationService } from '../services/notification.service';
-import { CreateNotificationDto } from '../dtos/create-notification.dto';
+import { NotificationService, NotifyParams } from '../services/notification.service';
 
 @Injectable()
 export class CreateNotificationUseCase {
   constructor(private readonly notificationService: NotificationService) {}
 
-  async execute(args:{id: string, dto: CreateNotificationDto}) {
-    return this.notificationService.createNotification(args.id, args.dto);
+  async execute(args:NotifyParams) {
+    return this.notificationService.notify(args);
   }
 }

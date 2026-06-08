@@ -54,7 +54,7 @@ export class Payment extends BaseEntity {
   customerEmail: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  card: Record<string, any>;
+  card: any[];
 
   @Column({ type: 'varchar', nullable: true })
   raveReference: string;

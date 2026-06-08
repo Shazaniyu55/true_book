@@ -6,7 +6,9 @@ import {
   passwordResetTemplate,
   welcomeEmailTemplate,
   welcomeCouponTemplate,
-  referralRewardTemplate
+  referralRewardTemplate,
+  contactSupportAckTemplate,
+  contactSupportReceivedTemplate
 } from './templates';
 import { SendEmailDto, SendOtpEmailDto, SendWelcomeEmailDto } from './dtos/send-email.dto';
 
@@ -132,5 +134,45 @@ export class EmailService {
       html: referralRewardTemplate(params),
     });
   }
+
+  async sendContactSupportNotification(params: {
+  to: string;           // support team email
+  name: string;
+  email: string;        // sender's email
+  subject: string;
+  message: string;
+  contactId: string;
+  userType: string;
+}): Promise<EmailResult> {
+  return this.send({
+    to: params.to,
+    subject: `[Support Ticket] ${params.subject}`,
+    html: contactSupportReceivedTemplate({
+      name: params.name,
+      subject: params.subject,
+      message: params.message,
+      contactId: params.contactId,
+      userType: params.userType,
+    }),
+  });
+}
+
+// Send acknowledgement back to the user who submitted the ticket
+async sendContactSupportAcknowledgement(params: {
+  to: string;           // user's email
+  name: string;
+  subject: string;
+  contactId: string;
+}): Promise<EmailResult> {
+  return this.send({
+    to: params.to,
+    subject: `We've received your request — ${params.subject}`,
+    html: contactSupportAckTemplate({
+      name: params.name,
+      subject: params.subject,
+      contactId: params.contactId,
+    }),
+  });
+}
 
 }

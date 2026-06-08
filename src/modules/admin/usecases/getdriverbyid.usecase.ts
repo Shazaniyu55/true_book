@@ -9,7 +9,7 @@ export class GetDriverByIdUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, id: any) {
-    return this.adminService.getDrivers(id);
+  async execute(_entityManager: EntityManager, arg:{id: any}) {
+    return this.adminService.getDriverById(arg.id);
   }
 }

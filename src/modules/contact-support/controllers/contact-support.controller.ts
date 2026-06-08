@@ -1,248 +1,66 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-  ApiBearerAuth,
-  ApiQuery,
-  ApiParam,
-} from '@nestjs/swagger';
+// contact-support.controller.ts
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
+import { AuthUser } from '@shared/decorators/authUser.decorator';
 
+import { ContactSupportQueryDto, ContactSupportStatus, CreateContactSupportDto } from 'src/types/enums';
 import { ContactSupportService } from '../services/contact-support.service';
 
-import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
-import { CreateContactSupportUseCase } from '../usecases/create-support.usecase';
-import { GetContactSupportUseCase } from '../usecases/get-support.usecase';
-import { UpdateContactSupportUseCase } from '../usecases/update-support.usecase';
-import { ContactSupportResponseDto, CreateContactSupportDto, UpdateContactSupportDto } from '../dtos/dto';
-import { ContactSupportStatus, UserRole } from 'src/types/enums';
-import { ServiceName } from '@shared/decorators/servicename.decorators';
-import { RolesGuard } from '@shared/guards/roles.guard';
-
-@ServiceName('contact-support') // For kill switch targeting
 @ApiTags('Contact Support')
-@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('v1/contact-support')
 export class ContactSupportController {
-  constructor(
-    private readonly createContactSupportUseCase: CreateContactSupportUseCase,
-    private readonly getContactSupportUseCase: GetContactSupportUseCase,
-    private readonly updateContactSupportUseCase: UpdateContactSupportUseCase,
-    private readonly contactSupportService: ContactSupportService,
-  ) {}
+  constructor(private readonly contactSupportService: ContactSupportService) {}
 
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new contact support request' })
-  @ApiResponse({
-    status: 201,
-    description: 'Support request created successfully',
-    type: ContactSupportResponseDto,
-  })
-  async create(@Body() dto: CreateContactSupportDto) {
-    return this.createContactSupportUseCase.execute(dto);
+  @ApiOperation({ summary: 'Submit a contact support request' })
+  create(@Body() dto: CreateContactSupportDto, @AuthUser() user?: any) {
+    return this.contactSupportService.create(dto, user);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('my-requests')
+  @ApiOperation({ summary: 'Get current user contact requests' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  getUserRequests(@AuthUser() user: any, @Query() query: ContactSupportQueryDto) {
+    return this.contactSupportService.getUserRequests(user.email, query);
+  }
+
+  // ── Admin routes ──────────────────────────────────────────────────────────
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get()
-  @ApiOperation({ summary: 'Get all contact support requests' })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number (default: 1)',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page (default: 10)',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'List of support requests',
-  })
-  async getAll(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.contactSupportService.getAllContactSupports(page, limit);
+  @ApiOperation({ summary: 'Get all contact requests (Admin)' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, enum: ContactSupportStatus })
+  getAllRequests(@Query() query: ContactSupportQueryDto) {
+    return this.contactSupportService.getAllRequests(query);
   }
 
-  @Get('statistics')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get contact support statistics' })
-  @ApiResponse({
-    status: 200,
-    description: 'Support statistics',
-  })
-  async getStatistics() {
-    return this.contactSupportService.getStatistics();
-  }
-
-  @Get('status/:status')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get contact support requests by status' })
-  @ApiParam({
-    name: 'status',
-    enum: ContactSupportStatus,
-    description: 'Status filter',
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number (default: 1)',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page (default: 10)',
-  })
-  async getByStatus(
-    @Param('status') status: ContactSupportStatus,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.contactSupportService.getContactSupportsByStatus(status, page, limit);
-  }
-
-  @Get('user-type/:userType')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get contact support requests by user type' })
-  @ApiParam({
-    name: 'userType',
-    enum: UserRole,
-    description: 'User type filter',
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number (default: 1)',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page (default: 10)',
-  })
-  async getByUserType(
-    @Param('userType') userType: UserRole,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.contactSupportService.getContactSupportsByUserType(userType, page, limit);
-  }
-
-  @Get('pending')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get pending contact support requests' })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number (default: 1)',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page (default: 10)',
-  })
-  async getPending(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    return this.contactSupportService.getPendingRequests(page, limit);
-  }
-
-  @Get('email/:email')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get contact support requests by email' })
-  @ApiParam({
-    name: 'email',
-    description: 'Email address',
-  })
-  async getByEmail(@Param('email') email: string) {
-    return this.contactSupportService.getContactSupportsByEmail(email);
-  }
-
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
-  @ApiOperation({ summary: 'Get a specific contact support request' })
-  @ApiParam({
-    name: 'id',
-    description: 'Support request ID',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Support request details',
-    type: ContactSupportResponseDto,
-  })
-  async getById(@Param('id') id: string) {
-    return this.getContactSupportUseCase.execute(id);
+  @ApiOperation({ summary: 'Get single contact request' })
+  @ApiParam({ name: 'id', type: String })
+  getById(@Param('id') id: string) {
+    return this.contactSupportService.getById(id);
   }
 
-  @Put(':id')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a contact support request' })
-  @ApiParam({
-    name: 'id',
-    description: 'Support request ID',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Support request updated successfully',
-    type: ContactSupportResponseDto,
-  })
-  async update(@Param('id') id: string, @Body() dto: UpdateContactSupportDto) {
-    return this.updateContactSupportUseCase.execute(id, dto);
-  }
-
-  @Put(':id/status/:status')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update contact support request status' })
-  @ApiParam({
-    name: 'id',
-    description: 'Support request ID',
-  })
-  @ApiParam({
-    name: 'status',
-    enum: ContactSupportStatus,
-    description: 'New status',
-  })
-  async updateStatus(
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Update contact request status (Admin)' })
+  @ApiParam({ name: 'id', type: String })
+  updateStatus(
     @Param('id') id: string,
-    @Param('status') status: ContactSupportStatus,
+    @Body('status') status: ContactSupportStatus,
   ) {
     return this.contactSupportService.updateStatus(id, status);
-  }
-
-  @Delete(':id')
-  @ApiBearerAuth()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a contact support request' })
-  @ApiParam({
-    name: 'id',
-    description: 'Support request ID',
-  })
-  @ApiResponse({
-    status: 204,
-    description: 'Support request deleted successfully',
-  })
-  async delete(@Param('id') id: string) {
-    return this.contactSupportService.deleteContactSupport(id);
   }
 }

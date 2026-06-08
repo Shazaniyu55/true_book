@@ -33,11 +33,6 @@ export class Trip extends BaseEntity {
   @JoinColumn({ name: 'passengerId' })
   passenger: Passenger;
 
-  @Column({ type: 'varchar' })
-  origin: string;
-
-  @Column({ type: 'varchar' })
-  destination: string;
 
   @Column({ type: 'date' })
   departureDate: string;
@@ -45,8 +40,8 @@ export class Trip extends BaseEntity {
   @Column({ type: 'time' })
   departureTime: string;
 
-    @Column({ type: 'date', nullable: true })
-    arrivalDate: string | null;
+  @Column({ type: 'date', nullable: true })
+  arrivalDate: string | null;
 
   @Column({ type: 'time', nullable: true })
   arrivalTime: string;
@@ -78,13 +73,10 @@ export class Trip extends BaseEntity {
   @Column({ type: 'integer' })
   totalSeats: number;
 
-  @Column({ type: 'integer', default: 0 })
-  bookedSeats: number;
-
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
 
-    @Column({ type: 'integer' })
+  @Column({ type: 'integer' })
   availableSeats: number;
 
   @Column({ type: 'varchar', enum: TripStatus, default: TripStatus.PENDING })
@@ -92,6 +84,9 @@ export class Trip extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   waypoints: any[];
+
+  @Column({ type: 'integer', default: 0 })
+bookedSeats: number;
 
   @Column({ type: 'varchar', nullable: true })       // ← ADD
   description: string;

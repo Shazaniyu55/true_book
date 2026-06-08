@@ -85,11 +85,25 @@ export class User extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
 
-  @Exclude({ toPlainOnly: true })
+@Exclude({ toPlainOnly: true })
 @Column({ type: 'integer', default: 0 })
 otpAttempts: number;
 
 @Exclude({ toPlainOnly: true })
 @Column({ type: 'integer', default: 0 })
 phoneOtpAttempts: number;
+
+@Column({ type: 'varchar', nullable: true })
+  city: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  country: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  address: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  gender: string;
+
+
 }

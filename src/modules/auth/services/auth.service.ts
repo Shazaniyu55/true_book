@@ -26,6 +26,7 @@ import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
 import { Admin } from '@modules/core/entities/admin.entity';
 import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
 import { dot } from 'node:test/reporters';
+import { AgentRepository } from '@adapters/repositories/agent.repository';
 
 @Injectable()
 export class AuthService {
@@ -43,6 +44,7 @@ export class AuthService {
     private readonly couponService: CouponService,
     private readonly dojahAdapter: DojahAdapter,
     private readonly adminRepo: AdminRepository,
+    private readonly agentRepo: AgentRepository,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>
     
@@ -90,6 +92,10 @@ export class AuthService {
         referralCode,
         otpCode: hasedOtp,
         otpExpiresAt,
+        country: dto.country,
+        address: dto.address,
+        city: dto.city,
+        gender: dto.gender,
         roleId: role.id,
         role: safeRole,
         status: UserStatus.PENDING,
@@ -104,8 +110,9 @@ export class AuthService {
     } else if (user.role === UserRole.DRIVER) {
 
       await this.driverRepository.createDriver({ userId: user.id }, entityManager);
-        
-    
+            
+    }else if(user.role === UserRole.AGENT){
+      await this.agentRepo.createAgent({userId: user.id}, entityManager)
     }
 
     // ── Phone verification OTP — for passengers AND drivers ──
@@ -199,7 +206,7 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
       return { user, ...tokens };
     }
 
-     async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
+  async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
         const existingUser = await this.adminRepo.findByEmail(dto.email);
     
         if (existingUser) {

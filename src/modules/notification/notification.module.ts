@@ -1,28 +1,51 @@
-import { Module } from '@nestjs/common';
+// src/modules/notification/notification.module.ts
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Broker } from '@broker/broker';
 import { NotificationRepository } from '@adapters/repositories/notification.repository';
 import { NotificationController } from './controllers/notification.controller';
-import { TypeOrmModule } from '@nestjs/typeorm/dist/typeorm.module';
 import { NotificationService } from './services/notification.service';
-import { SendPushNotificationUseCase } from './usecases/send-push-notification.usecase';
-import { CreateNotificationUseCase } from './usecases/create-notification.usecase';
 import { ExpoService } from './services/expo.service';
+import { NotificationGateway } from './gateway/notification.gateway';
+import { CreateNotificationUseCase } from './usecases/create-notification.usecase';
+import { SendPushNotificationUseCase } from './usecases/send-push-notification.usecase';
 import { Notification } from '@modules/core/entities/notification.entity';
-import { UserRepository } from '@adapters/repositories/user.repository';
 import { User } from '@modules/core/entities/user.entity';
+import { Admin } from '@modules/core/entities/admin.entity';
+import { GetUnReadNotificationUseCase } from './usecases/getunread.usecase';
+import { GetAllNotificationUseCase } from './usecases/getallnotify.usecase';
+import { MarkAllNotificationUseCase } from './usecases/markallread.usecase';
+import { DelteNotificationUseCase } from './usecases/deletenotify.usecase';
 
+@Global()
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, User])],
+  imports: [
+    TypeOrmModule.forFeature([Admin, Notification, User]),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (cs: ConfigService) => ({
+        secret: cs.get<string>('common.auth.jwt.accessSecret'),
+        signOptions: { expiresIn: cs.get<string>('common.auth.jwt.accessExpiresIn') },
+      }),
+    }),
+  ],
   controllers: [NotificationController],
   providers: [
     Broker,
     NotificationRepository,
-    UserRepository,
     NotificationService,
     ExpoService,
+    NotificationGateway,
     CreateNotificationUseCase,
     SendPushNotificationUseCase,
+    GetUnReadNotificationUseCase,
+    GetAllNotificationUseCase,
+    MarkAllNotificationUseCase,
+    DelteNotificationUseCase
   ],
-  exports: [NotificationService],
+  exports: [NotificationService, NotificationGateway],
 })
 export class NotificationModule {}

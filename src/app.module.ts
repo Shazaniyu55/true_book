@@ -32,6 +32,9 @@ import { AppAccessControlModule } from '@shared/access-control/access-control.mo
 import { ReviewModule } from '@modules/review/review.module';
 import { VehicleModule } from '@modules/vehicle/vehicle.module';
 import { LocationModule } from '@modules/location/location.module';
+import { SystemSettingModule } from '@modules/system/system.module';
+import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
+import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 
 
 
@@ -76,7 +79,10 @@ import { LocationModule } from '@modules/location/location.module';
     KycModule,
     ReviewModule,
     VehicleModule,
-    LocationModule
+    LocationModule,
+    SystemSettingModule,
+    CouponReferralModule,
+    CloudinaryModule
    
   ],
   controllers: [],

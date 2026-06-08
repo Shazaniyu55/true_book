@@ -3,24 +3,22 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ContactSupportController } from './controllers/contact-support.controller';
 import { ContactSupport } from '@modules/core/entities/contact-support.entity';
-import { ContactSupportRepository } from '@adapters/repositories/contact-support.repository';
 import { ContactSupportService } from './services/contact-support.service';
-import { CreateContactSupportUseCase } from './usecases/create-support.usecase';
-import { GetContactSupportUseCase } from './usecases/get-support.usecase';
-import { UpdateContactSupportUseCase } from './usecases/update-support.usecase';
+import { Driver } from '@modules/core/entities/driver.entity';
+import { Passenger } from '@modules/core/entities/passenger.entity';
+import { Agent } from '@modules/core/entities/agent.entity';
+import { EmailModule } from '@modules/email/email.module';
+
 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ContactSupport])],
+  
+  imports: [TypeOrmModule.forFeature([ContactSupport, Driver, Passenger, Agent]), EmailModule],
   controllers: [ContactSupportController],
   providers: [
     Broker,
-    ContactSupportRepository,
     ContactSupportService,
-    CreateContactSupportUseCase,
-    GetContactSupportUseCase,
-    UpdateContactSupportUseCase,
   ],
-  exports: [ContactSupportService, ContactSupportRepository],
+  exports: [ContactSupportService],
 })
 export class ContactSupportModule {}

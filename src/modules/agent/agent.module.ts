@@ -16,10 +16,14 @@ import { Broker } from '@broker/broker';
 import { AgentService } from './services/agent.service';
 import { AgentController } from './controllers/agent.controller';
 import { KillSwitch } from '@modules/core/entities/kill-switch.entity';
+import { Driver } from '@modules/core/entities/driver.entity';
+import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
+import { SystemSettingModule } from '@modules/system/system.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Agent, Booking, Trip, Passenger, Payout, AgentCommission, KillSwitch]),
+    SystemSettingModule,
+    TypeOrmModule.forFeature([Agent,Driver, Booking, Trip, Passenger, AgentReferral, Payout, AgentCommission, KillSwitch]),
   ],
   controllers: [AgentController],
   providers: [

@@ -9,13 +9,11 @@ export class GetDriversUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, _args: any, query: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  kycStatus?: string;
-  status?: string;
-}) {
-    return this.adminService.getDrivers(query);
-  }
+async execute(
+  _entityManager: EntityManager,
+  args: { page?: number; limit?: number; search?: string },
+) {
+  return this.adminService.getDrivers(args);
+}
+
 }

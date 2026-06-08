@@ -17,8 +17,7 @@ import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { Broker } from '@broker/broker';
 import { GetDriverKycStatusUsecase } from './usecase/getDriverKycStatus.usecase';
 import { VerifyDriverLicenseUsecase } from './usecase/verifydriverlicense.usecase';
-// import { VerifyDriverNinUsecase } from './usecase/verifyDriverNin.usecase';
-// import { VerifyDriverBvnUsecase } from './usecase/verifyDriverBvn.usecase';
+
 
 @Module({
   imports: [
@@ -36,8 +35,7 @@ import { VerifyDriverLicenseUsecase } from './usecase/verifydriverlicense.usecas
 
     GetDriverKycStatusUsecase,
     VerifyDriverLicenseUsecase,
-    // VerifyDriverNinUsecase,
-    // VerifyDriverBvnUsecase
+
   
   ],
   exports: [KycService],

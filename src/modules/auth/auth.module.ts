@@ -38,10 +38,12 @@ import { AdminModule } from '@modules/admin/admin.module';
 import { RegisterAdminUsecase } from './usecases/createadmin.usecase';
 import { LoginAdminUsecase } from './usecases/loginadmin.usecase';
 import { VerifyAdminOtpUsecase } from './usecases/verifyadminotp.usecase';
+import { AgentRepository } from '@adapters/repositories/agent.repository';
+import { Agent } from '@modules/core/entities/agent.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ User, Driver, Passenger, Admin, Booking, Role]),
+    TypeOrmModule.forFeature([ Agent, User, Driver, Passenger, Admin, Booking, Role]),
     PassportModule,
     AdminModule,
     JwtModule.registerAsync({
@@ -63,6 +65,7 @@ import { VerifyAdminOtpUsecase } from './usecases/verifyadminotp.usecase';
     UserRepository,
     DriverRepository,
     PassengerRepository,
+    AgentRepository,
     DojahAdapter,
     DojahProvider,
      {

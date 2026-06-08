@@ -1,154 +1,211 @@
-import { ContactSupportRepository } from '@adapters/repositories/contact-support.repository';
 import { ContactSupport } from '@modules/core/entities/contact-support.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateContactSupportDto, UpdateContactSupportDto } from '../dtos/dto';
-import { ContactSupportStatus, UserRole } from 'src/types/enums';
+import { ContactSupportQueryDto, ContactSupportStatus, UserRole, CreateContactSupportDto } from 'src/types/enums';
+import { PagedDto } from '@shared/interface/paged.interface';
+import { User } from '@modules/core/entities/user.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Driver } from '@modules/core/entities/driver.entity';
+import { Repository } from 'typeorm';
+import { Passenger } from '@modules/core/entities/passenger.entity';
+import { Agent } from '@modules/core/entities/agent.entity';
+import { EmailService } from '@modules/email/email.service';
 
 @Injectable()
 export class ContactSupportService {
-  constructor(private readonly contactSupportRepository: ContactSupportRepository) {}
+  constructor(
+    @InjectRepository(ContactSupport) private readonly contactRepo: Repository<ContactSupport>,
+    @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
+    @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
+    @InjectRepository(Agent) private readonly agentRepo: Repository<Agent>,
+    private readonly emailService: EmailService
 
-  async createContactSupport(data: CreateContactSupportDto): Promise<ContactSupport> {
-    // You can add additional validation or logic here
-    if (!data.user_type) {
-      data.user_type = UserRole.GUEST;
+  ) {}
+
+    private async getSupportEmail(userId?: string): Promise<{ email: string; userType: UserRole }> {
+    if (!userId) {
+      return {
+        email: 'trubookersupport@trubooker.com',
+        userType: UserRole.PASSENGER,
+      };
     }
 
-    const contactSupport = await this.contactSupportRepository.createContactSupport({
-      ...data,
+    // Check if user is a driver
+    const driver = await this.driverRepo.findOne({ where: { userId } });
+    if (driver) {
+      return {
+        email: 'drivers@email.trubooker.com',
+        userType: UserRole.DRIVER,
+      };
+    }
+
+    // Check if user is a passenger
+    const passenger = await this.passengerRepo.findOne({ where: { userId } });
+    if (passenger) {
+      return {
+        email: 'passengers@email.trubooker.com',
+        userType: UserRole.PASSENGER,
+      };
+    }
+
+    // Check if user is an agent
+    const agent = await this.agentRepo.findOne({ where: { userId } });
+    if (agent) {
+      return {
+        email: 'agentsupport@trubooker.com',
+        userType: UserRole.AGENT,
+      };
+    }
+
+    // Default fallback
+    return {
+      email: 'trubookersupport@trubooker.com',
+      userType: UserRole.PASSENGER,
+    };
+  }
+
+  // ─── Create Contact Support Request ──────────────────────────────────────
+
+  async create(dto: CreateContactSupportDto, user?: User) {
+    // Resolve name and email — authenticated user takes priority
+    const name = user
+      ? `${user.firstName} ${user.lastName}`.trim()
+      : `${dto.firstName ?? ''} ${dto.lastName ?? ''}`.trim();
+
+    const email = user ? user.email : dto.email;
+
+    // Determine user type and support email
+    const { email: supportEmail, userType } = await this.getSupportEmail(user?.id);
+
+    // Save to DB
+    const contact = this.contactRepo.create({
+      name,
+      email,
+      subject: dto.subject,
+      message: dto.message,
+      user_type: userType,
       status: ContactSupportStatus.PENDING,
     });
 
-    // TODO: Send email notification to admin or support team
-    // await this.emailService.notifyAdminNewSupportRequest(contactSupport);
+    const saved = await this.contactRepo.save(contact);
 
-    return contactSupport;
-  }
-
-  async getAllContactSupports(page: number = 1, limit: number = 10): Promise<{
-    data: ContactSupport[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
-    const skip = (page - 1) * limit;
-    const [data, total] = await this.contactSupportRepository.findAll(skip, limit);
-
-    return { data, total, page, limit };
-  }
-
-  async getContactSupportById(id: string): Promise<ContactSupport> {
-    const contactSupport = await this.contactSupportRepository.findById(id);
-
-    if (!contactSupport) {
-      throw new NotFoundException(`Contact support request with id ${id} not found`);
+    // Send email — non-blocking, failure won't break the response
+    try {
+      await this.emailService.sendContactSupportNotification({
+         to: supportEmail,
+      name,
+      email,
+      subject: dto.subject,
+      message: dto.message,
+      contactId: saved.id,
+      userType,
+      });
+    } catch (error) {
+      console.error(' Contact support email failed:', error?.message);
     }
 
-    return contactSupport;
+    return saved;
   }
 
-  async getContactSupportsByEmail(email: string): Promise<ContactSupport[]> {
-    return this.contactSupportRepository.findByEmail(email);
-  }
+  // ─── Get All Contact Requests (Admin) ────────────────────────────────────
 
-  async getContactSupportsByStatus(
-    status: ContactSupportStatus,
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<{
-    data: ContactSupport[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
+  async getAllRequests(query: ContactSupportQueryDto) {
+    const { page = 1, limit = 10, search, status, userType } = query;
     const skip = (page - 1) * limit;
-    const [data, total] = await this.contactSupportRepository.findByStatus(status, skip, limit);
 
-    return { data, total, page, limit };
-  }
+    const qb = this.contactRepo
+      .createQueryBuilder('c')
+      .orderBy('c.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
 
-  async getContactSupportsByUserType(
-    userType: UserRole,
-    page: number = 1,
-    limit: number = 10,
-  ): Promise<{
-    data: ContactSupport[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
-    const skip = (page - 1) * limit;
-    const [data, total] = await this.contactSupportRepository.findByUserType(userType, skip, limit);
-
-    return { data, total, page, limit };
-  }
-
-  async getPendingRequests(page: number = 1, limit: number = 10): Promise<{
-    data: ContactSupport[];
-    total: number;
-    page: number;
-    limit: number;
-  }> {
-    const skip = (page - 1) * limit;
-    const [data, total] = await this.contactSupportRepository.findPending(skip, limit);
-
-    return { data, total, page, limit };
-  }
-
-  async updateContactSupport(
-    id: string,
-    data: UpdateContactSupportDto,
-  ): Promise<ContactSupport> {
-    const contactSupport = await this.getContactSupportById(id);
-
-    if (!contactSupport) {
-      throw new NotFoundException(`Contact support request with id ${id} not found`);
+    if (status) {
+      qb.andWhere('c.status = :status', { status });
     }
 
-    const updated = await this.contactSupportRepository.updateContactSupport(id, data);
-
-    // TODO: Send notification email if status changed
-    // if (data.status && data.status !== contactSupport.status) {
-    //   await this.emailService.notifyStatusChange(updated);
-    // }
-
-    return updated;
-  }
-
-  async updateStatus(id: string, status: ContactSupportStatus): Promise<ContactSupport> {
-    const contactSupport = await this.getContactSupportById(id);
-
-    if (!contactSupport) {
-      throw new NotFoundException(`Contact support request with id ${id} not found`);
+    if (userType) {
+      qb.andWhere('c.userType = :user_type', { userType });
     }
 
-    const updated = await this.contactSupportRepository.updateStatus(id, status);
-
-    // TODO: Send notification email when status changes
-    // await this.emailService.notifyStatusChange(updated);
-
-    return updated;
-  }
-
-  async deleteContactSupport(id: string): Promise<{ message: string }> {
-    const contactSupport = await this.getContactSupportById(id);
-
-    if (!contactSupport) {
-      throw new NotFoundException(`Contact support request with id ${id} not found`);
+    if (search) {
+      qb.andWhere(
+        '(c.subject ILIKE :search OR c.message ILIKE :search OR c.email ILIKE :search OR c.name ILIKE :search)',
+        { search: `%${search}%` },
+      );
     }
 
-    await this.contactSupportRepository.deleteContactSupport(id);
+    const [data, total] = await qb.getManyAndCount();
 
-    return { message: 'Contact support request deleted successfully' };
+    return {
+    data,
+    meta: {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    },
+  };
   }
 
-  async getStatistics(): Promise<{
-    total: number;
-    pending: number;
-    in_progress: number;
-    resolved: number;
-    closed: number;
-  }> {
-    return this.contactSupportRepository.getStatistics();
+  // ─── Get Single Request ───────────────────────────────────────────────────
+
+  async getById(id: string) {
+    const contact = await this.contactRepo.findOne({ where: { id } });
+    if (!contact) throw new NotFoundException('Contact support request not found');
+    return contact;
   }
+
+  // ─── Update Status (Admin) ────────────────────────────────────────────────
+
+  async updateStatus(id: string, status: ContactSupportStatus) {
+    const contact = await this.getById(id);
+    contact.status = status;
+    return this.contactRepo.save(contact);
+  }
+
+  // ─── Get User's Own Requests ──────────────────────────────────────────────
+
+  async getUserRequests(userEmail: string, query: ContactSupportQueryDto) {
+    const { page = 1, limit = 10, search, status } = query;
+    const skip = (page - 1) * limit;
+
+    const qb = this.contactRepo
+      .createQueryBuilder('c')
+      .where('c.email = :email', { email: userEmail })
+      .orderBy('c.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (status) {
+      qb.andWhere('c.status = :status', { status });
+    }
+
+    if (search) {
+      qb.andWhere(
+        '(c.subject ILIKE :search OR c.message ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+
+   return {
+    data,
+    meta: {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    },
+  };
+  }
+
+
+
+  
 }
