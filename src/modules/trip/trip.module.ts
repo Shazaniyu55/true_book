@@ -37,6 +37,7 @@ import { CancleBookingUsecase } from './usecases/canclebooking.usecase';
 import { GetBookingCodeUsecase } from './usecases/getbookingcode.usecase';
 import { BookTripUsecase } from './usecases/booktrip.usecase';
 import { ScanTicketUsecase } from './usecases/scanticket.usecase';
+import { GetBoardingQrUsecase } from './usecases/getboardingqr.usecase';
 
 
 
@@ -81,6 +82,7 @@ import { ScanTicketUsecase } from './usecases/scanticket.usecase';
     CheckInPassengerUsecase,
     CancleBookingUsecase,
     GetBookingCodeUsecase,
+    GetBoardingQrUsecase,
     BookTripUsecase
   ],
   exports: [TripsService, TripRepository],

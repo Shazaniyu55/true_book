@@ -11,6 +11,7 @@ import {
   IsUrl,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TripStatus, VehicleType } from '../../../types/enums';
@@ -66,6 +67,11 @@ export class UpdateTripDto {
 }
 
 // ─── Passenger books a trip ────────────────────────────────────────────────
+export class ExtraLuggageDto {
+  @ApiProperty({ example: 12, description: 'Luggage weight in kg' })
+  @IsPositive() @IsNumber() weight: number;
+}
+
 
 export class BookTripDto {
   @ApiProperty({ example: 1 })
@@ -79,6 +85,10 @@ export class BookTripDto {
 
   @ApiPropertyOptional({ description: 'Payment redirect URL after Paystack checkout' })
   @IsOptional() callbackUrl?: string;
+
+  @ApiPropertyOptional({ type: [ExtraLuggageDto] })
+@IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ExtraLuggageDto)
+extraLuggage?: ExtraLuggageDto[];
 }
 
 // ─── Trip search / filter ──────────────────────────────────────────────────

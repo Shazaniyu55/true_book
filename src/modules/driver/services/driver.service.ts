@@ -505,7 +505,7 @@ await this.notifiyService.notify({
       await manager.increment(
         Driver,
         { id: escrow.driverId },
-        'walletBalance',
+        'currentBalance',
         Number(escrow.netDriverAmount),
       );
 

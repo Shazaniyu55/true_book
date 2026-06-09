@@ -19,6 +19,10 @@ import { PaymentFactory } from '@adapters/payment/payment.factory';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { ExpoService } from '@modules/notification/services/expo.service';
 import { TripsModule } from '@modules/trip/trip.module';
+import { PassengerModule } from '@modules/passenger/passenger.module';
+import { DriverModule } from '@modules/driver/driver.module';
+import { PaymentService } from '@modules/passenger/services/payment.service';
+import { PayoutService } from '@modules/driver/services/payout.service';
 
 @Module({
   imports: [
@@ -33,7 +37,9 @@ import { TripsModule } from '@modules/trip/trip.module';
       Coupon,
       Vehicle,
     ]),
-    TripsModule,   
+    TripsModule,  
+  PassengerModule,   
+  DriverModule
   ],
   controllers: [WebhookController],
   providers: [
@@ -45,5 +51,6 @@ import { TripsModule } from '@modules/trip/trip.module';
     RandomnessUtil,
     ExpoService,
   ],
+  
 })
 export class WebhookModule {}

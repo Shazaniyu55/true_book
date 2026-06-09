@@ -24,7 +24,7 @@ export class Driver extends BaseEntity {
   vehicleId: string;
 
   @ManyToOne(() => Vehicle)
-  @JoinColumn({ name: 'vehicleId' })
+  @JoinColumn({ name: 'vehicleId',  })
   vehicle: Vehicle;
   
 

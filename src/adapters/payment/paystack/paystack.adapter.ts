@@ -54,5 +54,9 @@ export class PaystackAdapter implements IPaystack {
   initiateRefund(reference: string, amount?: number): Promise<boolean> {
   return this.provider.initiateRefund(reference, amount);
 }
+
+checkBalance(): Promise<{ balance: number; currency: string }> {
+  return this.provider.checkBalance();
+}
   
 }

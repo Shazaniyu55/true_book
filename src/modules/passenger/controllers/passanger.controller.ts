@@ -7,6 +7,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  Post,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -23,7 +24,7 @@ import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { JwtPayload } from '../../../types/interfaces';
 import { PassengerService } from '../services/passanger.service';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
-import { UpdatePassengerProfileDto } from '../dtos/passanger.dto';
+import { InitiatePaymentDto, UpdatePassengerProfileDto } from '../dtos/passanger.dto';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { Broker } from '@broker/broker';
@@ -31,6 +32,8 @@ import { GetPassengerProfileUsecase } from '../usecases/getprofile.usecase';
 import { GetPassengerDashBoardUsecase } from '../usecases/getdashboard.usecase';
 import { DeleteUserAccountUsecase } from '../usecases/deleteacct.usecase';
 import { DeleteUserDto } from '@modules/auth/dtos/deleteuser.dto';
+import { InitiatePaymentUsecase } from '../usecases/initiatepayment.usecase';
+import { GetBankListUsecase } from '../usecases/getbanklist.usecase';
 
 @ApiTags('Passenger')
 @ApiBearerAuth()
@@ -43,7 +46,9 @@ export class PassengerController {
     private readonly passengerService: PassengerService,
     private readonly getPassengerProfileUsecase:GetPassengerProfileUsecase,
     private readonly getPassengerDashBoardUsecase:GetPassengerDashBoardUsecase,
-    private readonly deleteAccountUsecase:DeleteUserAccountUsecase
+    private readonly deleteAccountUsecase:DeleteUserAccountUsecase,
+    private readonly initiatePaymentUsecase:InitiatePaymentUsecase,
+    private readonly getBankListUsecase: GetBankListUsecase
   
   ) {}
 
@@ -88,4 +93,18 @@ export class PassengerController {
   deleteAccount(@AuthUser() user: JwtPayload, dto: DeleteUserDto) {
     return this.broker.runUsecases([this.deleteAccountUsecase], {id: user.sub, dto: dto})
   }
+
+@PassengerOnly()
+@Post('payment/initiate')
+@ApiOperation({ summary: 'Initiate payment for a booking' })
+initiatePayment(@AuthUser() user: JwtPayload, @Body() dto: InitiatePaymentDto) {
+  return this.broker.runUsecases([this.initiatePaymentUsecase], { id: user.sub, dto });
+}
+
+@PassengerOnly()
+@Get('payment/banks')
+@ApiOperation({ summary: 'Get supported bank list' })
+getBanks() {
+  return this.broker.runUsecases([this.getBankListUsecase], {});
+}
 }

@@ -12,24 +12,47 @@ import { Broker } from '@broker/broker';
 import { GetPassengerProfileUsecase } from './usecases/getprofile.usecase';
 import { GetPassengerDashBoardUsecase } from './usecases/getdashboard.usecase';
 import { DeleteUserAccountUsecase } from './usecases/deleteacct.usecase';
+import { InitiatePaymentUsecase } from './usecases/initiatepayment.usecase';
+import { GetBankListUsecase } from './usecases/getbanklist.usecase';
+import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
+import { Payment } from '@modules/core/entities/payment.entity';
+import { Trip } from '@modules/core/entities/trip.entity';
+import { Driver } from '@modules/core/entities/driver.entity';
+import { PaymentService } from './services/payment.service';
+import { PaymentFactory } from '@adapters/payment/payment.factory';
+import { PaystackAdapter } from '@adapters/payment/paystack/paystack.adapter';
+import { PaystackProvider } from '@adapters/payment/paystack/providers/paystack.provider';
+import { FlutterwaveAdapter } from '@adapters/payment/flutterwave/flutterwave.adapter';
+import { FlutterwaveProvider } from '@adapters/payment/flutterwave/providers/flutterwave.provider';
+import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 
 
 
 @Module({
   imports: [
     CloudinaryModule,
-    TypeOrmModule.forFeature([Passenger, User, Booking]),
+    CouponReferralModule,
+    TypeOrmModule.forFeature([Passenger, User, Booking, Payment, Trip, Driver]),
   ],
   controllers: [PassengerController],
   providers: [
     Broker,
     PassengerService,
+    PaymentService,
     PassengerRepository,
+    PaymentFactory,
+    PaystackAdapter,
+    PaystackProvider,
+    FlutterwaveAdapter,
+    FlutterwaveProvider,
+    RandomnessUtil,
     GetPassengerProfileUsecase,
     DeleteUserAccountUsecase,
-    GetPassengerDashBoardUsecase
+    GetPassengerDashBoardUsecase,
+    InitiatePaymentUsecase,
+    GetBankListUsecase
   
   ],
-  exports: [PassengerService, PassengerRepository],  // exported so AuthModule can call ensureProfile()
+  exports: [PassengerService, PassengerRepository, PaymentService],  // exported so AuthModule can call ensureProfile()
 })
 export class PassengerModule {}

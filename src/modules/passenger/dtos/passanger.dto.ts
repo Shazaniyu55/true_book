@@ -1,5 +1,5 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdatePassengerProfileDto {
@@ -31,4 +31,23 @@ export class PassengerQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional() @IsString() status?: string;
+}
+
+
+
+export class InitiatePaymentDto {
+  @ApiProperty({ description: 'Booking (BookTrip) ID to pay for' })
+  @IsNotEmpty()
+  @IsUUID()
+  bookTripId: string;
+
+  @ApiPropertyOptional({ description: 'Billing details captured at checkout' })
+  @IsOptional()
+  @IsObject()
+  billingDetails?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Redirect URL after gateway checkout' })
+  @IsOptional()
+  @IsUrl()
+  callbackUrl?: string;
 }

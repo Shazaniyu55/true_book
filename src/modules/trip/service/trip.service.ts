@@ -3,7 +3,8 @@ import {
   Injectable,
 } from '@nestjs/common';
 import {  EntityManager } from 'typeorm';
-
+import * as QRCode from 'qrcode';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Trip } from '@modules/core/entities/trip.entity';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { Passenger } from '@modules/core/entities/passenger.entity';
@@ -21,6 +22,7 @@ import {
   UpdateTripDto,
 } from '../dtos/trip.dto';
 import { TripRepository } from '@adapters/repositories/trip.repository';
+import { TicketStatus } from 'src/types/enums';
 
 
 
@@ -136,13 +138,32 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
 
   // ─── Get booking detail ───────────────────────────────────────────────────
 
-  async getBookingByCode(bookingCode: string, id: string) {
-    return await this.tripRepository.getBookingByCode(bookingCode, id)
+  async getBookingByCode( id: string, bookingCode: string,) {
+    return await this.tripRepository.getBookingByCode( id, bookingCode,)
   }
 
  
 
-  
+  async getBoardingQr(userId: string, bookingCode: string): Promise<{ svg: string; payload: string }> {
+  // reuse your ownership-checked fetch
+  const booking = await this.tripRepository.getBookingByCode( userId, bookingCode,);
+
+  if (booking.ticketStatus !== TicketStatus.ISSUED) {
+    throw new ForbiddenException('Ticket is not available for boarding (unpaid, scanned, or void)');
+  }
+  if (!booking.ticketToken) {
+    throw new NotFoundException('No ticket issued for this booking');
+  }
+
+  // The driver's scanner reads this JSON; the scan endpoint re-validates the token.
+  const payload = JSON.stringify({
+    bookingCode: booking.bookingCode,
+    ticketToken: booking.ticketToken,
+  });
+
+  const svg = await QRCode.toString(payload, { type: 'svg', width: 300, margin: 1 });
+  return { svg, payload };
+}
 
 
 

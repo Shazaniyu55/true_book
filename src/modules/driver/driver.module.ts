@@ -41,6 +41,11 @@ import { CheckInPassengerUsecase } from '@modules/trip/usecases/checkinpassenger
 import { GetTripUsecase } from '@modules/trip/usecases/gettrip.usecase';
 import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
 import { NotificationModule } from '@modules/notification/notification.module';
+import { Payout } from '@modules/core/entities/payout.entity';
+import { Agent } from '@modules/core/entities/agent.entity';
+import { Beneficiary } from '@modules/core/entities/beneficiary.entity';
+import { PayoutService } from './services/payout.service';
+import { InitiatePayoutUsecase } from './usecases/initiatepayout.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -67,6 +72,9 @@ import { NotificationModule } from '@modules/notification/notification.module';
       Coupon,
       Notification,
       Vehicle,
+      Payout,
+      Agent,
+      Beneficiary
     ]),
   ],
   controllers: [DriverTripController],
@@ -75,9 +83,10 @@ import { NotificationModule } from '@modules/notification/notification.module';
     // Services
     DriverTripService,
     TripsService,
-
+    PayoutService,
     // Use Cases
     CreateDriverTripUsecase,
+    InitiatePayoutUsecase,
     UpdateDriverTripUsecase,
     ActivateDriverTripUsecase,
     CancleDriverTripUsecase,
@@ -99,6 +108,6 @@ import { NotificationModule } from '@modules/notification/notification.module';
 
 
   ],
-  exports: [DriverTripService, TripsService],
+  exports: [DriverTripService, TripsService, PayoutService],
 })
 export class DriverModule {}

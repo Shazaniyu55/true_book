@@ -24,4 +24,5 @@ export interface IPaystack {
   nameEnquiry(account_number: string, bank_code: string): Promise<NameEnquiryResponse>;
   verifyWebhookSignature(payload: string, signature: string): boolean;
   initiateRefund(reference: string, amount?: number): Promise<boolean>;
+  checkBalance(): Promise<{ balance: number; currency: string }>;
 }

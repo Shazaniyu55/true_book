@@ -26,6 +26,8 @@ import {  DocumentStatus, EscrowStatus, KycStatus, PaymentStatus } from '../../.
 import { TripsService } from '@modules/trip/service/trip.service';
 import { ExpoService } from '@modules/notification/services/expo.service';
 import { SkipThrottle } from '@nestjs/throttler';
+import { PaymentService } from '@modules/passenger/services/payment.service';
+import { PayoutService } from '@modules/driver/services/payout.service';
 
 @ApiTags('Webhooks')
 @ServiceName('webhooks')
@@ -42,60 +44,102 @@ export class WebhookController {
     @InjectRepository(DocumentVerification) private readonly docRepo: Repository<DocumentVerification>,
     @InjectRepository(Notification) private readonly notifRepo: Repository<Notification>,
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
-    private readonly expoService: ExpoService
+    private readonly expoService: ExpoService,
+      private readonly paymentService: PaymentService,   
+     private readonly payoutService: PayoutService, 
   ) {}
 
   // ─── Paystack ─────────────────────────────────────────────────────────────
 
   @Public()
-  @SkipKillSwitch()
-  @Post('paystack')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Paystack webhook — charge.success, transfer.success/failed',
-    description: 'Do NOT call manually. Paystack sends events here.',
-  })
-  async handlePaystack(
-    @Headers('x-paystack-signature') signature: string,
-    @Req() req: RawBodyRequest<Request>,
-    @Body() rawBody: any,
-  ) {
-    // 1. Verify signature
-       const raw = req.rawBody?.toString('utf8');
-    if (!raw || !this.paystackAdapter.verifyWebhookSignature(raw, signature)) {
-      this.logger.warn('Paystack webhook: invalid signature — ignored');
-      return { received: false };
-    }
-
-    // const bodyString = JSON.stringify(rawBody);
-    // if (!this.paystackAdapter.verifyWebhookSignature(bodyString, signature)) {
-    //   this.logger.warn('Paystack webhook: invalid signature — ignored');
-    //   return { received: false };
-    // }
-
-    const { event, data } = rawBody;
-    this.logger.log(`Paystack event: ${event} | ref: ${data?.reference}`);
-
-    switch (event) {
-      case 'charge.success':
-        await this.handleChargeSuccess(data);
-        break;
-      case 'transfer.success':
-        await this.handleTransferSuccess(data);
-        break;
-      case 'transfer.failed':
-      case 'transfer.reversed':
-        await this.handleTransferFailed(data, event);
-        break;
-      case 'refund.processed':
-        await this.handleRefundProcessed(data);
-        break;
-      default:
-        this.logger.log(`Unhandled Paystack event: ${event}`);
-    }
-
-    return { received: true };
+@SkipKillSwitch()
+@Post('paystack')
+@HttpCode(HttpStatus.OK)
+async handlePaystack(
+  @Headers('x-paystack-signature') signature: string,
+  @Req() req: RawBodyRequest<Request>,
+) {
+  const raw = req.rawBody?.toString('utf8');
+  if (!raw || !this.paystackAdapter.verifyWebhookSignature(raw, signature)) {
+    this.logger.warn('Paystack webhook: invalid signature — ignored');
+    return { received: false };
   }
+
+  const { event, data } = JSON.parse(raw);
+  const reference = data?.reference;
+  this.logger.log(`Paystack event: ${event} | ref: ${reference}`);
+  if (!reference) return { received: true };
+
+  switch (event) {
+    case 'charge.success':
+      await this.paymentService.verifyPayment(
+        reference,
+        data.channel ?? 'unknown',
+        data.created_at,
+        data.authorization ? [data.authorization] : [],
+      );
+      break;
+    case 'transfer.success':
+    case 'paymentrequest.success':
+      await this.payoutService.completePayout(reference);
+      break;
+    case 'transfer.failed':
+    case 'transfer.reversed':
+      await this.payoutService.reversePayout(reference);
+      break;
+    case 'refund.processed':
+      await this.handleRefundProcessed(data);
+      break;
+    default:
+      this.logger.log(`Unhandled Paystack event: ${event}`);
+  }
+  return { received: true };
+}
+  // @Public()
+  // @SkipKillSwitch()
+  // @Post('paystack')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({
+  //   summary: 'Paystack webhook — charge.success, transfer.success/failed',
+  //   description: 'Do NOT call manually. Paystack sends events here.',
+  // })
+  // async handlePaystack(
+  //   @Headers('x-paystack-signature') signature: string,
+  //   @Req() req: RawBodyRequest<Request>,
+  //   @Body() rawBody: any,
+  // ) {
+  //   // 1. Verify signature
+  //      const raw = req.rawBody?.toString('utf8');
+  //   if (!raw || !this.paystackAdapter.verifyWebhookSignature(raw, signature)) {
+  //     this.logger.warn('Paystack webhook: invalid signature — ignored');
+  //     return { received: false };
+  //   }
+
+   
+
+  //   const { event, data } = rawBody;
+  //   this.logger.log(`Paystack event: ${event} | ref: ${data?.reference}`);
+
+  //   switch (event) {
+  //     case 'charge.success':
+  //       await this.handleChargeSuccess(data);
+  //       break;
+  //     case 'transfer.success':
+  //       await this.handleTransferSuccess(data);
+  //       break;
+  //     case 'transfer.failed':
+  //     case 'transfer.reversed':
+  //       await this.handleTransferFailed(data, event);
+  //       break;
+  //     case 'refund.processed':
+  //       await this.handleRefundProcessed(data);
+  //       break;
+  //     default:
+  //       this.logger.log(`Unhandled Paystack event: ${event}`);
+  //   }
+
+  //   return { received: true };
+  // }
 
   // ─── Dojah KYC ────────────────────────────────────────────────────────────
 

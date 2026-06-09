@@ -47,6 +47,8 @@ import { CheckInPassengerUsecase } from '@modules/trip/usecases/checkinpassenger
 import { GetTripUsecase } from '@modules/trip/usecases/gettrip.usecase';
 import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
 import { TripListQueryDto } from '@modules/trip/dtos/trip.dto';
+import { InitiatePayoutDto } from '../dtos/payout.dto';
+import { InitiatePayoutUsecase } from '../usecases/initiatepayout.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -73,7 +75,8 @@ export class DriverTripController {
     private readonly getTripBookingsUseCase:GetTripBookingsUsecase,
     private readonly checkInPassengerUsecase: CheckInPassengerUsecase,
     private readonly getTripUsecase:GetTripUsecase,
-    private readonly getMyTripUsecase:GetMyTripUsecase
+    private readonly getMyTripUsecase:GetMyTripUsecase,
+    private readonly initiatePayoutUsecase: InitiatePayoutUsecase
   ) {}
 
   /**
@@ -90,6 +93,13 @@ async createTrip(
 ): Promise<CreateTripResponseDto> {
   return this.broker.runUsecases([this.createDriverTripUsecase], {id: user.sub, dto: dto})
  
+}
+
+@DriverOnly()
+@Post('payout/initiate')
+@ApiOperation({ summary: 'Driver: Request a withdrawal' })
+initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
+  return this.broker.runUsecases([this.initiatePayoutUsecase], { id: user.sub, dto });
 }
 
   /**

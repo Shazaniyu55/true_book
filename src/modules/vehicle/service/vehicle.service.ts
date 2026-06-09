@@ -34,10 +34,14 @@ export class VehicleService {
       throw new BadRequestException('A vehicle with this plate number already exists');
     }
 
-    return this.vehicleRepo.createVehicle(
+    const vehicle = await this.vehicleRepo.createVehicle(
       { ...dto, driverId: driver.id, isActive: true, isVerified: false },
       em,
     );
+
+    await this.driverRepo.update({ id: driver.id }, { vehicleId: vehicle.id });
+
+    return vehicle;
   }
 
   async getMyVehicle(userId: string): Promise<Vehicle> {

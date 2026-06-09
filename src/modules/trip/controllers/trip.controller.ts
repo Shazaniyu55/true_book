@@ -51,6 +51,7 @@ import { CancleBookingUsecase } from '../usecases/canclebooking.usecase';
 import { GetBookingCodeUsecase } from '../usecases/getbookingcode.usecase';
 import { BookTripUsecase } from '../usecases/booktrip.usecase';
 import { ScanTicketUsecase } from '../usecases/scanticket.usecase';
+import { GetBoardingQrUsecase } from '../usecases/getboardingqr.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -74,7 +75,8 @@ export class TripsController {
     private readonly cancleBookingUsecase:CancleBookingUsecase,
     private readonly getBookingCodeUsecase:GetBookingCodeUsecase,
     private readonly bookTripUsecase:BookTripUsecase,
-    private readonly scanTicketUsecase:ScanTicketUsecase
+    private readonly scanTicketUsecase:ScanTicketUsecase,
+    private readonly getBoardingQrUsecase:GetBoardingQrUsecase
   
   ) {}
 
@@ -228,4 +230,12 @@ export class TripsController {
 scanTicket(@AuthUser() user: any, @Body() dto: ScanTicketDto) {
   return this.broker.runUsecases([this.scanTicketUsecase], { id: user.sub, dto });
 }
+
+@PassengerOnly()
+@Get('bookings/:code/qr')
+@ApiOperation({ summary: 'Passenger: Get boarding QR code (SVG) for a paid booking' })
+getBoardingQr(@AuthUser() user: any, @Param('code') code: string) {
+  return this.broker.runUsecases([this.getBoardingQrUsecase], { id: user.sub, bookingCode: code });
+}
+
 }
