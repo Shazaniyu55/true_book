@@ -60,8 +60,6 @@ export class User extends BaseEntity {
     @Column({ type: 'varchar', nullable: true })
     deleteReason: string;
 
-      @Column({ type: 'varchar', nullable: true })
-  num: string;
 
   @Column({ type: 'varchar', nullable: true })
   deviceType: string;
