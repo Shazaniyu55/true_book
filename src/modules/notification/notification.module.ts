@@ -18,11 +18,15 @@ import { GetUnReadNotificationUseCase } from './usecases/getunread.usecase';
 import { GetAllNotificationUseCase } from './usecases/getallnotify.usecase';
 import { MarkAllNotificationUseCase } from './usecases/markallread.usecase';
 import { DelteNotificationUseCase } from './usecases/deletenotify.usecase';
+import { MarkOneNotificationUseCase } from './usecases/markoneread.usecase';
+import { DeleteOneNotificationUseCase } from './usecases/deleteonenotify.usecase';
+import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 
 @Global()
 @Module({
   imports: [
     TypeOrmModule.forFeature([Admin, Notification, User]),
+    CloudinaryModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -44,7 +48,9 @@ import { DelteNotificationUseCase } from './usecases/deletenotify.usecase';
     GetUnReadNotificationUseCase,
     GetAllNotificationUseCase,
     MarkAllNotificationUseCase,
-    DelteNotificationUseCase
+    DelteNotificationUseCase,
+    MarkOneNotificationUseCase,
+    DeleteOneNotificationUseCase
   ],
   exports: [NotificationService, NotificationGateway],
 })

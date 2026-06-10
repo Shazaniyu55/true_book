@@ -113,7 +113,7 @@ if (!vehicle.isVerified) {
   status: TripStatus.PENDING,
 });
 
-await this.tripRepo.save(trip);
+         //await this.tripRepo.save(trip);
     
         const savedTrip = await manager.save(Trip, trip);
         

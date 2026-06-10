@@ -154,6 +154,10 @@ async getPassengers(query: {
     return await this.adminRepo.getDriverDocumentHistory(id);
   }
 
+  async fetchDriversDocuments(id: string) {
+  return await this.adminRepo.fetchDriversDocuments(id);
+}
+
   async updateDriverDocuments(id: string, dto:UpdateDriverDocumentDto){
     return await this.adminRepo.updateDriverDocuments(id, dto)
   }

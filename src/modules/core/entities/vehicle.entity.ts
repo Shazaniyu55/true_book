@@ -40,9 +40,23 @@ export class Vehicle extends BaseEntity {
   @Column({ type: 'boolean', default: false })
   isActive: boolean;
 
+  @Column({ type: 'jsonb', nullable: true, default: [] })
+  features: string[];
+
   @Column({ type: 'varchar', nullable: true })
-  vehiclePhoto: string;
+  insurance: string;
+
+  @Column({ type: 'jsonb', nullable: true, default: [] })
+  vehiclePhoto: string[];
+
+  @Column({ type: 'varchar', nullable: true })
+  registrationDoc: string;
 
   @Column({ type: 'jsonb', nullable: true })
   documents: Record<string, any>;
+
+  @Column({ type: 'varchar', nullable: true })
+  licensePlateNumber: string;
+
+  
 }

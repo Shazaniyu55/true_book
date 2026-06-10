@@ -8,6 +8,8 @@ import { NotificationGateway } from '../gateway/notification.gateway';
 import { NotificationType, UserStatus } from '../../../types/enums';
 import { User } from '@modules/core/entities/user.entity';
 import { Admin } from '@modules/core/entities/admin.entity';
+import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
+import { CreateAnnouncementDto } from '../dtos/announcement.dto';
 
 export interface NotifyParams {
   userId: string;
@@ -25,6 +27,7 @@ export class NotificationService {
     private readonly notificationRepository: NotificationRepository,
     private readonly expoService: ExpoService,
     private readonly gateway: NotificationGateway,
+    private readonly cloudinaryservice: CloudinaryService,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Admin) private readonly adminRepo: Repository<Admin>
   ) {} 
@@ -98,17 +101,64 @@ export class NotificationService {
   }
 
   // ── existing read/query methods (now backed by the fixed repo) ──
-  getUnreadNotifications(userId: string) {
-    return this.notificationRepository.findUnreadByUserId(userId);
+  async getUnreadNotifications(userId: string) {
+    return await this.notificationRepository.findUnreadByUserId(userId);
   }
-  getAllNotifications(userId: string) {
-    return this.notificationRepository.getNotificationsByUserId(userId);
+  async getAllNotifications(userId: string) {
+    return await this.notificationRepository.getNotificationsByUserId(userId);
   }
-  markAllAsRead(userId: string) {
-    return this.notificationRepository.markAllReadByUserId(userId);
+  async markAllAsRead(userId: string) {
+    return await this.notificationRepository.markAllReadByUserId(userId);
   }
-  deleteNotification(notificationId: string) {
-    return this.notificationRepository.deleteNotificationByUserId?.(notificationId)
-      ?? this.notificationRepository.deleteNotificationByUserId(notificationId);
+
+  async markOneAsRead(notificationId:string, userId: string) {
+    return await this.notificationRepository.markOneAsRead(notificationId,userId);
   }
+  async deleteNotification(notificationId: string) {
+    return await this.notificationRepository.deleteNotificationByUserId(notificationId)
+  
+  }
+
+    async deleteOneNotify(notificationId:string, userId: string) {
+    return await this.notificationRepository.deleteOneNotification(notificationId,userId);
+  }
+
+async createAnnouncement(
+  dto: CreateAnnouncementDto,
+  file?: Express.Multer.File,
+  user?: any,
+) {
+  try{
+  const uploadResult = file
+    ? await this.cloudinaryservice.upload(file, { resource_type: 'auto' })
+    : null;
+
+  const users = await this.userRepo.find({ where: { status: UserStatus.ACTIVE } });
+
+  return this.notifyMany(
+    users.map((u) => u.id),
+    {
+      title: dto.title,
+      body: dto.body,
+      type: NotificationType.ANNOUNCEMENT,
+      data: {
+         fileUrl: uploadResult?.secure_url ?? null,
+        filePublicId: uploadResult?.public_id ?? null,
+        duration: dto.duration,
+        target: dto.target,
+        createdBy: user?.sub,
+      },
+    },
+  );
+}
+  catch(error){
+      console.log(error)
+  }
+
+}
+
+async getAllAnnouncements() {
+  return this.notificationRepository.getAnnouncements();
+}
+
 }

@@ -1,4 +1,3 @@
-// dto/add-driver-documents.dto.ts
 import {
   IsString,
   IsNotEmpty,

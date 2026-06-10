@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -23,6 +24,7 @@ import { CouponService } from '../service/cupon.service';
 import {
   CouponListQueryDto,
   CreateCouponDto,
+  GenerateCouponDto,
   ToggleWelcomeCouponDto,
   UpdateCouponDto,
   ValidateCouponDto,
@@ -130,4 +132,33 @@ export class CouponController {
   validate(@Body() dto: ValidateCouponDto) {
     return this.couponService.validateCoupon(dto);
   }
+
+  @AdminOnly()
+  @Get('stats')
+  @ApiOperation({ summary: 'Admin: Coupon statistics' })
+  stats() {
+    return this.couponService.getCouponStats();
+  }
+
+  @AdminOnly()
+  @Put(':id/status')
+  @ApiOperation({ summary: 'Admin: Update coupon active status' })
+  updateStatus(@Param('id') id: string, @Body() body: { isActive: boolean }) {
+    return this.couponService.updateCouponStatus(id, body.isActive);
+  }
+
+  @AdminOnly()
+  @Delete(':id')
+  @ApiOperation({ summary: 'Admin: Soft-delete a coupon' })
+  remove(@Param('id') id: string) {
+    return this.couponService.deleteCoupon(id);
+  }
+
+  @AdminOnly()
+  @Post('generate')
+  @ApiOperation({ summary: 'Admin: Generate a promotion coupon (auto-code if none given)' })
+  generate(@Body() dto: GenerateCouponDto, @AuthUser() user: any) {
+    return this.couponService.generateCoupon(dto as any, user.id);
+  }
+  
 }

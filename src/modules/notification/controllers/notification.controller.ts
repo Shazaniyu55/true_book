@@ -11,6 +11,8 @@ import { GetUnReadNotificationUseCase } from '../usecases/getunread.usecase';
 import { GetAllNotificationUseCase } from '../usecases/getallnotify.usecase';
 import { MarkAllNotificationUseCase } from '../usecases/markallread.usecase';
 import { DelteNotificationUseCase } from '../usecases/deletenotify.usecase';
+import { MarkOneNotificationUseCase } from '../usecases/markoneread.usecase';
+import { DeleteOneNotificationUseCase } from '../usecases/deleteonenotify.usecase';
 
 @ServiceName('notification')
 @ApiTags('Notifications')
@@ -24,6 +26,8 @@ export class NotificationController {
     private readonly getAllNotificationUsecase: GetAllNotificationUseCase,
     private readonly markAllNotificationUsecase: MarkAllNotificationUseCase,
     private readonly deleteNotificationUsecase: DelteNotificationUseCase,
+    private readonly markOneAsReadUsecase:MarkOneNotificationUseCase,
+    private readonly deleteOneNotifyUsecase: DeleteOneNotificationUseCase
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -39,7 +43,7 @@ export class NotificationController {
   @ApiOperation({ summary: 'Send push notification' })
   @ApiResponse({ status: 200, description: 'Push notification sent successfully' })
   async sendPush(@AuthUser() user: any) {
-    return this.broker.runUsecases([this.sendPushNotificationUseCase], user.sub);
+    return this.broker.runUsecases([this.sendPushNotificationUseCase], {id:user.sub});
   }
 
   @UseGuards(JwtAuthGuard)
@@ -47,7 +51,7 @@ export class NotificationController {
   @ApiOperation({ summary: 'Get unread notifications' })
   @ApiResponse({ status: 200, description: 'Unread notifications fetched' })
   async getUnread(@AuthUser() user: any) {
-    return this.broker.runUsecases([this.getUnreadNotificationUsecase], user.sub);
+    return this.broker.runUsecases([this.getUnreadNotificationUsecase], {id:user.sub});
   }
 
   @UseGuards(JwtAuthGuard)
@@ -55,7 +59,7 @@ export class NotificationController {
   @ApiOperation({ summary: 'Get all notifications' })
   @ApiResponse({ status: 200, description: 'All notifications fetched' })
   async getAllNotify(@AuthUser() user: any) {
-    return this.broker.runUsecases([this.getAllNotificationUsecase], { id: user.sub });
+    return this.broker.runUsecases([this.getAllNotificationUsecase], { id: user.id });
   }
 
   @UseGuards(JwtAuthGuard)
@@ -63,15 +67,31 @@ export class NotificationController {
   @ApiOperation({ summary: 'Mark all notifications as read' })
   @ApiResponse({ status: 200, description: 'All notifications marked as read' })
   async markAll(@AuthUser() user: any) {
-    return this.broker.runUsecases([this.markAllNotificationUsecase], user.sub);
+    return this.broker.runUsecases([this.markAllNotificationUsecase], {id:user.sub});
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('delete-notify')             
+  @Post('mark-as-read/:id')                    
+  @ApiOperation({ summary: 'Mark one notifications as read' })
+  @ApiResponse({ status: 200, description: 'All notifications marked as read' })
+  async markOne(@AuthUser() user: any, @Param('id') notifyId: string) {
+  return this.broker.runUsecases([this.markOneAsReadUsecase], {notifyId: notifyId, id: user.sub});
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('delete-notify')             
   @ApiOperation({ summary: 'Delete notifications' })
   @ApiResponse({ status: 200, description: 'Notifications deleted' })
   async deleteNotify(@AuthUser() user: any) {
-    return this.broker.runUsecases([this.deleteNotificationUsecase], user.sub);
+    return this.broker.runUsecases([this.deleteNotificationUsecase], {id:user.sub});
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('clear:id')                    
+  @ApiOperation({ summary: 'delete one notifications as read' })
+  @ApiResponse({ status: 200, description: 'All notifications marked as read' })
+  async deleteOne(@AuthUser() user: any, @Param('id') notifyId: string) {
+  return this.broker.runUsecases([this.deleteOneNotifyUsecase], {notifyId: notifyId, id: user.sub});
   }
 }
 // import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';

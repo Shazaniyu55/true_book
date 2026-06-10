@@ -6,18 +6,17 @@ import { VehicleRepository } from '@adapters/repositories/vehicle.repository';
 import { Broker } from '@broker/broker';
 import { VehicleController } from './controller/vehicle.controller';
 import { VehicleService } from './service/vehicle.service';
-import { CreateVehicleUsecase } from './usecase/createvehicle.usecase';
 import { GetMyVehicleUsecase } from './usecase/getvehicle.usecase';
+import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Vehicle, Driver])],
+  imports: [TypeOrmModule.forFeature([Vehicle, Driver]), CloudinaryModule,],
   controllers: [VehicleController],
   providers: [
     Broker,
     VehicleService,
     VehicleRepository,
-    CreateVehicleUsecase,
     GetMyVehicleUsecase,
   ],
   exports: [VehicleService],

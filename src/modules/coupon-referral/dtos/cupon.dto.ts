@@ -178,6 +178,20 @@ export class ToggleWelcomeCouponDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ example: 30, description: 'Days after registration the coupon stays valid' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsPositive()
+  @IsNumber()
+  expiryDays?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'How many times a recipient can use it' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsPositive()
+  @IsNumber()
+  usageLimit?: number;
 }
 
 // ─── Passenger: Validate coupon before booking ───────────────────────────────
@@ -262,4 +276,42 @@ export class CouponListQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   isActive?: boolean;
+}
+
+// ─── Admin: Generate coupon (auto-code; looser than create) ──────────────────
+export class GenerateCouponDto {
+  @ApiPropertyOptional({ example: 'PROMO-X7K2', description: 'Optional — auto-generated if omitted' })
+  @IsOptional()
+  @IsString()
+  code?: string; // ← optional, unlike CreateCouponDto
+
+  @ApiProperty({ enum: CouponType, example: CouponType.PERCENTAGE })
+  @IsEnum(CouponType)
+  type: CouponType;
+
+  @ApiProperty({ example: 20 })
+  @Type(() => Number) // ← coerce "20" → 20 (number inputs send strings)
+  @IsPositive()
+  @IsNumber()
+  value: number;
+
+  @ApiPropertyOptional({ example: 2000 })
+  @IsOptional() @Type(() => Number) @IsPositive() @IsNumber()
+  maxDiscount?: number;
+
+  @ApiPropertyOptional({ example: 1000 })
+  @IsOptional() @Type(() => Number) @IsPositive() @IsNumber()
+  minOrderAmount?: number;
+
+  @ApiPropertyOptional({ example: 100 })
+  @IsOptional() @Type(() => Number) @IsPositive() @IsNumber()
+  usageLimit?: number;
+
+  @ApiPropertyOptional({ example: '2025-12-31T23:59:59Z' })
+  @IsOptional() @IsISO8601()
+  expiresAt?: string;
+
+  @ApiPropertyOptional({ example: 'Summer promo' })
+  @IsOptional() @IsString()
+  description?: string;
 }

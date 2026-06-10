@@ -247,10 +247,20 @@ async getDriverById(id: string) {
   try {
     const driver = await this.driverRepo.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'vehicle'],
     });
     if (!driver) throw new NotFoundException('Driver not found');
-    return driver;
+
+     const [tripHistory] = await this.tripRepo.findAndCount({
+      where: { driverId: id },
+      order: { createdAt: 'DESC' },
+      take: 10,
+    });
+    //return driver;
+     return {
+      ...driver,
+      tripHistory: tripHistory,
+    };
   } catch (e) {
     console.error('getDriverById error:', e?.message, e?.stack);
     throw e;
@@ -877,6 +887,27 @@ async getTripWithPassengers(tripId: string, query: { page?: number; limit?: numb
 
   return documents;
 }
+async fetchDriversDocuments(driverId: string) {
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) throw new NotFoundException('Driver not found');
+
+  // Returns only the latest document per type
+  const documents = await this.docRepo
+    .createQueryBuilder('doc')
+    .where('doc.driverId = :driverId', { driverId })
+    .orderBy('doc.createdAt', 'DESC')
+    .getMany();
+
+  // Group by documentType and return only the latest of each
+  const latestByType = new Map<string, DocumentVerification>();
+  for (const doc of documents) {
+    if (!latestByType.has(doc.documentType)) {
+      latestByType.set(doc.documentType, doc);
+    }
+  }
+
+  return Array.from(latestByType.values());
+}
 
 async deleteDriverDocumentHistory(driverId: string): Promise<{ message: string; deleted: number }> {
   const driver = await this.driverRepo.findOne({ where: { id: driverId } });
@@ -909,8 +940,10 @@ async addDriverDocuments(
   driverId: string,
   dto: AddDriverDocumentsDto,
 ): Promise<DocumentVerification[]> {
-  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-  if (!driver) throw new NotFoundException('Driver not found');
+
+  try{
+        const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+   if (!driver) throw new NotFoundException('Driver not found');
 
   const documents = dto.documents.map((doc) =>
     this.docRepo.create({
@@ -923,6 +956,10 @@ async addDriverDocuments(
   );
 
   return this.docRepo.save(documents);
+  }catch(error){
+    console.log(error)
+  }
+
 }
 
   // ─── Driver / KYC Management ─────────────────────────────────────────────────
@@ -1474,7 +1511,7 @@ async getTransactionHistory(query: {
     limit,
     count: data.length,
     previousPage: page > 1 ? page - 1 : false,
-    nextPage: skip + total < total ? page + 1 : false,
+    nextPage: skip + limit < total ? page + 1 : false,
     pageCount: Math.ceil(total / limit),
     totalRecords: total,
   };

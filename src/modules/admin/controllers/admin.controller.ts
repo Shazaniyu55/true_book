@@ -19,6 +19,7 @@ import {
   ApiConsumes,
   ApiOperation,
   ApiParam,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -107,6 +108,9 @@ import { GetAgentsUsecase } from '../usecases/getagents.usecase';
 import { ToggleAgentStatusUsecase } from '../usecases/toggleagent.usecase';
 import { ToggledriverStatusUsecase } from '../usecases/toggledriver.usecase';
 import { TogglePassengerStatusUsecase } from '../usecases/togglepassenger.usecase';
+import { FetchDriverDocUsecase } from '../usecases/fetchdriverdoc.usecase';
+import { NotificationService } from '@modules/notification/services/notification.service';
+import { CreateAnnouncementDto } from '@modules/notification/dtos/announcement.dto';
 
 
 @ServiceName('admin') // For kill switch targeting
@@ -170,7 +174,9 @@ export class AdminController {
     private readonly getAgentUsecase:GetAgentsUsecase,
     private readonly toggleAgentStatusUsecase:ToggleAgentStatusUsecase,
     private readonly toggleDriverStatusUsecase:ToggledriverStatusUsecase,
-    private readonly togglePassengerStatusUsecase:TogglePassengerStatusUsecase
+    private readonly togglePassengerStatusUsecase:TogglePassengerStatusUsecase,
+    private readonly fetchDriverDocUsecase:FetchDriverDocUsecase,
+    private readonly notificationService: NotificationService
   ) {}
 
 
@@ -191,7 +197,7 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
-  @Get('agent:id')
+  @Get('agent/:id')
   @ApiOperation({ summary: 'get Agent by Id' })
   @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
   getAgentById(@Param('id') id: string) {
@@ -200,16 +206,39 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
-  @Get('agent-details:id')
+  @Get('agent-details/:id')
   @ApiOperation({ summary: 'get Agent-details by Id' })
   @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
   getAgentDetail(@Param('id') id: string) {
     return this.broker.runUsecases([this.getAgentWithDetailUsecase], {id: id});
   }
 
+@Get('anoucements')
+@UseGuards(JwtAuthGuard)
+@ApiOperation({ summary: 'Get all announcements' })
+@ApiResponse({ status: 200, description: 'Announcements fetched successfully' })
+async getAllAnnouncements() {
+  return this.notificationService.getAllAnnouncements();
+}
+
   @ApiBearerAuth()
   @AdminOnly()
-  @Get('agent-referral:id')
+  @Post('anoucements/create')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Create announcement' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Announcement created successfully' })
+  async createAnnouncement(
+    @Body() dto: CreateAnnouncementDto,
+    @AuthUser() user: any,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.notificationService.createAnnouncement(dto, file, user);
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('agent-referral/:id')
   @ApiOperation({ summary: 'get Agent-referral by Id' })
   @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
   @ApiBody({ type: AdminListQueryDto })
@@ -228,29 +257,29 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
-  @Patch('toggle-agents')
+  @Patch('toggle-agents/:id')
   @ApiOperation({ summary: 'toggle-Agents ' })
   @ApiParam({ name: 'id', type: String, description: 'toggle Agent UUID' })
-  toogleAgent(@Param() id: string) {
+  toogleAgent(@Param('id') id: string) {
     return this.broker.runUsecases([this.toggleAgentStatusUsecase], {id: id});
   }
 
   @ApiBearerAuth()
   @AdminOnly()
-  @Patch('toggle-driver')
+  @Patch('toggle-driver/:id')
   @ApiOperation({ summary: 'toggle-driver ' })
   @ApiParam({ name: 'id', type: String, description: 'toggle driver UUID' })
 
-  toogleDriver(@Param() id: string) {
+  toogleDriver(@Param('id') id: string) {
     return this.broker.runUsecases([this.toggleDriverStatusUsecase], {id: id});
   }
 
   @ApiBearerAuth()
   @AdminOnly()
-  @Patch('toggle-passenger')
+  @Patch('toggle-passenger/:id')
   @ApiOperation({ summary: 'toggle-passenger ' })
   @ApiParam({ name: 'id', type: String, description: 'toggle passenger UUID' })
-  tooglePassenger(@Param() id: string) {
+  tooglePassenger(@Param('id') id: string) {
     return this.broker.runUsecases([this.togglePassengerStatusUsecase], {id: id});
   }
 
@@ -305,8 +334,13 @@ export class AdminController {
   @ApiOperation({ summary: 'Get driver doc history by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Get driver doc history by ID' })
   getDriverDocHistory(@Param('id') id: string) {
-    return this.broker.runUsecases([this.getDriverDocHistoryUsecase], { id });
+    return this.broker.runUsecases([this.getDriverDocHistoryUsecase], { id: id });
   }
+
+@Get('drivers/fetch-drivers-document/:driverId')
+async fetchDriversDocuments(@Param('driverId') driverId: string) {
+  return this.broker.runUsecases([this.fetchDriverDocUsecase], {id:driverId });
+}
 
   @ApiBearerAuth()
   @AdminOnly()

@@ -95,6 +95,7 @@ export enum NotificationType {
   DOCUMENT_APPROVED = 'document_approved',
   DOCUMENT_REJECTED = 'document_rejected',
   BROADCAST = 'broadcast',
+  ANNOUNCEMENT = 'announcement',
   OTP = 'otp',
 }
 

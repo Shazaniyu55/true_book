@@ -17,6 +17,7 @@ import {
   ValidateCouponDto,
 } from '../dtos/cupon.dto';
 import { PagedDto } from '@shared/interface/paged.interface';
+import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 
 
 @Injectable()
@@ -29,6 +30,7 @@ export class CouponService {
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly emailService: EmailService,
+    private readonly randomnessUtil: RandomnessUtil
   ) {}
 
   // ─── Admin: create coupon ─────────────────────────────────────────────────
@@ -307,4 +309,48 @@ export class CouponService {
 
     return { discountAmount, couponId: coupon.id };
   }
+
+  async updateCouponStatus(id: string, isActive: boolean): Promise<Coupon> {
+  const coupon = await this.couponRepo.findOne({ where: { id } });
+  if (!coupon) throw new NotFoundException('Coupon not found');
+  coupon.isActive = isActive;
+  coupon.status = isActive ? CouponStatus.ACTIVE : CouponStatus.INACTIVE;
+  return this.couponRepo.save(coupon);
+}
+
+async deleteCoupon(id: string): Promise<{ message: string }> {
+  const coupon = await this.couponRepo.findOne({ where: { id } });
+  if (!coupon) throw new NotFoundException('Coupon not found');
+  await this.couponRepo.softDelete(id); // sets deletedAt, keeps the row
+  return { message: 'Coupon deleted successfully' };
+}
+
+// ─── stats ─────────────────────────────────────────────────────────────────
+async getCouponStats() {
+  const [total, active, expired, welcome] = await Promise.all([
+    this.couponRepo.count(),
+    this.couponRepo.count({ where: { isActive: true } }),
+    this.couponRepo.count({ where: { status: CouponStatus.EXPIRED } }),
+    this.couponRepo.count({ where: { isWelcomeCoupon: true } }),
+  ]);
+
+  const usageRow = await this.couponRepo
+    .createQueryBuilder('c')
+    .select('COALESCE(SUM(c.usageCount), 0)', 'totalRedemptions')
+    .getRawOne();
+
+  return {
+    total_coupons: total,
+    active_coupons: active,
+    expired_coupons: expired,
+    welcome_coupons: welcome,
+    total_redemptions: Number(usageRow?.totalRedemptions ?? 0),
+  };
+}
+
+async generateCoupon(dto: CreateCouponDto, adminId: string): Promise<Coupon> {
+  // If the admin didn't supply a code, make one. Otherwise behave like create.
+  const code = (dto.code?.trim() || `PROMO-${this.randomnessUtil.generateRandomStringWithNumbers(8)}`).toUpperCase();
+  return this.createCoupon({ ...dto, code }, adminId);
+}
 }

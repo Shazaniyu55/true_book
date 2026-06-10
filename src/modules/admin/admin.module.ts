@@ -93,6 +93,8 @@ import { ToggleAgentStatusUsecase } from './usecases/toggleagent.usecase';
 import { TogglePassengerStatusUsecase } from './usecases/togglepassenger.usecase';
 import { ToggledriverStatusUsecase } from './usecases/toggledriver.usecase';
 import { GetFinacialReportUsecase } from './usecases/getfinacialreport.usecase';
+import { FetchDriverDocUsecase } from './usecases/fetchdriverdoc.usecase';
+import { GetDriverWithDetailUsecase } from './usecases/getdriverwithdetails.usecase';
 
 
 
@@ -108,6 +110,8 @@ const USECASES = [
   ToggleAgentStatusUsecase,
   TogglePassengerStatusUsecase,
   ToggledriverStatusUsecase,
+  FetchDriverDocUsecase,
+  GetDriverWithDetailUsecase,
   GetAgentsUsecase,
   GetUserUsecase,
   SuspendUserUsecase,

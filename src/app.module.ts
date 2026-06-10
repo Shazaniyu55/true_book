@@ -35,6 +35,7 @@ import { LocationModule } from '@modules/location/location.module';
 import { SystemSettingModule } from '@modules/system/system.module';
 import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
 import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
+import { AppVersionModule } from '@modules/appversion/appversion.module';
 
 
 
@@ -65,6 +66,7 @@ import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
     KillSwitchModule,
 
     // ─── Feature modules ───────────────────────────────────────────────────
+    AppVersionModule,
     AppAccessControlModule,
     CoreModule,
     AuthModule,

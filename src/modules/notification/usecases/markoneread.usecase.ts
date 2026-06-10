@@ -3,10 +3,10 @@ import { NotificationService } from '../services/notification.service';
 import { EntityManager } from 'typeorm';
 
 @Injectable()
-export class GetUnReadNotificationUseCase {
+export class MarkOneNotificationUseCase {
   constructor(private readonly notificationService: NotificationService) {}
 
-  async execute(_entityManager: EntityManager, arg:{id:string}) {
-    return this.notificationService.getUnreadNotifications(arg.id);
+  async execute(_entityManager: EntityManager, args: {notifyId: string, id:string}) {
+    return this.notificationService.markOneAsRead(args.notifyId, args.id);
   }
 }
