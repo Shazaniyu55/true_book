@@ -25,7 +25,6 @@ import { AdminRepository } from '@adapters/repositories/admin.repository';
 import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
 import { Admin } from '@modules/core/entities/admin.entity';
 import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
-import { dot } from 'node:test/reporters';
 import { AgentRepository } from '@adapters/repositories/agent.repository';
 
 @Injectable()
