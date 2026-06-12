@@ -4,6 +4,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PriceControlDto, ReferralProgramDto, SystemSettingEnum } from 'src/types/enums';
 import { Repository } from 'typeorm';
+import { RedisCacheService } from '@modules/cache/redis-cache.service';
+import { CACHE_TTL } from '@modules/cache/redis-cache.constants';
 
 
 @Injectable()
@@ -11,7 +13,10 @@ export class SystemSettingService {
   constructor(
     @InjectRepository(SystemSetting)
     private readonly settingRepo: Repository<SystemSetting>,
+    private readonly cache: RedisCacheService
   ) {}
+  private readonly PRICE_KEY = 'system:price_control';
+  private readonly REFERRAL_KEY = 'system:referral_program';
 
   // ─── Get All Settings ────────────────────────────────────────────────────────
 
@@ -27,43 +32,59 @@ export class SystemSettingService {
 
   // ─── Price Control ───────────────────────────────────────────────────────────
 
-  async setPriceControl(data: PriceControlDto) {
-    const setting = await this.settingRepo.findOne({
-      where: { key: SystemSettingEnum.PRICE_CONTROL },
-    });
-    if (!setting) throw new NotFoundException('Price control setting not found');
+async setPriceControl(data: PriceControlDto) {
+  const setting = await this.settingRepo.findOne({
+    where: { key: SystemSettingEnum.PRICE_CONTROL },
+  });
+  if (!setting) throw new NotFoundException('Price control setting not found');
 
-    setting.value = { ...setting.value, ...data }; // 
-    return this.settingRepo.save(setting);
-  }
+  setting.value = { ...setting.value, ...data };
+  const saved = await this.settingRepo.save(setting);
+  await this.cache.del(this.PRICE_KEY); // ← invalidate
+  return saved;
+}
 
-  async getPriceControl(): Promise<PriceControlDto> {
-    const setting = await this.settingRepo.findOne({
-      where: { key: SystemSettingEnum.PRICE_CONTROL },
-    });
-    if (!setting) throw new NotFoundException('Price control setting not found');
-    return setting.value as PriceControlDto;
-  }
+async getPriceControl(): Promise<PriceControlDto> {
+  return this.cache.getOrSet(
+    this.PRICE_KEY,
+    async () => {
+      const setting = await this.settingRepo.findOne({
+        where: { key: SystemSettingEnum.PRICE_CONTROL },
+      });
+      if (!setting) throw new NotFoundException('Price control setting not found');
+      return setting.value as PriceControlDto;
+    },
+    CACHE_TTL.HOUR,
+  );
+}
 
   // ─── Referral Program ────────────────────────────────────────────────────────
 
-  async setReferralProgram(data: ReferralProgramDto) {
-    const setting = await this.settingRepo.findOne({
-      where: { key: SystemSettingEnum.REFERRAL_PROGRAM },
-    });
-    if (!setting) throw new NotFoundException('Referral program setting not found');
+async setReferralProgram(data: ReferralProgramDto) {
+  const setting = await this.settingRepo.findOne({
+    where: { key: SystemSettingEnum.REFERRAL_PROGRAM },
+  });
+  if (!setting) throw new NotFoundException('Referral program setting not found');
 
-    setting.value = { ...setting.value, ...data }; //
-    return this.settingRepo.save(setting);
-  }
+  setting.value = { ...setting.value, ...data };
+  const saved = await this.settingRepo.save(setting);
+  await this.cache.del(this.REFERRAL_KEY); // ← invalidate
+  return saved;
+}
 
-  async getReferralProgram(): Promise<ReferralProgramDto> {
-    const setting = await this.settingRepo.findOne({
-      where: { key: SystemSettingEnum.REFERRAL_PROGRAM },
-    });
-    if (!setting) throw new NotFoundException('Referral program setting not found');
-    return setting.value as ReferralProgramDto;
-  }
+async getReferralProgram(): Promise<ReferralProgramDto> {
+  return this.cache.getOrSet(
+    this.REFERRAL_KEY,
+    async () => {
+      const setting = await this.settingRepo.findOne({
+        where: { key: SystemSettingEnum.REFERRAL_PROGRAM },
+      });
+      if (!setting) throw new NotFoundException('Referral program setting not found');
+      return setting.value as ReferralProgramDto;
+    },
+    CACHE_TTL.HOUR,
+  );
+}
 
   // ─── Seed Default Settings (run once on app bootstrap) ───────────────────────
 

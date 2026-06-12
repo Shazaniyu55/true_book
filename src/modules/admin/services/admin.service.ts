@@ -14,6 +14,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
 import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
+import { RedisCacheService } from '@modules/cache/redis-cache.service';
+import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 
 @Injectable()
 export class AdminService {
@@ -25,15 +27,26 @@ export class AdminService {
     private readonly randomnessUtil: RandomnessUtil,
     private readonly configService: ConfigService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly cache: RedisCacheService, 
 
     @InjectRepository(Role)
   private readonly roleRepository: Repository<Role>
   ) {}
 
 
-  async getDashboardStats(query: { page?: number; limit?: number }) {
-    return await this.adminRepo.getDashboardStats(query);
-  }
+  // async getDashboardStats(query: { page?: number; limit?: number }) {
+  //   return await this.adminRepo.getDashboardStats(query);
+  // }
+async getDashboardStats(query: { page?: number; limit?: number } = {}) {
+  const page = query?.page ?? 1;
+  const limit = query?.limit ?? 20;
+  const key = `${CACHE_KEYS.DASHBOARD_STATS}:${page}:${limit}`;
+  return this.cache.getOrSet(
+    key,
+    () => this.adminRepo.getDashboardStats(query ?? {}),
+    CACHE_TTL.MEDIUM,
+  );
+}
 
   async getDrivers(query: {
   page?: number;

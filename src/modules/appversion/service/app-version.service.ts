@@ -4,6 +4,9 @@ import { Repository } from 'typeorm';
 import { AppVersionHistory } from '@modules/core/entities/appversion.entity';
 import { PagedDto } from '@shared/interface/paged.interface';
 import { UpdateAppVersionDto, VersionHistoryQueryDto } from '../dto/app-version.dto';
+import { RedisCacheService } from '@modules/cache/redis-cache.service';
+import { CACHE_TTL } from '@modules/cache/redis-cache.constants';
+
 
 @Injectable()
 export class AppVersionService {
@@ -12,44 +15,51 @@ export class AppVersionService {
   constructor(
     @InjectRepository(AppVersionHistory)
     private readonly repo: Repository<AppVersionHistory>,
+     private readonly cache: RedisCacheService,
   ) {}
 
-  async checkVersion(
-    appType: 'passenger' | 'driver',
-    platform = 'android',
-    fallbackVersion = '1.0.0',
-  ) {
-    // Mirrors the driver controller's explicit platform validation
-    if (!['android', 'ios'].includes(platform)) {
-      throw new BadRequestException('Invalid platform');
-    }
+private versionKey(appType: string, platform: string) {
+  return `app_version:${appType}:${platform}`;
+}
 
-    try {
-      const settings = await this.repo.findOne({ where: { appType, platform } });
+ async checkVersion(
+  appType: 'passenger' | 'driver',
+  platform = 'android',
+  fallbackVersion = '1.0.0',
+) {
+  if (!['android', 'ios'].includes(platform)) {
+    throw new BadRequestException('Invalid platform');
+  }
 
-      if (!settings) {
-        this.logger.warn(`${appType} version settings not found for ${platform} — using defaults`);
-        return { minVersion: fallbackVersion, latestVersion: fallbackVersion, isForceUpdate: false, updateMessage: null };
-      }
+  const cached = await this.cache.get(this.versionKey(appType, platform));
+  if (cached) return cached;
 
-      // Disabled → minVersion '0.0.0' never triggers an update
-      if (!settings.isEnabled) {
-        return { minVersion: '0.0.0', latestVersion: settings.latestVersion, isForceUpdate: false, updateMessage: null };
-      }
+  try {
+    const settings = await this.repo.findOne({ where: { appType, platform } });
 
-      return {
+    let result;
+    if (!settings) {
+      this.logger.warn(`${appType} version settings not found for ${platform} — using defaults`);
+      result = { minVersion: fallbackVersion, latestVersion: fallbackVersion, isForceUpdate: false, updateMessage: null };
+    } else if (!settings.isEnabled) {
+      result = { minVersion: '0.0.0', latestVersion: settings.latestVersion, isForceUpdate: false, updateMessage: null };
+    } else {
+      result = {
         minVersion: settings.minVersion,
         latestVersion: settings.latestVersion,
         isForceUpdate: Boolean(settings.isForceUpdate),
         updateMessage: settings.updateMessage,
       };
-    } catch (err) {
-      if (err instanceof BadRequestException) throw err; // keep the 400
-      this.logger.error(`${appType} version check failed: ${err?.message}`);
-      // Safe defaults on unexpected error, like the Laravel catch block
-      return { minVersion: fallbackVersion, latestVersion: fallbackVersion, isForceUpdate: false, updateMessage: null };
     }
+
+    await this.cache.set(this.versionKey(appType, platform), result, CACHE_TTL.LONG); // 30 min
+    return result;
+  } catch (err) {
+    if (err instanceof BadRequestException) throw err;
+    this.logger.error(`${appType} version check failed: ${err?.message}`);
+    return { minVersion: fallbackVersion, latestVersion: fallbackVersion, isForceUpdate: false, updateMessage: null };
   }
+}
 
   // ─── Admin: current effective settings (latest row per appType × platform) ──
 async getCurrentSettings() {
@@ -78,7 +88,9 @@ async updateSettings(dto: UpdateAppVersionDto, adminEmail?: string) {
     updateMessage: dto.updateMessage ?? null,
     createdBy: adminEmail ?? null,
   });
-  return this.repo.save(row);
+  const saved = await this.repo.save(row);
+  await this.cache.del(this.versionKey(dto.appType, dto.platform)); // ← invalidate
+  return saved;
 }
 
 // ─── Admin: paginated history ───────────────────────────────────────────────

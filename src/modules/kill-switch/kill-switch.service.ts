@@ -9,6 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { KillSwitch } from '../core/entities/kill-switch.entity';
+import { RedisCacheService } from '@modules/cache/redis-cache.service';
+import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 
 /**
  * KillSwitchService
@@ -32,6 +34,7 @@ export class KillSwitchService implements OnModuleInit {
     @InjectRepository(KillSwitch)
     private readonly repo: Repository<KillSwitch>,
     private readonly configService: ConfigService,
+    private readonly cache: RedisCacheService
   ) {}
 
   async onModuleInit() {
@@ -280,17 +283,32 @@ export class KillSwitchService implements OnModuleInit {
     if (code !== expected) throw new UnauthorizedException('Invalid 2FA approval code');
   }
 
-  private async getCachedRecord(): Promise<KillSwitch | null> {
-    if (Date.now() < this.cacheExpiry && this.cachedRecord) return this.cachedRecord;
-    this.cachedRecord = await this.fetchFromDb();
-    this.cacheExpiry = Date.now() + this.CACHE_TTL_MS;
-    return this.cachedRecord;
+ private async getCachedRecord(): Promise<KillSwitch | null> {
+  // L1: in-process (per-instance, fastest)
+  if (Date.now() < this.cacheExpiry && this.cachedRecord) return this.cachedRecord;
+
+  // L2: Redis (shared across instances)
+  let record = await this.cache.get<KillSwitch>(CACHE_KEYS.KILL_SWITCH);
+
+  // L3: database
+  if (!record) {
+    record = await this.fetchFromDb();
+    if (record) {
+      await this.cache.set(CACHE_KEYS.KILL_SWITCH, record, CACHE_TTL.SHORT);
+    }
   }
 
-  private invalidateCache() {
-    this.cacheExpiry = 0;
-    this.cachedRecord = null;
-  }
+  this.cachedRecord = record;
+  this.cacheExpiry = Date.now() + this.CACHE_TTL_MS;
+  return record;
+}
+
+private async invalidateCache(): Promise<void> {
+  this.cacheExpiry = 0;
+  this.cachedRecord = null;
+  await this.cache.del(CACHE_KEYS.KILL_SWITCH);
+}
+
 
   private async fetchFromDb(): Promise<KillSwitch | null> {
     return this.repo.findOne({ where: {} });

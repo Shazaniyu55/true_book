@@ -18,6 +18,9 @@ import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 
 import { BookingStatus, NotificationType, PaymentStatus, TicketStatus } from 'src/types/enums';
 import { InitiatePaymentDto } from '../dtos/passanger.dto';
+import { RedisCacheService } from '@modules/cache/redis-cache.service';
+import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
+
 
 @Injectable()
 export class PaymentService {
@@ -32,6 +35,7 @@ export class PaymentService {
     private readonly couponService: CouponService,
     private readonly notificationService: NotificationService,
     private readonly randomness: RandomnessUtil,
+     private readonly cache: RedisCacheService,
   ) {}
 
   // ─── Initiate payment ─────────────────────────────────────────────────────
@@ -223,7 +227,14 @@ async verifyPayment(
   }
 
   // ─── Bank list ────────────────────────────────────────────────────────────
-  async getBankList() {
-    return this.paymentFactory.getBankList();
-  }
+  // async getBankList() {
+  //   return this.paymentFactory.getBankList();
+  // }
+async getBankList() {
+  return this.cache.getOrSet(
+    CACHE_KEYS.BANK_LIST,
+    () => this.paymentFactory.getBankList(),
+    CACHE_TTL.DAY,
+  );
+}
 }
