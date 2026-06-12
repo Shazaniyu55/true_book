@@ -111,6 +111,8 @@ import { TogglePassengerStatusUsecase } from '../usecases/togglepassenger.usecas
 import { FetchDriverDocUsecase } from '../usecases/fetchdriverdoc.usecase';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { CreateAnnouncementDto } from '@modules/notification/dtos/announcement.dto';
+import { CreateSubAdminUsecase } from '../usecases/createsubadmin.usecase';
+import { CreateSubAdminDto } from '../dtos/create-subadmin.dto';
 
 
 @ServiceName('admin') // For kill switch targeting
@@ -133,6 +135,7 @@ export class AdminController {
     private readonly getPassengersUsecase:GetPassengersUsecase,
     private readonly getPassegerByIdUsecase:GetPassengerByIdUsecase,
     private readonly getDriverVehicleByIdUsecase:GetDriverVehicleByIdUsecase,
+    private readonly createSubAdminUsecase: CreateSubAdminUsecase,
 
     // Dashboard
     private readonly getDashboardUsecase: GetDashboardUsecase,
@@ -245,6 +248,18 @@ async getAllAnnouncements() {
   getAgentReferral(@Param('id') id: string, @Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.getAgentReferralUsecase], {id: id, query: query});
   }
+
+@ApiBearerAuth()
+@AdminOnly()
+@Post('sub-admins')
+@ApiOperation({ summary: 'Create a sub-admin account' })
+@ApiBody({ type: CreateSubAdminDto })
+createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
+  return this.broker.runUsecases([this.createSubAdminUsecase], {
+    creatorId: user.sub,
+    dto,
+  });
+}
 
   @ApiBearerAuth()
   @AdminOnly()

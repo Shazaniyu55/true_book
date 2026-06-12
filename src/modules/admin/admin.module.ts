@@ -95,6 +95,10 @@ import { ToggledriverStatusUsecase } from './usecases/toggledriver.usecase';
 import { GetFinacialReportUsecase } from './usecases/getfinacialreport.usecase';
 import { FetchDriverDocUsecase } from './usecases/fetchdriverdoc.usecase';
 import { GetDriverWithDetailUsecase } from './usecases/getdriverwithdetails.usecase';
+import { CreateSubAdminUsecase } from './usecases/createsubadmin.usecase';
+import { Permission } from '@modules/core/entities/permission.entity';
+import { RolesController } from './controllers/roles.controller';
+import { RolesService } from './services/roles.service';
 
 
 
@@ -112,6 +116,7 @@ const USECASES = [
   ToggledriverStatusUsecase,
   FetchDriverDocUsecase,
   GetDriverWithDetailUsecase,
+  CreateSubAdminUsecase,
   GetAgentsUsecase,
   GetUserUsecase,
   SuspendUserUsecase,
@@ -171,6 +176,7 @@ const USECASES = [
       Agent,
       Beneficiary,
       Vehicle,
+      Permission,
       Review,
     ]),
     JwtModule.registerAsync({
@@ -184,11 +190,12 @@ const USECASES = [
       }),
     }),
   ],
-  controllers: [AdminController],
+  controllers: [AdminController, RolesController],
   providers: [
     Broker,
     AdminService,
     AdminRepository,
+    RolesService,
     UserRepository,
     PaystackAdapter,
     PaystackProvider,

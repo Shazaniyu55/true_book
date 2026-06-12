@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 import { Admin } from '@modules/core/entities/admin.entity';
 import { AdminRepository } from '@adapters/repositories/admin.repository';
@@ -16,6 +16,8 @@ import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
 import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
+import { UserStatus } from 'src/types/enums';
+import { CreateSubAdminDto } from '../dtos/create-subadmin.dto';
 
 @Injectable()
 export class AdminService {
@@ -105,6 +107,57 @@ async getPassengers(query: {
   async getAgentsEarnings(query: { page?: number; limit?: number }){
     return await this.adminRepo.getAgentsEarnings(query)
   }
+
+async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
+  const existing = await this.adminRepo.findByEmail(dto.email);
+  if (existing) throw new ConflictException('Email already in use');
+
+  const role = await this.roleRepository.findOne({ where: { name: dto.role } });
+  if (!role) throw new NotFoundException(`Role '${dto.role}' not found`);
+
+  // Temporary password the sub-admin uses for first login
+  const tempPassword = this.randomnessUtil.generateRandomStringWithNumbers(10);
+  const hashedPassword = await this.hashingUtil.hash(tempPassword);
+
+  const subAdmin = await this.adminRepo.createAdmin({
+    email: dto.email,
+    firstName: dto.firstName,
+    lastName: dto.lastName,
+    fullName: `${dto.firstName} ${dto.lastName}`,
+    phone: dto.phoneNumber,
+    roleId: role.id,
+    role: role.name,
+    password: hashedPassword,
+    city: dto.city,
+    country: dto.country,
+    address: dto.address,
+    gender: dto.gender,
+    isEmailVerified: true,        // provisioned by an admin
+    status: UserStatus.ACTIVE,
+    createdBy: creatorAdminId,    // BaseEntity column
+  });
+
+  // Email the temporary credentials (uses the generic send())
+  await this.emailService.send({
+    to: dto.email,
+    subject: 'Your Tru Booker admin account',
+    html: `
+      <p>Hi ${dto.firstName},</p>
+      <p>An admin account has been created for you with the role
+         <strong>${role.name}</strong>.</p>
+      <p>Your temporary password is: <strong>${tempPassword}</strong></p>
+      <p>Please log in and change it immediately.</p>
+    `,
+  });
+
+  return {
+    id: subAdmin.id,
+    email: subAdmin.email,
+    fullName: subAdmin.fullName,
+    role: subAdmin.role,
+    status: subAdmin.status,
+  };
+}
 
   // --------------------------
   async togglePassengerStatus(id: string){
