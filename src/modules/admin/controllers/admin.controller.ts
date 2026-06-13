@@ -4,11 +4,9 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Query,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -191,6 +189,7 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.DASHBOARD_VIEW)
   @Get('dashboard')
   @ApiOperation({ summary: 'Platform dashboard statistics' })
   @ApiBody({ type: AdminListQueryDto })
@@ -200,6 +199,7 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('agent/:id')
   @ApiOperation({ summary: 'get Agent by Id' })
   @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
@@ -209,6 +209,7 @@ export class AdminController {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('agent-details/:id')
   @ApiOperation({ summary: 'get Agent-details by Id' })
   @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
@@ -217,7 +218,6 @@ export class AdminController {
   }
 
 @Get('anoucements')
-@UseGuards(JwtAuthGuard)
 @ApiOperation({ summary: 'Get all announcements' })
 @ApiResponse({ status: 200, description: 'Announcements fetched successfully' })
 async getAllAnnouncements() {
@@ -241,6 +241,7 @@ async getAllAnnouncements() {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('agent-referral/:id')
   @ApiOperation({ summary: 'get Agent-referral by Id' })
   @ApiParam({ name: 'id', type: String, description: 'Agent UUID' })
@@ -263,6 +264,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('agents')
   @ApiOperation({ summary: 'get Agents ' })
   @ApiBody({ type: AdminListQueryDto })
@@ -272,6 +274,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_ACTIVATE)
   @Patch('toggle-agents/:id')
   @ApiOperation({ summary: 'toggle-Agents ' })
   @ApiParam({ name: 'id', type: String, description: 'toggle Agent UUID' })
@@ -281,6 +284,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_ACTIVATE)
   @Patch('toggle-driver/:id')
   @ApiOperation({ summary: 'toggle-driver ' })
   @ApiParam({ name: 'id', type: String, description: 'toggle driver UUID' })
@@ -291,6 +295,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_ACTIVATE)
   @Patch('toggle-passenger/:id')
   @ApiOperation({ summary: 'toggle-passenger ' })
   @ApiParam({ name: 'id', type: String, description: 'toggle passenger UUID' })
@@ -300,6 +305,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('drivers')
   @ApiOperation({ summary: 'get all drivers' })
   @ApiBody({ type: AdminListQueryDto })
@@ -309,6 +315,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('passengers')
   @ApiOperation({ summary: 'get all passengers' })
   @ApiBody({ type: AdminListQueryDto })
@@ -318,6 +325,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('drivers/:id')
   @ApiOperation({ summary: 'Get driver by ID' })
   @ApiParam({ name: 'id', type: String, description: 'get driver by id' })
@@ -327,6 +335,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('drivers/vehicles/:id')
   @ApiOperation({ summary: 'Get driver vehicles by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Get driver vehicles by ID' })
@@ -336,6 +345,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('passengers/:id')
   @ApiOperation({ summary: 'Get passenger by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Get passenger by ID' })
@@ -345,6 +355,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('drivers/document-history/:id')
   @ApiOperation({ summary: 'Get driver doc history by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Get driver doc history by ID' })
@@ -352,10 +363,15 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
     return this.broker.runUsecases([this.getDriverDocHistoryUsecase], { id: id });
   }
 
-@Get('drivers/fetch-drivers-document/:driverId')
-async fetchDriversDocuments(@Param('driverId') driverId: string) {
-  return this.broker.runUsecases([this.fetchDriverDocUsecase], {id:driverId });
-}
+  @ApiBearerAuth()
+  @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
+  @Get('drivers/fetch-drivers-document/:driverId')
+  @ApiOperation({ summary: 'Get driver doc history by ID' })
+  @ApiParam({ name: 'id', type: String, description: 'Get driver doc  by ID' })
+  async fetchDriversDocuments(@Param('driverId') driverId: string) {
+    return this.broker.runUsecases([this.fetchDriverDocUsecase], {id:driverId });
+  }
 
   @ApiBearerAuth()
   @AdminOnly()
@@ -400,6 +416,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_ACTIVATE)
   @Patch('drivers/toggle-status/:id')
   @ApiOperation({ summary: 'Activate a driver account' })
   @ApiParam({ name: 'id', type: String, description: 'Activate a driver account' })
@@ -407,8 +424,9 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
     return this.broker.runUsecases([this.activateDriverUsecase], { id });
   }
 
-
+    @ApiBearerAuth()
     @AdminOnly()
+    @RequirePermissions(Permission.USER_VIEW)
     @Get('get-profile')
     @ApiOperation({ summary: 'Get my passenger profile' })
     getProfile(@AuthUser() user: any) {
@@ -428,6 +446,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.KILLSWITCH_TOGGLE)
   @SkipKillSwitch()
   @Post('kill-switch/activate')
   @ApiOperation({ summary: 'Activate kill switch — takes the API offline immediately' })
@@ -439,6 +458,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.KILLSWITCH_TOGGLE)
   @SkipKillSwitch()
   @Post('kill-switch/deactivate')
   @ApiOperation({ summary: 'Deactivate kill switch — requires deactivation code + 2FA' })
@@ -468,6 +488,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('users')
   @ApiOperation({ summary: 'List all users' })
   @ApiBody({ type: AdminListQueryDto })
@@ -478,6 +499,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
   @Get('users/:id')
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', type: String, description: 'Get user by ID' })
@@ -488,6 +510,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_SUSPEND)
   @Patch('users/:id/suspend')
   @ApiOperation({ summary: 'Suspend a user account' })
   @ApiParam({ name: 'id', type: String, description: 'Suspend a user account' })
@@ -504,6 +527,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.USER_ACTIVATE)
   @Patch('users/:id/activate')
   @ApiOperation({ summary: 'Activate a user account' })
   @ApiParam({ name: 'id', type: String, description: 'Activate a user account' })
@@ -515,6 +539,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.KYC_VIEW)
   @Get('documents/pending')
   @ApiOperation({ summary: 'List pending KYC documents' })
   listPendingDocuments() {
@@ -523,6 +548,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.KYC_APPROVE)
   @Patch('documents/:id/approve')
   @ApiOperation({ summary: 'Approve a KYC document' })
   @ApiParam({ name: 'id', type: String, description: 'Approve a KYC document' })
@@ -535,6 +561,7 @@ async fetchDriversDocuments(@Param('driverId') driverId: string) {
 
   @ApiBearerAuth()
   @AdminOnly()
+  @RequirePermissions(Permission.KYC_REJECT)
   @Patch('documents/:id/reject')
   @ApiOperation({ summary: 'Reject a KYC document' })
   @ApiParam({ name: 'id', type: String, description: 'Reject KYC document' })
