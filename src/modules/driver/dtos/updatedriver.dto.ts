@@ -22,27 +22,27 @@ export class UpdateDriverProfileDto {
   @IsOptional() @IsString() state?: string;
 
     @ApiProperty({ example: '1999-6-05' })
-    @IsNotEmpty()
+    @IsOptional()
     @IsDateString()
     dob: Date;
 
   @ApiProperty({ example: 'Abuja' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   city: string;
 
     @ApiProperty({ example: 'Abuja 4 wuse' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   address: string;
 
   @ApiProperty({ example: 'male' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   gender: string;
 
     @ApiProperty({ example: 'Nigeria' })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   country: string;
 }
