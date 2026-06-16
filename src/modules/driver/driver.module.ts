@@ -48,6 +48,7 @@ import { PayoutService } from './services/payout.service';
 import { InitiatePayoutUsecase } from './usecases/initiatepayout.usecase';
 import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 import { DriverRepository } from '@adapters/repositories/driver.repository';
+import { User } from '@modules/core/entities/user.entity';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -71,6 +72,7 @@ import { DriverRepository } from '@adapters/repositories/driver.repository';
       Driver,
       Booking,
       Passenger,
+      User,
       Escrow,
       Coupon,
       Notification,

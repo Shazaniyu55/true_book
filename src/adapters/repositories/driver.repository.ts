@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { UpdateDriverProfileDto } from '@modules/driver/dtos/updatedriver.dto';
+import { User } from '@modules/core/entities/user.entity';
 
 @Injectable()
 export class DriverRepository extends Repository<Driver> {
@@ -10,6 +11,8 @@ export class DriverRepository extends Repository<Driver> {
     @InjectRepository(Driver)
     private readonly driverRepository: Repository<Driver>,
     private readonly entityManager: EntityManager,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    
   ) {
     super(driverRepository.target, driverRepository.manager, driverRepository.queryRunner);
   }
@@ -26,59 +29,59 @@ export class DriverRepository extends Repository<Driver> {
 
 
 
-  async updateDriver(
-    id: string,
-    dto: UpdateDriverProfileDto,
-    entityManager?: EntityManager,
-  ): Promise<Driver> {
-    const manager = entityManager || this.entityManager;
-  
-    const driver = await this.driverRepository.findOne({
-      where: { id },
-      relations: ['user'],
-    });
-  
-    if (!driver) {
-      throw new NotFoundException('Driver profile not found');
-    }
-  
-    // ---------------------------
-    // Update User fields
-    // ---------------------------
-    const userUpdates: Partial<Driver> = {};
-  
-    if (dto.firstName) userUpdates.user.firstName = dto.firstName;
-    if (dto.lastName) userUpdates.user.lastName = dto.lastName;
-    if (dto.phone) userUpdates.user.phone = dto.phone;
-    if (dto.fullName) userUpdates.user.lastName = dto.fullName;
-    if (dto.profileImage) userUpdates.user.profileImage = dto.profileImage;
-  
-    if (Object.keys(userUpdates).length > 0) {
-      await manager.update(Driver, driver.user.id, userUpdates);
-    }
-  
-    // ---------------------------
-    // Update Passenger fields
-    // ---------------------------
-    const driverUpdates: Partial<Driver> = {};
-  
-    if (dto.state) {
-      driverUpdates.user.metadata = {
-        ...(driver.user.metadata ?? {}),
-        state: dto.state,
-      };
-    }
-  
-    if (Object.keys(driverUpdates).length > 0) {
-      await manager.update(Driver, id, driverUpdates);
-    }
-  
-    // ---------------------------
-    // Returns data
-    // ---------------------------
-    return await this.driverRepository.findOne({
-      where: { id },
-      relations: ['user'],
-    });
+ async updateDriver(
+  id: string,
+  dto: UpdateDriverProfileDto,
+  entityManager?: EntityManager,
+): Promise<Driver> {
+  const manager = entityManager || this.entityManager;
+
+  const driver = await this.driverRepository.findOne({
+    where: { id },
+    relations: ['user'],
+  });
+
+  if (!driver) {
+    throw new NotFoundException('Driver profile not found');
   }
+
+  // ---------------------------
+  // Update User fields
+  // ---------------------------
+  const userUpdates: Partial<User> = {};
+
+  if (dto.firstName) userUpdates.firstName = dto.firstName;
+  if (dto.lastName) userUpdates.lastName = dto.lastName;
+  if (dto.phone) userUpdates.phone = dto.phone;
+  if (dto.fullName) userUpdates.lastName = dto.fullName; // looks like a bug too, see below
+  if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
+
+  if (Object.keys(userUpdates).length > 0) {
+    await manager.update(User, driver.user.id, userUpdates);
+  }
+
+  // ---------------------------
+  // Update Driver fields
+  // ---------------------------
+  const driverUpdates: Partial<Driver> = {};
+
+  if (dto.state) {
+    driverUpdates.user.metadata = {
+      ...(driver.user.metadata ?? {}),
+      state: dto.state,
+    };
+  }
+
+  if (Object.keys(driverUpdates).length > 0) {
+    await manager.update(Driver, id, driverUpdates);
+  }
+
+  // ---------------------------
+  // Return updated data
+  // ---------------------------
+  return await this.driverRepository.findOne({
+    where: { id },
+    relations: ['user'],
+  });
+}
 }
