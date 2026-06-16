@@ -116,7 +116,7 @@ initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Update my profile (name, phone, photo, state)' })
   updateProfile(
-    @AuthUser() user: JwtPayload,
+    @AuthUser() user: any,
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UpdateDriverProfileDto,
 

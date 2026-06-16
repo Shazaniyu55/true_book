@@ -37,7 +37,7 @@ export class DriverRepository extends Repository<Driver> {
   const manager = entityManager || this.entityManager;
 
   const driver = await this.driverRepository.findOne({
-    where: { id },
+    where: { userId: id },
     relations: ['user'],
   });
 
@@ -53,7 +53,7 @@ export class DriverRepository extends Repository<Driver> {
   if (dto.firstName) userUpdates.firstName = dto.firstName;
   if (dto.lastName) userUpdates.lastName = dto.lastName;
   if (dto.phone) userUpdates.phone = dto.phone;
-  if (dto.fullName) userUpdates.lastName = dto.fullName; // looks like a bug too, see below
+  // if (dto.fullName) userUpdates.lastName = dto.fullName; // looks like a bug too, see below
   if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
 
   if (Object.keys(userUpdates).length > 0) {
