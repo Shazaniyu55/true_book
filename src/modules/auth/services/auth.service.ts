@@ -115,26 +115,26 @@ export class AuthService {
     }
 
     // ── Phone verification OTP — for passengers AND drivers ──
-if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DRIVER)) {
-  const minutes = this.configService.get<number>('common.otp.durationMinutes');
-  const phoneOtp = this.randomnessUtil.generateOtp();
-  const hasedphone = await this.hashingUtil.hash(phoneOtp);
+// if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DRIVER)) {
+//   const minutes = this.configService.get<number>('common.otp.durationMinutes');
+//   const phoneOtp = this.randomnessUtil.generateOtp();
+//   const hasedphone = await this.hashingUtil.hash(phoneOtp);
 
-  await this.userRepository.updateUser(
-    user.id,
-    { phoneOtpCode: hasedphone, phoneOtpExpiresAt: getOtpExpiry(minutes) },
-    entityManager,
-  );
-  user.phoneOtpCode = hasedphone;
-  user.phoneOtpExpiresAt = getOtpExpiry(minutes);
+//   await this.userRepository.updateUser(
+//     user.id,
+//     { phoneOtpCode: hasedphone, phoneOtpExpiresAt: getOtpExpiry(minutes) },
+//     entityManager,
+//   );
+//   user.phoneOtpCode = hasedphone;
+//   user.phoneOtpExpiresAt = getOtpExpiry(minutes);
 
-  this.dojahAdapter
-    .sendSms({
-      destination: user.phone,
-      message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
-    })
-    .catch(() => {/* logged in provider */});
-}
+//   this.dojahAdapter
+//     .sendSms({
+//       destination: user.phone,
+//       message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
+//     })
+//     .catch(() => {/* logged in provider */});
+// }
 
       // ── Referral: record who referred this user (if referralCode supplied) ──
   if (dto.referralCode && user.role === UserRole.PASSENGER) {
@@ -178,7 +178,7 @@ if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DR
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
     if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
-    if (!user.isPhoneVerified) throw new UnauthorizedException('Please verify your phone first');
+    //if (!user.isPhoneVerified) throw new UnauthorizedException('Please verify your phone first');
 
     if (user.status === UserStatus.SUSPENDED)
       throw new UnauthorizedException('Your account has been suspended');
