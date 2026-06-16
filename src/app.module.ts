@@ -59,14 +59,14 @@ import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
 
-    // ─── Global infrastructure ─────────────────────────────────────────────
+    // ─── Global infrastructure
     RedisCacheModule,
     EmailModule,
 
     // Kill Switch — must come before feature modules
     KillSwitchModule,
 
-    // ─── Feature modules ───────────────────────────────────────────────────
+    // ─── Feature modules
     AppVersionModule,
     AppAccessControlModule,
     CoreModule,
