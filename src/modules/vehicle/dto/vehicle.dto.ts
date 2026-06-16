@@ -8,19 +8,19 @@ export class CreateVehicleDto {
   @IsEnum(VehicleType) type: VehicleType;
 
   @ApiProperty({ example: 'Toyota' })
-  @IsNotEmpty() @IsString() make: string;
+  @IsOptional() @IsString() make: string;
 
   @ApiProperty({ example: 'Hiace' })
-  @IsNotEmpty() @IsString() model: string;
+  @IsOptional() @IsString() model: string;
 
   @ApiProperty({ example: '2019' })
-  @IsNotEmpty() @IsString() year: string;
+  @IsOptional() @IsString() year: string;
 
   @ApiProperty({ example: 'ABC-123-XY' })
-  @IsNotEmpty() @IsString() plateNumber: string;
+  @IsOptional() @IsString() plateNumber: string;
 
   @ApiProperty({ example: 'White' })
-  @IsNotEmpty() @IsString() color: string;
+  @IsOptional() @IsString() color: string;
 
   @ApiProperty({ example: 14 })
   @Type(() => Number) @IsInt() @Min(1) @Max(50) capacity: number;
@@ -36,7 +36,7 @@ export class CreateVehicleDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsOptional({ each: true })
   vehiclePhoto?: string[];
 
     @ApiPropertyOptional({

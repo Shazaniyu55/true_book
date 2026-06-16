@@ -20,32 +20,6 @@ export class VehicleService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  // async registerVehicle(userId: string, dto: CreateVehicleDto, em?: EntityManager) {
-  //   const driver = await this.driverRepo.findOne({ where: { userId } });
-  //   if (!driver) throw new NotFoundException('Driver profile not found');
-
-  //   // One vehicle per driver
-  //   const existing = await this.vehicleRepo.findByDriverId(driver.id);
-  //   if (existing) {
-  //     throw new ConflictException('You already have a registered vehicle');
-  //   }
-
-  //   // Plate must be globally unique
-  //   const plateTaken = await this.vehicleRepo.findByPlate(dto.plateNumber);
-  //   if (plateTaken) {
-  //     throw new BadRequestException('A vehicle with this plate number already exists');
-  //   }
-
-  //   const vehicle = await this.vehicleRepo.createVehicle(
-  //     { ...dto, driverId: driver.id, isActive: true, isVerified: false },
-  //     em,
-  //   );
-
-  //   await this.driverRepo.update({ id: driver.id }, { vehicleId: vehicle.id });
-
-  //   return vehicle;
-  // }
-
    async registerVehicle(
     userId: string,
     dto: CreateVehicleDto,

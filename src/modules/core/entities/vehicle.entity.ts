@@ -12,16 +12,16 @@ export class Vehicle extends BaseEntity {
   @JoinColumn({ name: 'driverId' })
   driver: Driver;
 
-  @Column({ type: 'varchar', enum: VehicleType })
+  @Column({ type: 'varchar', enum: VehicleType, nullable: true })
   type: VehicleType;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   make: string;
 
   @Column({ type: 'varchar' })
   model: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   year: string;
 
   @Index({ unique: true })
