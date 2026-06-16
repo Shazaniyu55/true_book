@@ -49,6 +49,8 @@ import { InitiatePayoutUsecase } from './usecases/initiatepayout.usecase';
 import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { User } from '@modules/core/entities/user.entity';
+import { VehicleType } from '@modules/core/entities/vehicletype.entity';
+import { GetVehicleTypeUsecase } from './usecases/getvehicletype.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -73,6 +75,7 @@ import { User } from '@modules/core/entities/user.entity';
       Booking,
       Passenger,
       User,
+      VehicleType,
       Escrow,
       Coupon,
       Notification,
@@ -101,6 +104,7 @@ import { User } from '@modules/core/entities/user.entity';
     CheckInPassengerUsecase,
     GetTripUsecase,
     GetMyTripUsecase,
+    GetVehicleTypeUsecase,
 
 
     // Shared Dependencies

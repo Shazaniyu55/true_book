@@ -40,10 +40,11 @@ import { LoginAdminUsecase } from './usecases/loginadmin.usecase';
 import { VerifyAdminOtpUsecase } from './usecases/verifyadminotp.usecase';
 import { AgentRepository } from '@adapters/repositories/agent.repository';
 import { Agent } from '@modules/core/entities/agent.entity';
+import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ Agent, User, Driver, Passenger, Admin, Booking, Role]),
+    TypeOrmModule.forFeature([ Agent, User, Driver, Passenger, Admin, VehicleType, Booking, Role]),
     PassportModule,
     AdminModule,
     JwtModule.registerAsync({

@@ -55,6 +55,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 import { JwtPayload } from 'src/types/interfaces';
 import { DriverTripService } from '../services/driver.service';
+import { GetVehicleTypeUsecase } from '../usecases/getvehicletype.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -83,7 +84,8 @@ export class DriverTripController {
     private readonly getTripUsecase:GetTripUsecase,
     private readonly getMyTripUsecase:GetMyTripUsecase,
     private readonly initiatePayoutUsecase: InitiatePayoutUsecase,
-    private readonly driverService: DriverTripService
+    private readonly driverService: DriverTripService,
+    private readonly getVehicleTypeUsecase:GetVehicleTypeUsecase
   ) {}
 
   /**
@@ -129,6 +131,13 @@ initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
    * GET MY TRIPS (PAGINATED)
    * ─────────────────────────────────────────────────────────────────────────
    */
+@DriverOnly()
+@Get('get-all-vehicle')
+@ApiOperation({ summary: 'Get all vehicle types' })
+getAll() {
+  return this.broker.runUsecases([this.getVehicleTypeUsecase]);
+}
+
   @DriverOnly()
   @Get('trip/getTrip')
   @ApiOperation({

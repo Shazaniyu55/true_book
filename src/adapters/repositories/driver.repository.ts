@@ -4,6 +4,7 @@ import { EntityManager, Repository } from 'typeorm';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { UpdateDriverProfileDto } from '@modules/driver/dtos/updatedriver.dto';
 import { User } from '@modules/core/entities/user.entity';
+import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 
 @Injectable()
 export class DriverRepository extends Repository<Driver> {
@@ -12,6 +13,8 @@ export class DriverRepository extends Repository<Driver> {
     private readonly driverRepository: Repository<Driver>,
     private readonly entityManager: EntityManager,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(VehicleType) private readonly vehicleTypeRepo: Repository<VehicleType>,
+
     
   ) {
     super(driverRepository.target, driverRepository.manager, driverRepository.queryRunner);
@@ -82,6 +85,12 @@ export class DriverRepository extends Repository<Driver> {
   return await this.driverRepository.findOne({
     where: { id },
     relations: ['user'],
+  });
+}
+
+async getVehicleType(): Promise<VehicleType[]> {
+  return this.vehicleTypeRepo.find({
+    order: { name: 'ASC' },
   });
 }
 }

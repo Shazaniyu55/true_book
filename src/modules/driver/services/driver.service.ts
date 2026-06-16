@@ -13,6 +13,7 @@ import { NotificationService } from '@modules/notification/services/notification
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
+import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -36,6 +37,8 @@ export class DriverTripService {
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
+    @InjectRepository(VehicleType) private readonly vehicleTypeRepo: Repository<VehicleType>,
+    
     private readonly notifiyService:NotificationService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly driverRepository: DriverRepository,
@@ -222,6 +225,10 @@ await this.notifiyService.notify({
     this.logger.log(`Trip ${tripId} updated by driver ${userId}`);
     return updated;
 
+  }
+
+  async getVehicleType(): Promise<VehicleType[]>{
+      return this.driverRepository.getVehicleType()
   }
 
   /**
