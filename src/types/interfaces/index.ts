@@ -52,8 +52,8 @@ export interface DojahVerifyNinPayload { nin: string; }
 export interface DojahVerifyLicensePayload {
   license_number: string;
   date_of_birth: string;
-  first_name: string;
-  last_name: string;
+  insurance: string;
+  regDocs: string;
 }
 export interface DojahVerificationResult {
   entity: Record<string, any>;

@@ -41,18 +41,37 @@ export class DojahProvider implements IDojah {
       throw new Error(error?.response?.data?.error || 'NIN verification failed');
     }
   }
-
-  async verifyDriversLicense(payload: DojahVerifyLicensePayload): Promise<DojahVerificationResult> {
-    try {
-      const { data } = await this.client.get(
-        `/api/v1/kyc/dl?license_number=${payload.license_number}&dob=${payload.date_of_birth}&first_name=${payload.first_name}&last_name=${payload.last_name}`,
-      );
-      return { entity: data.entity, status: true, message: 'License verified successfully' };
-    } catch (error) {
-      this.logger.error('Dojah License error', error?.response?.data);
-      throw new Error(error?.response?.data?.error || 'License verification failed');
+async verifyDriversLicense(payload: DojahVerifyLicensePayload): Promise<DojahVerificationResult> {
+  try {
+    const params: Record<string, string> = {
+      license_number: payload.license_number,
+      dob: payload.date_of_birth,
+    };
+    if (payload.insurance !== undefined) {
+      params.insurance = String(payload.insurance);
     }
+    if (payload.regDocs !== undefined) {
+      params.regDocs = String(payload.regDocs);
+    }
+
+    const { data } = await this.client.get('/api/v1/kyc/dl', { params });
+    return { entity: data.entity, status: true, message: 'License verified successfully' };
+  } catch (error) {
+    this.logger.error('Dojah License error', error?.response?.data);
+    throw new Error(error?.response?.data?.error || 'License verification failed');
   }
+}
+  // async verifyDriversLicense(payload: DojahVerifyLicensePayload): Promise<DojahVerificationResult> {
+  //   try {
+  //     const { data } = await this.client.get(
+  //       `/api/v1/kyc/dl?license_number=${payload.license_number}&dob=${payload.date_of_birth}&insurance=${payload.insurance}&regDocs=${payload.regDocs}`,
+  //     );
+  //     return { entity: data.entity, status: true, message: 'License verified successfully' };
+  //   } catch (error) {
+  //     this.logger.error('Dojah License error', error?.response?.data);
+  //     throw new Error(error?.response?.data?.error || 'License verification failed');
+  //   }
+  // }
 
   async sendSms(payload: DojahSendSmsPayload): Promise<boolean> {
     try {

@@ -65,12 +65,12 @@ export class VerifyDriverLicenseDto {
   @ApiProperty({ example: 'John' })
   @IsNotEmpty()
   @IsString()
-  firstName: string;
+  insurance: string;
 
   @ApiProperty({ example: 'Doe' })
   @IsNotEmpty()
   @IsString()
-  lastName: string;
+  regDocs: string;
 }
 
 // ─── Passenger KYC DTOs ───────────────────────────────────────────────────────

@@ -15,9 +15,8 @@ import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 
 import {
   UploadDocumentDto,
-  VerifyDriverBvnDto,
   VerifyDriverLicenseDto,
-  VerifyDriverNinDto,
+  
 
 } from '../dtos/kyc.dto';
 import { DocumentStatus, KycStatus } from '../../../types/enums';
@@ -238,8 +237,8 @@ async sendPhoneOtp(userId: string) {
       verificationResult = await this.dojahAdapter.verifyDriversLicense({
         license_number: dto.licenseNumber,
         date_of_birth: dto.dateOfBirth,
-        first_name: dto.firstName,
-        last_name: dto.lastName,
+        insurance: dto.insurance,
+        regDocs: dto.insurance,
       });
     } catch (err) {
       this.logger.error(`Dojah license verification failed for driver ${driver.id}`, err?.message);
