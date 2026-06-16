@@ -19,10 +19,10 @@ export class RegisterDto {
   @IsString()
   fullName: string;
 
-  @ApiProperty({ example: '1999-6-05' })
-  @IsNotEmpty()
-  @IsDateString()
-  dob: Date;
+  // @ApiProperty({ example: '1999-6-05' })
+  // @IsNotEmpty()
+  // @IsDateString()
+  // dob: Date;
 
   @ApiProperty({ example: 'john@example.com' })
   @IsNotEmpty()
@@ -52,25 +52,25 @@ export class RegisterDto {
   @IsString()
   referralCode?: string;
 
-  @ApiProperty({ example: 'Abuja' })
-  @IsString()
-  @IsNotEmpty()
-  city: string;
+  // @ApiProperty({ example: 'Abuja' })
+  // @IsString()
+  // @IsNotEmpty()
+  // city: string;
 
-  @ApiProperty({ example: 'Abuja 4 wuse' })
-  @IsString()
-  @IsNotEmpty()
-  address: string;
+  // @ApiProperty({ example: 'Abuja 4 wuse' })
+  // @IsString()
+  // @IsNotEmpty()
+  // address: string;
 
-  @ApiProperty({ example: 'male' })
-  @IsString()
-  @IsNotEmpty()
-  gender: string;
+  // @ApiProperty({ example: 'male' })
+  // @IsString()
+  // @IsNotEmpty()
+  // gender: string;
 
-  @ApiProperty({ example: 'Nigeria' })
-  @IsString()
-  @IsNotEmpty()
-  country: string;
+  // @ApiProperty({ example: 'Nigeria' })
+  // @IsString()
+  // @IsNotEmpty()
+  // country: string;
 }
 
 // Preserved typo for mobile backward compat

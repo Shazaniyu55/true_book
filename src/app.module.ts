@@ -36,6 +36,7 @@ import { SystemSettingModule } from '@modules/system/system.module';
 import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
 import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 import { AppVersionModule } from '@modules/appversion/appversion.module';
+import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 
 
 
@@ -94,6 +95,8 @@ import { AppVersionModule } from '@modules/appversion/appversion.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
   exports: [Broker],
 })

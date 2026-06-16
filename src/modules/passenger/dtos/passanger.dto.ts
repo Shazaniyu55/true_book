@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdatePassengerProfileDto {
@@ -20,6 +20,31 @@ export class UpdatePassengerProfileDto {
 
   @ApiPropertyOptional({ example: 'Lagos' })
   @IsOptional() @IsString() state?: string;
+
+    @ApiProperty({ example: '1999-6-05' })
+    @IsNotEmpty()
+    @IsDateString()
+    dob: Date;
+
+  @ApiProperty({ example: 'Abuja' })
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+    @ApiProperty({ example: 'Abuja 4 wuse' })
+  @IsString()
+  @IsNotEmpty()
+  address: string;
+
+  @ApiProperty({ example: 'male' })
+  @IsString()
+  @IsNotEmpty()
+  gender: string;
+
+    @ApiProperty({ example: 'Nigeria' })
+  @IsString()
+  @IsNotEmpty()
+  country: string;
 }
 
 export class PassengerQueryDto {

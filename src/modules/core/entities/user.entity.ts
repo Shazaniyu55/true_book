@@ -106,5 +106,8 @@ phoneOtpAttempts: number;
   @Column({ type: 'varchar', nullable: true })
   gender: string;
 
+  @Column({ type: 'boolean', default: false })
+  iAgree: boolean;
+
 
 }
