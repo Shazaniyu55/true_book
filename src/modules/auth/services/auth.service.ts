@@ -256,14 +256,12 @@ export class AuthService {
       }
 
     
-  async verifyOtp(email: string, otp: string, entityManager?: EntityManager): Promise<User> {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user) throw new BadRequestException('User not found');
-    // if (user.otpCode !== otp) throw new BadRequestException('Invalid OTP');
-    if (isOtpExpired(user.otpExpiresAt)) throw new BadRequestException('OTP has expired');
+ async verifyOtp(email: string, otp: string, entityManager?: EntityManager): Promise<{ user: User; accessToken: string; refreshToken: string }> {
+  const user = await this.userRepository.findByEmail(email);
+  if (!user) throw new BadRequestException('User not found');
+  if (isOtpExpired(user.otpExpiresAt)) throw new BadRequestException('OTP has expired');
 
-      if ((user.otpAttempts ?? 0) >= AuthService.MAX_OTP_ATTEMPTS) {
-    // Invalidate so a fresh OTP must be requested
+  if ((user.otpAttempts ?? 0) >= AuthService.MAX_OTP_ATTEMPTS) {
     await this.userRepository.updateUser(
       user.id,
       { otpCode: null, otpExpiresAt: null },
@@ -272,11 +270,11 @@ export class AuthService {
     throw new BadRequestException('Too many attempts. Please request a new code.');
   }
 
-    const valid = user.otpCode
+  const valid = user.otpCode
     ? await this.hashingUtil.compare(otp, user.otpCode)
     : false;
 
-      if (!valid) {
+  if (!valid) {
     await this.userRepository.updateUser(
       user.id,
       { otpAttempts: (user.otpAttempts ?? 0) + 1 },
@@ -285,12 +283,20 @@ export class AuthService {
     throw new BadRequestException('Invalid OTP');
   }
 
-    return this.userRepository.updateUser(
-      user.id,
-      { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
-      entityManager,
-    );
-  }
+  const updatedUser = await this.userRepository.updateUser(
+    user.id,
+    { isEmailVerified: true, status: UserStatus.ACTIVE, otpCode: null, otpExpiresAt: null },
+    entityManager,
+  );
+
+  const tokens = this.generateTokens(updatedUser);
+
+  return {
+    user: updatedUser,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+  };
+}
 
   async verifyPhoneOtp(phone: string, otp:string, entityManager?: EntityManager): Promise<User>{
      const user = await this.userRepository.findByPhone(phone);
