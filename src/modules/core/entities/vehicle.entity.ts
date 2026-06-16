@@ -1,5 +1,4 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { VehicleType } from '../../../types/enums';
 import { Driver } from './driver.entity';
 import { BaseEntity } from './base.entity';
 
@@ -12,8 +11,8 @@ export class Vehicle extends BaseEntity {
   @JoinColumn({ name: 'driverId' })
   driver: Driver;
 
-  @Column({ type: 'varchar', enum: VehicleType, nullable: true })
-  type: VehicleType;
+  @Column({ type: 'varchar',  nullable: true })
+  type: string;
 
   @Column({ type: 'varchar', nullable: true })
   make: string;

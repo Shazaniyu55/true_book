@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { VehicleType } from 'src/types/enums';
 
 export class CreateVehicleDto {
-  @ApiProperty({ enum: VehicleType, example: VehicleType.HIACE })
-  @IsEnum(VehicleType) type: VehicleType;
+  // @ApiProperty({ enum: VehicleType, example: VehicleType.HIACE })
+  // @IsEnum(VehicleType) type: VehicleType;
+
+  @ApiProperty({ example: "bus" })
+  @IsString() type: string;
 
   @ApiProperty({ example: 'Toyota' })
   @IsOptional() @IsString() make: string;
@@ -39,7 +41,7 @@ export class CreateVehicleDto {
   @IsOptional({ each: true })
   vehiclePhoto?: string[];
 
-    @ApiPropertyOptional({
+@ApiPropertyOptional({
     description: 'Vehicle features',
     example: ['ac', 'wifi', 'usb'],
     type: [String],
