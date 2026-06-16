@@ -46,6 +46,8 @@ import { Agent } from '@modules/core/entities/agent.entity';
 import { Beneficiary } from '@modules/core/entities/beneficiary.entity';
 import { PayoutService } from './services/payout.service';
 import { InitiatePayoutUsecase } from './usecases/initiatepayout.usecase';
+import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
+import { DriverRepository } from '@adapters/repositories/driver.repository';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -60,6 +62,7 @@ import { InitiatePayoutUsecase } from './usecases/initiatepayout.usecase';
 
 @Module({
   imports: [
+    CloudinaryModule,
     ConfigModule,
     TripsModule,
     NotificationModule,
@@ -80,6 +83,7 @@ import { InitiatePayoutUsecase } from './usecases/initiatepayout.usecase';
   controllers: [DriverTripController],
   providers: [
     Broker,
+    DriverRepository,
     // Services
     DriverTripService,
     TripsService,

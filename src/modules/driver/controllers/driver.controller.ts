@@ -12,8 +12,10 @@ import {
   HttpCode,
   HttpStatus,
   ParseIntPipe,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -49,6 +51,10 @@ import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
 import { TripListQueryDto } from '@modules/trip/dtos/trip.dto';
 import { InitiatePayoutDto } from '../dtos/payout.dto';
 import { InitiatePayoutUsecase } from '../usecases/initiatepayout.usecase';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
+import { JwtPayload } from 'src/types/interfaces';
+import { DriverTripService } from '../services/driver.service';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -76,7 +82,8 @@ export class DriverTripController {
     private readonly checkInPassengerUsecase: CheckInPassengerUsecase,
     private readonly getTripUsecase:GetTripUsecase,
     private readonly getMyTripUsecase:GetMyTripUsecase,
-    private readonly initiatePayoutUsecase: InitiatePayoutUsecase
+    private readonly initiatePayoutUsecase: InitiatePayoutUsecase,
+    private readonly driverService: DriverTripService
   ) {}
 
   /**
@@ -101,6 +108,21 @@ async createTrip(
 initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
   return this.broker.runUsecases([this.initiatePayoutUsecase], { id: user.sub, dto });
 }
+
+
+  @DriverOnly()
+  @Patch('update-profile')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Update my profile (name, phone, photo, state)' })
+  updateProfile(
+    @AuthUser() user: JwtPayload,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UpdateDriverProfileDto,
+
+  ) {
+    return this.driverService.updateProfile(user.sub, dto, file);
+  }
 
   /**
    * ─────────────────────────────────────────────────────────────────────────

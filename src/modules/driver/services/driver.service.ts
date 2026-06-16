@@ -10,6 +10,9 @@ import { Booking } from '@modules/core/entities/booking.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
 import { NotificationService } from '@modules/notification/services/notification.service';
+import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
+import { DriverRepository } from '@adapters/repositories/driver.repository';
+import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -33,7 +36,11 @@ export class DriverTripService {
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
-    private readonly notifiyService:NotificationService
+    private readonly notifiyService:NotificationService,
+    private readonly cloudinaryService: CloudinaryService,
+    private readonly driverRepository: DriverRepository,
+    
+    
 
     
     
@@ -150,6 +157,22 @@ await this.notifiyService.notify({
         return savedTrip;
 
   }
+
+   async updateProfile(
+      id: string,
+      dto: UpdateDriverProfileDto,
+      file?: Express.Multer.File,
+      entityManager?: EntityManager,
+    ) {
+      if (file) {
+        const uploaded = await this.cloudinaryService.upload(file, {
+          folder: `drivers/${id}/profile`,
+          resource_type: 'image',
+        });
+        dto.profileImage = uploaded.secure_url; // repository maps this onto User.profilePhoto
+      }
+      return this.driverRepository.updateDriver(id, dto, entityManager);
+    }
 
   /**
    * Update trip details (only PENDING trips)
