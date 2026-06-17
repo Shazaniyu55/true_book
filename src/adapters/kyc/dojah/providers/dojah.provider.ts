@@ -61,17 +61,34 @@ async verifyDriversLicense(payload: DojahVerifyLicensePayload): Promise<DojahVer
     throw new Error(error?.response?.data?.error || 'License verification failed');
   }
 }
-  // async verifyDriversLicense(payload: DojahVerifyLicensePayload): Promise<DojahVerificationResult> {
-  //   try {
-  //     const { data } = await this.client.get(
-  //       `/api/v1/kyc/dl?license_number=${payload.license_number}&dob=${payload.date_of_birth}&insurance=${payload.insurance}&regDocs=${payload.regDocs}`,
-  //     );
-  //     return { entity: data.entity, status: true, message: 'License verified successfully' };
-  //   } catch (error) {
-  //     this.logger.error('Dojah License error', error?.response?.data);
-  //     throw new Error(error?.response?.data?.error || 'License verification failed');
-  //   }
-  // }
+
+async verifyDriversLicenseViaImage(payload: {
+  frontImageUrl: string;
+  backImageUrl?: string;
+}): Promise<{ entity: any; valid: boolean; status: boolean; message: string }> {
+  try {
+    const body: Record<string, string> = {
+      input_type: 'url',
+      imagefrontside: payload.frontImageUrl,
+    };
+    if (payload.backImageUrl) body.imagebackside = payload.backImageUrl;
+
+    const { data } = await this.client.post('/api/v1/document/analysis', body);
+    const entity = data?.entity ?? {};
+    const valid = entity?.status?.overall_status === 1;
+
+    return {
+      entity,
+      valid,
+      status: true,
+      message: valid ? 'Document analysed successfully' : 'Document could not be validated',
+    };
+  } catch (error) {
+    this.logger.error('Dojah document analysis error', error?.response?.data);
+    throw new Error(error?.response?.data?.error || 'Document verification failed');
+  }
+}
+
 
   async sendSms(payload: DojahSendSmsPayload): Promise<boolean> {
     try {

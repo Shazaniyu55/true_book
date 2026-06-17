@@ -57,20 +57,20 @@ export class VerifyDriverLicenseDto {
   @IsString()
   licenseNumber: string;
 
-  @ApiProperty({ example: '1990-05-15', description: 'Date of birth (YYYY-MM-DD)' })
-  @IsNotEmpty()
-  @IsDateString()
-  dateOfBirth: string;
+  // @ApiProperty({ example: '1990-05-15', description: 'Date of birth (YYYY-MM-DD)' })
+  // @IsNotEmpty()
+  // @IsDateString()
+  // dateOfBirth: string;
 
-  @ApiProperty({ example: 'John' })
-  @IsNotEmpty()
-  @IsString()
-  insurance: string;
+  // @ApiProperty({ example: 'John' })
+  // @IsNotEmpty()
+  // @IsString()
+  // insurance: string;
 
-  @ApiProperty({ example: 'Doe' })
-  @IsNotEmpty()
-  @IsString()
-  regDocs: string;
+  // @ApiProperty({ example: 'Doe' })
+  // @IsNotEmpty()
+  // @IsString()
+  // regDocs: string;
 }
 
 // ─── Passenger KYC DTOs ───────────────────────────────────────────────────────

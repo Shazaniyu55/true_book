@@ -30,7 +30,7 @@ export class CreateVehicleDto {
   // @ApiPropertyOptional({ description: 'Vehicle photo URL (after Cloudinary upload)' })
   // @IsOptional() @IsString() vehiclePhoto?: string;
 
-    @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Vehicle photo URLs (after Cloudinary upload)',
     example: ['https://res.cloudinary.com/your-cloud/image/upload/v1/photo1.jpg'],
     type: [String],

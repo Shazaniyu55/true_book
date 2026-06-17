@@ -1,5 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiConsumes } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Post, UploadedFile, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
@@ -10,14 +10,11 @@ import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { KycService } from '../service/kyc.service';
 import {
   UploadDocumentDto,
-  VerifyDriverBvnDto,
   VerifyDriverLicenseDto,
-  VerifyDriverNinDto,
 } from '../dtos/kyc.dto';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { Broker } from '@broker/broker';
 import { GetDriverKycStatusUsecase } from '../usecase/getDriverKycStatus.usecase';
-import { VerifyDriverLicenseUsecase } from '../usecase/verifydriverlicense.usecase';
 
 
 @ApiTags('Driver - KYC')
@@ -30,7 +27,6 @@ export class KycController {
     private readonly broker: Broker,
     private readonly kycService: KycService,
     private readonly getDriverKycStatusUsecase:GetDriverKycStatusUsecase,
-    private readonly verifyDriverLicensUsecase:VerifyDriverLicenseUsecase,
 
   
   ) {}
@@ -47,15 +43,30 @@ export class KycController {
   }
 
 
-  @DriverOnly()
-  @Post('license')
-  @ApiOperation({
-    summary: "Verify driver's license via Dojah",
-    description: 'Requires BVN or NIN to be verified first.',
-  })
-  verifyLicense(@AuthUser() user: any, @Body() dto: VerifyDriverLicenseDto) {
-    return this.broker.runUsecases([this.verifyDriverLicensUsecase], {id: user.sub, dto: dto})
-  }
+@Post('license')
+@UseInterceptors(FileFieldsInterceptor([
+  { name: 'frontImage', maxCount: 1 },
+  { name: 'backImage', maxCount: 1 },
+]))
+@ApiConsumes('multipart/form-data')
+@ApiBody({
+  schema: {
+    type: 'object',
+    properties: {
+      frontImage: { type: 'string', format: 'binary' },
+      backImage: { type: 'string', format: 'binary' },
+      licenseNumber: { type: 'string' },
+    },
+    required: ['frontImage'],
+  },
+})
+verifyDriverLicense(
+  @AuthUser() userId: string,
+  @UploadedFiles() files: { frontImage?: Express.Multer.File[]; backImage?: Express.Multer.File[] },
+  @Body() dto: VerifyDriverLicenseDto,
+) {
+  return this.kycService.verifyDriverLicense(userId, files, dto);
+}
 
   @DriverOnly()
   @Post('documents')

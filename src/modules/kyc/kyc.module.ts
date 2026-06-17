@@ -16,7 +16,6 @@ import { User } from '@modules/core/entities/user.entity';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { Broker } from '@broker/broker';
 import { GetDriverKycStatusUsecase } from './usecase/getDriverKycStatus.usecase';
-import { VerifyDriverLicenseUsecase } from './usecase/verifydriverlicense.usecase';
 
 
 @Module({
@@ -34,7 +33,6 @@ import { VerifyDriverLicenseUsecase } from './usecase/verifydriverlicense.usecas
     RandomnessUtil,
 
     GetDriverKycStatusUsecase,
-    VerifyDriverLicenseUsecase,
 
   
   ],

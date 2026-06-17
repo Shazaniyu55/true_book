@@ -65,71 +65,7 @@ export class KycService {
     };
   }
 
-  /**
-   * Verify driver BVN via Dojah.
-   * Checks that the BVN matches the name on the driver's profile.
-   */
-  // async verifyDriverBvn(userId: string, dto: VerifyDriverBvnDto) {
-  //   const driver = await this.getDriverOrThrow(userId);
-
-  //   if (driver.bvnVerified) {
-  //     throw new ConflictException('BVN is already verified');
-  //   }
-
-  //   // Prevent re-submission of same BVN in rapid succession
-  //   if (driver.bvn && driver.bvn === dto.bvn) {
-  //     throw new BadRequestException('BVN verification is already pending or was previously attempted');
-  //   }
-
-  //   this.logger.log(`Verifying BVN for driver ${driver.id}`);
-
-  //   let verificationResult: any;
-  //   try {
-  //     verificationResult = await this.dojahAdapter.verifyBvn({
-  //       bvn: dto.bvn,
-  //       selfie_image: dto.selfieImage,
-  //     });
-  //   } catch (err) {
-  //     this.logger.error(`Dojah BVN verification failed for driver ${driver.id}`, err?.message);
-  //     throw new BadRequestException(err?.message || 'BVN verification failed. Please check your BVN and try again.');
-  //   }
-
-  //   const entity = verificationResult.entity ?? {};
-
-  //   // Cross-check name against user profile
-  //   const nameMatchResult = this.crossCheckName(driver.user, entity);
-
-  //   await this.driverRepo.update(driver.id, {
-  //     bvn: dto.bvn,
-  //     bvnVerified: nameMatchResult.passed,
-  //     bvnData: {
-  //       ...entity,
-  //       nameMatch: nameMatchResult,
-  //       verifiedAt: new Date().toISOString(),
-  //     },
-  //     bvnVerifiedAt: nameMatchResult.passed ? new Date() : null,
-  //   });
-
-  //   if (!nameMatchResult.passed) {
-  //     throw new BadRequestException(
-  //       `BVN name mismatch. Expected name similar to "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}". Please contact support if this is incorrect.`,
-  //     );
-  //   }
-
-  //   await this.recalculateDriverKycStatus(driver.id);
-
-  //   return {
-  //     success: true,
-  //     message: 'BVN verified successfully',
-  //     data: {
-  //       bvnVerified: true,
-  //       firstName: entity.first_name,
-  //       lastName: entity.last_name,
-  //       phone: this.maskPhone(entity.phone_number1 || entity.phone),
-  //       dateOfBirth: entity.date_of_birth,
-  //     },
-  //   };
-  // }
+ 
 
     /**
    * Verify driver PhoneNumber via Dojah.
@@ -159,121 +95,77 @@ async sendPhoneOtp(userId: string) {
   return { success: true, message: 'Verification code sent to your phone' };
 }
 
-  /**
-   * Verify driver NIN via Dojah.
-   */
-  // async verifyDriverNin(userId: string, dto: VerifyDriverNinDto) {
-  //   const driver = await this.getDriverOrThrow(userId);
-
-  //   if (driver.ninVerified) {
-  //     throw new ConflictException('NIN is already verified');
-  //   }
-
-  //   this.logger.log(`Verifying NIN for driver ${driver.id}`);
-
-  //   let verificationResult: any;
-  //   try {
-  //     verificationResult = await this.dojahAdapter.verifyNin({ nin: dto.nin });
-  //   } catch (err) {
-  //     this.logger.error(`Dojah NIN verification failed for driver ${driver.id}`, err?.message);
-  //     throw new BadRequestException(err?.message || 'NIN verification failed. Please check your NIN and try again.');
-  //   }
-
-  //   const entity = verificationResult.entity ?? {};
-  //   const nameMatchResult = this.crossCheckName(driver.user, entity);
-
-  //   await this.driverRepo.update(driver.id, {
-  //     nin: dto.nin,
-  //     ninVerified: nameMatchResult.passed,
-  //     ninData: {
-  //       ...entity,
-  //       nameMatch: nameMatchResult,
-  //       verifiedAt: new Date().toISOString(),
-  //     },
-  //     ninVerifiedAt: nameMatchResult.passed ? new Date() : null,
-  //   });
-
-  //   if (!nameMatchResult.passed) {
-  //     throw new BadRequestException(
-  //       `NIN name mismatch. Expected "${nameMatchResult.expectedName}" but got "${nameMatchResult.returnedName}".`,
-  //     );
-  //   }
-
-  //   await this.recalculateDriverKycStatus(driver.id);
-
-  //   return {
-  //     success: true,
-  //     message: 'NIN verified successfully',
-  //     data: {
-  //       ninVerified: true,
-  //       firstName: entity.firstname,
-  //       lastName: entity.surname,
-  //       dateOfBirth: entity.birthdate,
-  //     },
-  //   };
-  // }
-
+  
   /**
    * Verify driver's license via Dojah.
    */
-  async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
-    const driver = await this.getDriverOrThrow(userId);
 
-    if (driver.licenseVerified) {
-      throw new ConflictException("Driver's license is already verified");
-    }
 
-    // Must have BVN or NIN verified first
-    // if (!driver.bvnVerified && !driver.ninVerified) {
-    //   throw new BadRequestException(
-    //     'Please verify your BVN or NIN before verifying your driving license',
-    //   );
-    // }
-
-    this.logger.log(`Verifying driver's license for driver ${driver.id}`);
-
-    let verificationResult: any;
-    try {
-      verificationResult = await this.dojahAdapter.verifyDriversLicense({
-        license_number: dto.licenseNumber,
-        date_of_birth: dto.dateOfBirth,
-        insurance: dto.insurance,
-        regDocs: dto.insurance,
-      });
-    } catch (err) {
-      this.logger.error(`Dojah license verification failed for driver ${driver.id}`, err?.message);
-      throw new BadRequestException(
-        err?.message || "Driver's license verification failed. Please check your details and try again.",
-      );
-    }
-
-    const entity = verificationResult.entity ?? {};
-
-    await this.driverRepo.update(driver.id, {
-      license: dto.licenseNumber,
-      licenseVerified: true,
-      licenseData: {
-        ...entity,
-        verifiedAt: new Date().toISOString(),
-      },
-      licenseVerifiedAt: new Date(),
-      yearOfExpire: entity.expiry_date ? new Date(entity.expiry_date) : null,
-    });
-
-    await this.recalculateDriverKycStatus(driver.id);
-
-    return {
-      success: true,
-      message: "Driver's license verified successfully",
-      data: {
-        licenseVerified: true,
-        licenseNumber: dto.licenseNumber,
-        firstName: entity.first_name,
-        lastName: entity.last_name,
-        expiryDate: entity.expiry_date,
-      },
-    };
+  async verifyDriverLicense(
+  userId: string,
+  files: { frontImage?: Express.Multer.File[]; backImage?: Express.Multer.File[] },
+  dto: VerifyDriverLicenseDto,
+) {
+  const driver = await this.getDriverOrThrow(userId);
+  if (driver.licenseVerified) {
+    throw new ConflictException("Driver's license is already verified");
   }
+
+  const front = files?.frontImage?.[0];
+  if (!front) throw new BadRequestException('Front image of the licence is required');
+  const back = files?.backImage?.[0];
+
+  // 1. Upload images to Cloudinary
+  const frontUpload = await this.cloudinaryService.upload(front, {
+    folder: `kyc/drivers/${driver.id}/license`,
+  });
+  const backUpload = back
+    ? await this.cloudinaryService.upload(back, { folder: `kyc/drivers/${driver.id}/license` })
+    : null;
+
+  // 2. Send the Cloudinary URLs to Dojah document analysis
+  let result: any;
+  try {
+    result = await this.dojahAdapter.verifyDriversLicenseViaImage({
+      frontImageUrl: frontUpload.secure_url,
+      backImageUrl: backUpload?.secure_url,
+    });
+  } catch (err) {
+    this.logger.error(`Dojah analysis failed for driver ${driver.id}`, err?.message);
+    throw new BadRequestException(err?.message || "Driver's license verification failed.");
+  }
+
+  const entity = result.entity ?? {};
+  if (!result.valid) {
+    throw new BadRequestException(
+      `Licence could not be validated (${entity?.status?.reason ?? 'NOT_VALID'})`,
+    );
+  }
+
+  await this.driverRepo.update(driver.id, {
+    license: dto.licenseNumber ?? null,
+    licenseVerified: true,
+    licenseData: {
+      ...entity,
+      frontImageUrl: frontUpload.secure_url,
+      backImageUrl: backUpload?.secure_url,
+      verifiedAt: new Date().toISOString(),
+    },
+    licenseVerifiedAt: new Date(),
+  });
+
+  await this.recalculateDriverKycStatus(driver.id);
+
+  return {
+    success: true,
+    message: "Driver's license verified successfully",
+    data: {
+      licenseVerified: true,
+      documentName: entity?.document_type?.document_name,
+      country: entity?.document_type?.document_country_name,
+    },
+  };
+}
 
   /**
    * Upload a KYC document (stored as Cloudinary URL, pending admin review).

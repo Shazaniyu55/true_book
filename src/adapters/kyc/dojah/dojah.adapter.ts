@@ -24,4 +24,11 @@ export class DojahAdapter implements IDojah {
   sendSms(payload: DojahSendSmsPayload){
     return this.dojahProvider.sendSms(payload)
   }
+
+  verifyDriversLicenseViaImage(payload: {
+  frontImageUrl: string;
+  backImageUrl?: string;
+}){
+    return this.dojahProvider.verifyDriversLicenseViaImage(payload)
+  }
 }
