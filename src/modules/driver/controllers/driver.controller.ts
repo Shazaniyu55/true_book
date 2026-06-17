@@ -59,6 +59,7 @@ import { GetVehicleTypeUsecase } from '../usecases/getvehicletype.usecase';
 import { GetDriverTripStatusUsecase } from '../usecases/getdrivertripstatus.usecase';
 import { GetDriverDashboardUsecase } from '../usecases/getdriverdashboard.usecase';
 import { TripStatus } from 'src/types/enums';
+import { GetDriverProfileUsecase } from '../usecases/getdriverprofile.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -90,7 +91,8 @@ export class DriverTripController {
     private readonly driverService: DriverTripService,
     private readonly getVehicleTypeUsecase:GetVehicleTypeUsecase,
     private readonly getDriverTripStatusUsecase: GetDriverTripStatusUsecase,
-    private readonly getDriverDashboardUsecase: GetDriverDashboardUsecase
+    private readonly getDriverDashboardUsecase: GetDriverDashboardUsecase,
+    private readonly getDriverProfileUsecase:GetDriverProfileUsecase
   ) {}
 
   /**
@@ -116,6 +118,12 @@ initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
   return this.broker.runUsecases([this.initiatePayoutUsecase], { id: user.sub, dto });
 }
 
+  @DriverOnly()
+  @Get('get-profile')
+  @ApiOperation({ summary: 'Get my driver profile' })
+  getProfile(@AuthUser() user: any) {
+    return this.broker.runUsecases([this.getDriverProfileUsecase], { id: user.sub });
+  }
 
   @DriverOnly()
   @Patch('update-profile')

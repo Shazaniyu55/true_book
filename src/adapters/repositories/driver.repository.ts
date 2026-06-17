@@ -94,6 +94,15 @@ export class DriverRepository extends Repository<Driver> {
   });
 }
 
+    async getProfile(userId: string) {
+      const passenger = await this.driverRepository.findOne({
+        where: { userId },
+        relations: ['user'],
+      });
+      if (!passenger) throw new NotFoundException('driver profile not found');
+      return passenger;
+    }
+
 async getVehicleType(): Promise<VehicleType[]> {
   return this.vehicleTypeRepo.find({
     order: { name: 'ASC' },

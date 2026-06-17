@@ -53,6 +53,7 @@ import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 import { GetVehicleTypeUsecase } from './usecases/getvehicletype.usecase';
 import { GetDriverTripStatusUsecase } from './usecases/getdrivertripstatus.usecase';
 import { GetDriverDashboardUsecase } from './usecases/getdriverdashboard.usecase';
+import { GetDriverProfileUsecase } from './usecases/getdriverprofile.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -106,6 +107,7 @@ import { GetDriverDashboardUsecase } from './usecases/getdriverdashboard.usecase
     CheckInPassengerUsecase,
     GetDriverTripStatusUsecase,
     GetDriverDashboardUsecase,
+    GetDriverProfileUsecase,
     GetTripUsecase,
     GetMyTripUsecase,
     GetVehicleTypeUsecase,

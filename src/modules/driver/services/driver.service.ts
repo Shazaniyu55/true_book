@@ -415,6 +415,9 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
   return this.driverRepository.getDriverDashboard(userId, query);
 }
 
+  async getProfile(id: string) {
+    return await this.driverRepository.getProfile(id);
+  }
 
   //---------------Private Helper Method-----------// 
  private validateTripData(dto: CreateDriverTripDto): void {
