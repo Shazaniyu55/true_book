@@ -101,9 +101,13 @@ async sendPhoneOtp(userId: string) {
    */
 
 
-  async verifyDriverLicense(
+ async verifyDriverLicense(
   userId: string,
-  files: { driversLicense?: Express.Multer.File[]; regDocs?: Express.Multer.File[] },
+  files: {
+    drivers_license?: Express.Multer.File[];
+    vehicle_insurance?: Express.Multer.File[];
+    reg_docs?: Express.Multer.File[];
+  },
   dto: VerifyDriverLicenseDto,
 ) {
   const driver = await this.getDriverOrThrow(userId);
@@ -111,16 +115,25 @@ async sendPhoneOtp(userId: string) {
     throw new ConflictException("Driver's license is already verified");
   }
 
-  const front = files?.driversLicense?.[0];
-  if (!front) throw new BadRequestException('Front image of the licence is required');
-  const back = files?.regDocs?.[0];
+  const front = files?.drivers_license?.[0];
+  if (!front) throw new BadRequestException('Drivers license image is required');
+
+  const regDocs = files?.reg_docs?.[0];
+  if (!regDocs) throw new BadRequestException('Registration documents are required');
+
+  const insurance = files?.vehicle_insurance?.[0];
 
   // 1. Upload images to Cloudinary
   const frontUpload = await this.cloudinaryService.upload(front, {
     folder: `kyc/drivers/${driver.id}/license`,
   });
-  const backUpload = back
-    ? await this.cloudinaryService.upload(back, { folder: `kyc/drivers/${driver.id}/license` })
+  const regDocsUpload = await this.cloudinaryService.upload(regDocs, {
+    folder: `kyc/drivers/${driver.id}/license`,
+  });
+  const insuranceUpload = insurance
+    ? await this.cloudinaryService.upload(insurance, {
+        folder: `kyc/drivers/${driver.id}/insurance`,
+      })
     : null;
 
   // 2. Send the Cloudinary URLs to Dojah document analysis
@@ -128,7 +141,7 @@ async sendPhoneOtp(userId: string) {
   try {
     result = await this.dojahAdapter.verifyDriversLicenseViaImage({
       driversLicense: frontUpload.secure_url,
-      regDocs: backUpload?.secure_url,
+      regDocs: regDocsUpload.secure_url,
     });
   } catch (err) {
     this.logger.error(`Dojah analysis failed for driver ${driver.id}`, err?.message);
@@ -148,7 +161,8 @@ async sendPhoneOtp(userId: string) {
     licenseData: {
       ...entity,
       driverLicense: frontUpload.secure_url,
-      regDocs: backUpload?.secure_url,
+      regDocs: regDocsUpload.secure_url,
+      vehicleInsurance: insuranceUpload?.secure_url ?? null,
       verifiedAt: new Date().toISOString(),
     },
     licenseVerifiedAt: new Date(),
