@@ -108,7 +108,6 @@ async sendPhoneOtp(userId: string) {
     vehicle_insurance?: Express.Multer.File[];
     reg_docs?: Express.Multer.File[];
   },
-  dto: VerifyDriverLicenseDto,
 ) {
   const driver = await this.getDriverOrThrow(userId);
   if (driver.licenseVerified) {
@@ -156,7 +155,7 @@ async sendPhoneOtp(userId: string) {
   }
 
   await this.driverRepo.update(driver.id, {
-    license: dto.licenseNumber ?? null,
+    //license: dto.licenseNumber ?? null,
     licenseVerified: true,
     licenseData: {
       ...entity,

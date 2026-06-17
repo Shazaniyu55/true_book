@@ -57,7 +57,7 @@ export class KycController {
       drivers_license: { type: 'string', format: 'binary' },
       vehicle_insurance: { type: 'string', format: 'binary' },
       reg_docs: { type: 'string', format: 'binary' },
-      licenseNumber: { type: 'string' },
+      // licenseNumber: { type: 'string' },
     },
     required: ['drivers_license', 'reg_docs'],
   },
@@ -69,9 +69,9 @@ verifyDriverLicense(
     vehicle_insurance?: Express.Multer.File[];
     reg_docs?: Express.Multer.File[];
   },
-  @Body() dto: VerifyDriverLicenseDto,
+  // @Body() dto: VerifyDriverLicenseDto,
 ) {
-  return this.kycService.verifyDriverLicense(user.id, files, dto);
+  return this.kycService.verifyDriverLicense(user.id, files);
 }
 
   @DriverOnly()
