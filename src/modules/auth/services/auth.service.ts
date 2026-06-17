@@ -7,7 +7,7 @@ import { PassengerRepository } from '@adapters/repositories/passenger.repository
 import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { User } from '@modules/core/entities/user.entity';
-import { UserRole, UserStatus } from '../../../types/enums';
+import { NotificationType, UserRole, UserStatus } from '../../../types/enums';
 import { getOtpExpiry, isOtpExpired } from '@shared/utils/helpers/common.utils';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
@@ -26,6 +26,7 @@ import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
 import { Admin } from '@modules/core/entities/admin.entity';
 import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
 import { AgentRepository } from '@adapters/repositories/agent.repository';
+import { NotificationService } from '@modules/notification/services/notification.service';
 
 @Injectable()
 export class AuthService {
@@ -44,6 +45,7 @@ export class AuthService {
     private readonly dojahAdapter: DojahAdapter,
     private readonly adminRepo: AdminRepository,
     private readonly agentRepo: AgentRepository,
+    private readonly notificationService: NotificationService,
     @InjectRepository(Role)
     private readonly roleRepository: Repository<Role>
     
@@ -166,6 +168,14 @@ export class AuthService {
     );
   }
 
+   this.notificationService.notify({
+    userId: user.id,
+    title: 'Welcome to Tru Booker',
+    body: `Your ${user.role} account was created successfully. Please verify your email to get started.`,
+    type: NotificationType.BROADCAST,
+    data: { userId: user.id, role: user.role },
+  });
+
     // TODO: Send OTP via notification service
     return user;
   }
@@ -184,6 +194,15 @@ export class AuthService {
       throw new UnauthorizedException('Your account has been suspended');
 
     const tokens = this.generateTokens(user);
+
+      this.notificationService.notify({
+    userId: user.id,
+    title: 'New Login',
+    body: `You signed in to your Tru Booker account on ${new Date().toLocaleString()}.`,
+    type: NotificationType.BROADCAST,
+    data: { userId: user.id, at: new Date().toISOString() },
+  });
+  
     return { user, ...tokens };
   }
 
