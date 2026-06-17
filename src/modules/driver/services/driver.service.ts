@@ -407,8 +407,8 @@ await this.notifiyService.notify({
     };
   }
 
-  async getDriverTripStatus(userId: string) {
-  return this.driverRepository.getDriverTripStatus(userId);
+async getDriverTripStatus(userId: string, type?: string) {
+  return this.driverRepository.getDriverTripStatus(userId, type);
 }
 
 async getDriverDashboard(userId: string, query: { page?: number; limit?: number }) {

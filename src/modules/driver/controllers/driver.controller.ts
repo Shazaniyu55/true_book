@@ -58,6 +58,7 @@ import { DriverTripService } from '../services/driver.service';
 import { GetVehicleTypeUsecase } from '../usecases/getvehicletype.usecase';
 import { GetDriverTripStatusUsecase } from '../usecases/getdrivertripstatus.usecase';
 import { GetDriverDashboardUsecase } from '../usecases/getdriverdashboard.usecase';
+import { TripStatus } from 'src/types/enums';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -132,9 +133,16 @@ initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
 
 @DriverOnly()
 @Get('trip/status')
-@ApiOperation({ summary: 'Get my trips with their statuses' })
-getTripStatus(@AuthUser() user: any) {
-  return this.broker.runUsecases([this.getDriverTripStatusUsecase], { id: user.sub });
+@ApiOperation({ summary: 'Get my trips, optionally filtered by trip_type (status)' })
+@ApiQuery({ name: 'trip_type', required: false, enum: TripStatus })
+getTripStatus(
+  @AuthUser() user: any,
+  @Query('trip_type') tripType?: string,
+) {
+  return this.broker.runUsecases([this.getDriverTripStatusUsecase], {
+    id: user.sub,
+    type: tripType,
+  });
 }
 
 @DriverOnly()

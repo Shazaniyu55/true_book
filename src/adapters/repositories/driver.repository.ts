@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { Driver } from '@modules/core/entities/driver.entity';
@@ -198,12 +198,26 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
   };
 }
 
-async getDriverTripStatus(userId: string) {
+
+async getDriverTripStatus(userId: string, type?: string) {
   const driver = await this.driverRepository.findOne({ where: { userId } });
   if (!driver) throw new NotFoundException('Driver profile not found');
 
+  const where: any = { driverId: driver.id };
+
+  if (type) {
+    // validate against the enum so a bad value fails loudly
+    const valid = Object.values(TripStatus) as string[];
+    if (!valid.includes(type)) {
+      throw new BadRequestException(
+        `Invalid trip_type "${type}". Allowed: ${valid.join(', ')}`,
+      );
+    }
+    where.status = type;
+  }
+
   const trips = await this.tripRepository.find({
-    where: { driverId: driver.id },
+    where,
     order: { createdAt: 'DESC' },
   });
 
