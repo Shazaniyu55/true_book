@@ -407,6 +407,14 @@ await this.notifiyService.notify({
     };
   }
 
+  async getDriverTripStatus(userId: string) {
+  return this.driverRepository.getDriverTripStatus(userId);
+}
+
+async getDriverDashboard(userId: string, query: { page?: number; limit?: number }) {
+  return this.driverRepository.getDriverDashboard(userId, query);
+}
+
 
   //---------------Private Helper Method-----------// 
  private validateTripData(dto: CreateDriverTripDto): void {

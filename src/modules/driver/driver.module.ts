@@ -51,6 +51,8 @@ import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { User } from '@modules/core/entities/user.entity';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 import { GetVehicleTypeUsecase } from './usecases/getvehicletype.usecase';
+import { GetDriverTripStatusUsecase } from './usecases/getdrivertripstatus.usecase';
+import { GetDriverDashboardUsecase } from './usecases/getdriverdashboard.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -102,6 +104,8 @@ import { GetVehicleTypeUsecase } from './usecases/getvehicletype.usecase';
     CompleteDriverTripUsecase,
     GetTripBookingsUsecase,
     CheckInPassengerUsecase,
+    GetDriverTripStatusUsecase,
+    GetDriverDashboardUsecase,
     GetTripUsecase,
     GetMyTripUsecase,
     GetVehicleTypeUsecase,

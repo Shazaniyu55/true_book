@@ -15,7 +15,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery } from '@nestjs/swagger';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -56,6 +56,8 @@ import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 import { JwtPayload } from 'src/types/interfaces';
 import { DriverTripService } from '../services/driver.service';
 import { GetVehicleTypeUsecase } from '../usecases/getvehicletype.usecase';
+import { GetDriverTripStatusUsecase } from '../usecases/getdrivertripstatus.usecase';
+import { GetDriverDashboardUsecase } from '../usecases/getdriverdashboard.usecase';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -85,7 +87,9 @@ export class DriverTripController {
     private readonly getMyTripUsecase:GetMyTripUsecase,
     private readonly initiatePayoutUsecase: InitiatePayoutUsecase,
     private readonly driverService: DriverTripService,
-    private readonly getVehicleTypeUsecase:GetVehicleTypeUsecase
+    private readonly getVehicleTypeUsecase:GetVehicleTypeUsecase,
+    private readonly getDriverTripStatusUsecase: GetDriverTripStatusUsecase,
+    private readonly getDriverDashboardUsecase: GetDriverDashboardUsecase
   ) {}
 
   /**
@@ -126,6 +130,27 @@ initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
     return this.driverService.updateProfile(user.sub, dto, file);
   }
 
+@DriverOnly()
+@Get('trip/status')
+@ApiOperation({ summary: 'Get my trips with their statuses' })
+getTripStatus(@AuthUser() user: any) {
+  return this.broker.runUsecases([this.getDriverTripStatusUsecase], { id: user.sub });
+}
+
+@DriverOnly()
+@Get('dashboard')
+@ApiOperation({ summary: 'Driver dashboard (upcoming trips paginated)' })
+@ApiQuery({ name: 'page', required: false, type: Number })
+@ApiQuery({ name: 'limit', required: false, type: Number })
+getDashboard(
+  @AuthUser() user: any,
+  @Query() query: TripListQueryDto,
+) {
+  return this.broker.runUsecases([this.getDriverDashboardUsecase], {
+    id: user.sub,
+    query,
+  });
+}
   /**
    * ─────────────────────────────────────────────────────────────────────────
    * GET MY TRIPS (PAGINATED)

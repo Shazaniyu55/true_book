@@ -41,10 +41,13 @@ import { VerifyAdminOtpUsecase } from './usecases/verifyadminotp.usecase';
 import { AgentRepository } from '@adapters/repositories/agent.repository';
 import { Agent } from '@modules/core/entities/agent.entity';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
+import { Trip } from '@modules/core/entities/trip.entity';
+import { Escrow } from '@modules/core/entities/escro.entity';
+import { Payout } from '@modules/core/entities/payout.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ Agent, User, Driver, Passenger, Admin, VehicleType, Booking, Role]),
+    TypeOrmModule.forFeature([ Agent, User, Driver, Passenger, Admin, VehicleType, Booking, Role, Trip, Escrow, Payout]),
     PassportModule,
     AdminModule,
     JwtModule.registerAsync({

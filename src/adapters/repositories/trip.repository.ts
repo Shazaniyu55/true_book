@@ -448,96 +448,6 @@ await manager.save(Payment, paymentRecord);
   };
 }
 
-  // async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager){
-  //     const manager = entityManager || this.entityManager;
-  //       const trip = await this.tripRepository.findOne({
-  //     where: { id: dto.tripId },
-  //     relations: ['driver', 'driver.user'],
-  //   });
-
-  //       if (!trip) throw new NotFoundException('Trip not found');
-  //   if (trip.status !== TripStatus.ACTIVE)
-  //     throw new BadRequestException('This trip is not accepting bookings');
-
-  //       const available = trip.totalSeats ;
-  //   if (dto.seats > available)
-  //     throw new BadRequestException(`Only ${available} seat(s) available`);
-
-  //       const passenger = await this.passengerRepo.findOne({
-  //     where: { userId },
-  //     relations: ['user'],
-  //   });
-  //   if (!passenger) throw new NotFoundException('Passenger profile not found');
-  //       // Check for duplicate pending booking
-  //   const existing = await this.bookingRepo.findOne({
-  //     where: {
-  //       id: trip.id,
-  //       passengerId: passenger.userId,
-  //       status: BookingStatus.PENDING,
-  //     },
-  //   });
-
-  //   if (existing) throw new BadRequestException('You already have a pending booking for this trip');
-  //     const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, trip.price * dto.seats);
-
-  //      const totalAmount = trip.price * dto.seats;
-  //   const amountPaid = totalAmount - discountAmount;
-  //   const bookingCode = this.randomnessUtil.generateBookingCode(8);
-  //   const paymentReference = this.randomnessUtil.generateReference('BKG');
-
-  //       // Create booking (status: PENDING until payment confirmed)
-  //       const booking = manager.create(Booking, {
-  //         bookingCode,
-  //         tripId: trip.id,
-  //         passengerId: passenger.id,
-  //         seats: dto.seats,
-  //         totalAmount,
-  //         discountAmount,
-  //         amountPaid,
-  //         status: BookingStatus.PENDING,
-  //         paymentStatus: PaymentStatus.PENDING,
-  //         paymentReference,
-  //         couponCode: dto.couponCode,
-  //       });
-  //       const savedBooking = await manager.save(Booking, booking);
-
-  //        // Soft-lock seats (released if payment fails / expires)
-  //   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
-  //       // Increment coupon usage
-  //   if (couponId) await manager.increment(Coupon, { id: couponId }, 'usageCount', 1);
-  //     // Generate payment link
-  //   const payment = await this.paymentFactory.initiatePayment({
-  //     amount: amountPaid,
-  //     email: passenger.user.email,
-  //     reference: paymentReference,
-  //     callback_url: dto.callbackUrl,
-  //     metadata: {
-  //       bookingCode,
-  //       bookingId: savedBooking.id,
-  //       tripId: trip.id,
-  //       passengerId: passenger.id,
-  //       driverId: trip.driverId,
-  //       seats: dto.seats,
-  //       type: 'trip_booking',
-  //     },
-  //   });
-
-  //      return {
-  //     booking: savedBooking,
-  //     payment,
-  //     summary: {
-  //       // origin: trip.origin,
-  //       // destination: trip.destination,
-  //       departureTime: trip.departureTime,
-  //       seats: dto.seats,
-  //       pricePerSeat: trip.price,
-  //       totalAmount,
-  //       discountAmount,
-  //       amountPaid,
-  //     },
-  //   };
-
-  // }
 
   async confirmBookingPayment(  bookingId: string,
     paymentReference: string,
@@ -728,35 +638,72 @@ return booking;
     }
 
 
+    /**
+ * Returns trip counts grouped by status.
+ * Pass a driverId to scope it to one driver; omit for a platform-wide tally.
+ */
+async getTripStatusCounts(driverId?: string): Promise<{
+  pending: number;
+  active: number;
+  completed: number;
+  cancelled: number;
+  total: number;
+}> {
+  const base = driverId ? { driverId } : {};
+
+  const [pending, active, completed, cancelled] = await Promise.all([
+    this.tripRepository.count({ where: { ...base, status: TripStatus.PENDING } }),
+    this.tripRepository.count({ where: { ...base, status: TripStatus.ACTIVE } }),
+    this.tripRepository.count({ where: { ...base, status: TripStatus.COMPLETED } }),
+    this.tripRepository.count({ where: { ...base, status: TripStatus.CANCELLED } }),
+  ]);
+
+  return {
+    pending,
+    active,
+    completed,
+    cancelled,
+    total: pending + active + completed + cancelled,
+  };
+}
+
+async getTripsByStatus(
+  status: TripStatus,
+  query: { page?: number; limit?: number } = {},
+): Promise<PagedDto<any>> {
+  const { page = 1, limit = 20 } = query;
+  const skip = (page - 1) * limit;
+
+  const [data, total] = await this.tripRepository.findAndCount({
+    where: { status },
+    relations: ['driver', 'driver.user', 'vehicle'],
+    skip,
+    take: limit,
+    order: { createdAt: 'DESC' },
+  });
+
+  const pagedDto = new PagedDto();
+  pagedDto.data = data.map((t) => ({ ...t, availableSeats: t.totalSeats - (t.bookedSeats ?? 0) }));
+  pagedDto.meta = {
+    page,
+    limit,
+    count: data.length,
+    previousPage: page > 1 ? page - 1 : false,
+    nextPage: skip + limit < total ? page + 1 : false,
+    pageCount: Math.ceil(total / limit),
+    totalRecords: total,
+  };
+  return pagedDto;
+}
+
+
+
+
     // ─── Internal: apply coupon ───────────────────────────────────────────────
   
-    // private async applyCoupon(
-    //   code: string | undefined,
-    //   subtotal: number,
-    // ): Promise<{ discountAmount: number; couponId?: string }> {
-    //   if (!code) return { discountAmount: 0 };
+
   
-    //   const coupon = await this.couponRepo.findOne({
-    //     where: { code: code.toUpperCase(), isActive: true },
-    //   });
-    //   if (!coupon) return { discountAmount: 0 };
-  
-    //   if (coupon.expiresAt && new Date() > new Date(coupon.expiresAt)) return { discountAmount: 0 };
-    //   if (coupon.usageLimit && coupon.usageCount >= coupon.usageLimit) return { discountAmount: 0 };
-    //   if (coupon.minOrderAmount && subtotal < Number(coupon.minOrderAmount)) return { discountAmount: 0 };
-  
-    //   let discountAmount =
-    //     coupon.type === CouponType.PERCENTAGE
-    //       ? (subtotal * Number(coupon.value)) / 100
-    //       : Number(coupon.value);
-  
-    //   if (coupon.maxDiscount) discountAmount = Math.min(discountAmount, Number(coupon.maxDiscount));
-    //   discountAmount = Math.min(discountAmount, subtotal);
-  
-    //   return { discountAmount, couponId: coupon.id };
-    // }
-  
-    private async applyCoupon(
+private async applyCoupon(
   code: string | undefined,
   subtotal: number,
 ): Promise<{ discountAmount: number; couponId?: string }> {
