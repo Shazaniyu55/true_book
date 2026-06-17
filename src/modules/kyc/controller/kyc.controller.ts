@@ -61,11 +61,11 @@ export class KycController {
   },
 })
 verifyDriverLicense(
-  @AuthUser() userId: string,
+  @AuthUser() user: any,
   @UploadedFiles() files: { frontImage?: Express.Multer.File[]; backImage?: Express.Multer.File[] },
   @Body() dto: VerifyDriverLicenseDto,
 ) {
-  return this.kycService.verifyDriverLicense(userId, files, dto);
+  return this.kycService.verifyDriverLicense(user.id, files, dto);
 }
 
   @DriverOnly()
