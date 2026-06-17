@@ -63,15 +63,15 @@ async verifyDriversLicense(payload: DojahVerifyLicensePayload): Promise<DojahVer
 }
 
 async verifyDriversLicenseViaImage(payload: {
-  frontImageUrl: string;
-  backImageUrl?: string;
+  driversLicense: string;
+  regDocs?: string;
 }): Promise<{ entity: any; valid: boolean; status: boolean; message: string }> {
   try {
     const body: Record<string, string> = {
       input_type: 'url',
-      imagefrontside: payload.frontImageUrl,
+      imagefrontside: payload.driversLicense,
     };
-    if (payload.backImageUrl) body.imagebackside = payload.backImageUrl;
+    if (payload.regDocs) body.imagebackside = payload.regDocs;
 
     const { data } = await this.client.post('/api/v1/document/analysis', body);
     const entity = data?.entity ?? {};

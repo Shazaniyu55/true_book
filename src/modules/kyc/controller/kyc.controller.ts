@@ -45,16 +45,16 @@ export class KycController {
 
 @Post('license')
 @UseInterceptors(FileFieldsInterceptor([
-  { name: 'frontImage', maxCount: 1 },
-  { name: 'backImage', maxCount: 1 },
+  { name: 'driversLicense', maxCount: 1 },
+  { name: 'regDocs', maxCount: 1 },
 ]))
 @ApiConsumes('multipart/form-data')
 @ApiBody({
   schema: {
     type: 'object',
     properties: {
-      frontImage: { type: 'string', format: 'binary' },
-      backImage: { type: 'string', format: 'binary' },
+      driversLicense: { type: 'string', format: 'binary' },
+      regDocs: { type: 'string', format: 'binary' },
       licenseNumber: { type: 'string' },
     },
     required: ['frontImage'],
@@ -62,7 +62,7 @@ export class KycController {
 })
 verifyDriverLicense(
   @AuthUser() user: any,
-  @UploadedFiles() files: { frontImage?: Express.Multer.File[]; backImage?: Express.Multer.File[] },
+  @UploadedFiles() files: { driversLicense?: Express.Multer.File[]; regDocs?: Express.Multer.File[] },
   @Body() dto: VerifyDriverLicenseDto,
 ) {
   return this.kycService.verifyDriverLicense(user.id, files, dto);

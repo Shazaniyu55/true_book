@@ -26,8 +26,8 @@ export class DojahAdapter implements IDojah {
   }
 
   verifyDriversLicenseViaImage(payload: {
-  frontImageUrl: string;
-  backImageUrl?: string;
+  driversLicense: string;
+  regDocs?: string;
 }){
     return this.dojahProvider.verifyDriversLicenseViaImage(payload)
   }

@@ -103,7 +103,7 @@ async sendPhoneOtp(userId: string) {
 
   async verifyDriverLicense(
   userId: string,
-  files: { frontImage?: Express.Multer.File[]; backImage?: Express.Multer.File[] },
+  files: { driversLicense?: Express.Multer.File[]; regDocs?: Express.Multer.File[] },
   dto: VerifyDriverLicenseDto,
 ) {
   const driver = await this.getDriverOrThrow(userId);
@@ -111,9 +111,9 @@ async sendPhoneOtp(userId: string) {
     throw new ConflictException("Driver's license is already verified");
   }
 
-  const front = files?.frontImage?.[0];
+  const front = files?.driversLicense?.[0];
   if (!front) throw new BadRequestException('Front image of the licence is required');
-  const back = files?.backImage?.[0];
+  const back = files?.regDocs?.[0];
 
   // 1. Upload images to Cloudinary
   const frontUpload = await this.cloudinaryService.upload(front, {
@@ -127,8 +127,8 @@ async sendPhoneOtp(userId: string) {
   let result: any;
   try {
     result = await this.dojahAdapter.verifyDriversLicenseViaImage({
-      frontImageUrl: frontUpload.secure_url,
-      backImageUrl: backUpload?.secure_url,
+      driversLicense: frontUpload.secure_url,
+      regDocs: backUpload?.secure_url,
     });
   } catch (err) {
     this.logger.error(`Dojah analysis failed for driver ${driver.id}`, err?.message);
@@ -147,8 +147,8 @@ async sendPhoneOtp(userId: string) {
     licenseVerified: true,
     licenseData: {
       ...entity,
-      frontImageUrl: frontUpload.secure_url,
-      backImageUrl: backUpload?.secure_url,
+      driverLicense: frontUpload.secure_url,
+      regDocs: backUpload?.secure_url,
       verifiedAt: new Date().toISOString(),
     },
     licenseVerifiedAt: new Date(),
