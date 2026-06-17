@@ -16,13 +16,29 @@ import { User } from '@modules/core/entities/user.entity';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { Broker } from '@broker/broker';
 import { GetDriverKycStatusUsecase } from './usecase/getDriverKycStatus.usecase';
-
+import { BullModule } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
+import { LICENSE_QUEUE } from './dtos/kyc.queue';
+import { LicenseProcessor } from './dtos/license.processor';
 
 @Module({
   imports: [
     ConfigModule,
     CloudinaryModule,
     TypeOrmModule.forFeature([Driver, Passenger, DocumentVerification, User]),
+     BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        connection: {
+          host: config.get<string>('common.redis.host', 'localhost'),
+          port: config.get<number>('common.redis.port', 6379),
+          password: config.get<string>('common.redis.password') || undefined,
+          db: config.get<number>('common.redis.db', 0),
+        },
+      }),
+    }),
+    BullModule.registerQueue({ name: LICENSE_QUEUE }),
+  
   ],
   controllers: [KycController],
   providers: [
@@ -33,6 +49,7 @@ import { GetDriverKycStatusUsecase } from './usecase/getDriverKycStatus.usecase'
     RandomnessUtil,
 
     GetDriverKycStatusUsecase,
+    LicenseProcessor
 
   
   ],

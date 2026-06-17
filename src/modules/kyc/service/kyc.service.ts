@@ -15,10 +15,14 @@ import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 
 import {
   UploadDocumentDto,
-  VerifyDriverLicenseDto,
   
 
 } from '../dtos/kyc.dto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { LICENSE_QUEUE, LicenseJobData } from '../dtos/kyc.queue';
+import { NotificationService } from '@modules/notification/services/notification.service';
+import { NotificationType } from 'src/types/enums';
 import { DocumentStatus, KycStatus } from '../../../types/enums';
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 import { User } from '@modules/core/entities/user.entity';
@@ -38,7 +42,9 @@ export class KycService {
     private readonly dojahAdapter: DojahAdapter,
     private readonly cloudinaryService: CloudinaryService,
     private readonly randomnessUtil: RandomnessUtil,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    @InjectQueue(LICENSE_QUEUE) private readonly licenseQueue: Queue<LicenseJobData>,
+    private readonly notificationService: NotificationService,
     
   ) {}
 
@@ -101,7 +107,87 @@ async sendPhoneOtp(userId: string) {
    */
 
 
- async verifyDriverLicense(
+//  async verifyDriverLicense(
+//   userId: string,
+//   files: {
+//     drivers_license?: Express.Multer.File[];
+//     vehicle_insurance?: Express.Multer.File[];
+//     reg_docs?: Express.Multer.File[];
+//   },
+// ) {
+//   const driver = await this.getDriverOrThrow(userId);
+//   if (driver.licenseVerified) {
+//     throw new ConflictException("Driver's license is already verified");
+//   }
+
+//   const front = files?.drivers_license?.[0];
+//   if (!front) throw new BadRequestException('Drivers license image is required');
+
+//   const regDocs = files?.reg_docs?.[0];
+//   if (!regDocs) throw new BadRequestException('Registration documents are required');
+
+//   const insurance = files?.vehicle_insurance?.[0];
+
+//   // 1. Upload images to Cloudinary
+//   const frontUpload = await this.cloudinaryService.upload(front, {
+//     folder: `kyc/drivers/${driver.id}/license`,
+//   });
+//   const regDocsUpload = await this.cloudinaryService.upload(regDocs, {
+//     folder: `kyc/drivers/${driver.id}/license`,
+//   });
+//   const insuranceUpload = insurance
+//     ? await this.cloudinaryService.upload(insurance, {
+//         folder: `kyc/drivers/${driver.id}/insurance`,
+//       })
+//     : null;
+
+//   // 2. Send the Cloudinary URLs to Dojah document analysis
+//   let result: any;
+//   try {
+//     result = await this.dojahAdapter.verifyDriversLicenseViaImage({
+//       driversLicense: frontUpload.secure_url,
+//       regDocs: regDocsUpload.secure_url,
+//     });
+//   } catch (err) {
+//     this.logger.error(`Dojah analysis failed for driver ${driver.id}`, err?.message);
+//     throw new BadRequestException(err?.message || "Driver's license verification failed.");
+//   }
+
+//   const entity = result.entity ?? {};
+//   if (!result.valid) {
+//     throw new BadRequestException(
+//       `Licence could not be validated (${entity?.status?.reason ?? 'NOT_VALID'})`,
+//     );
+//   }
+
+  // await this.driverRepo.update(driver.id, {
+  //   //license: dto.licenseNumber ?? null,
+  //   licenseVerified: true,
+  //   licenseData: {
+  //     ...entity,
+  //     driverLicense: frontUpload.secure_url,
+  //     regDocs: regDocsUpload.secure_url,
+  //     vehicleInsurance: insuranceUpload?.secure_url ?? null,
+  //     verifiedAt: new Date().toISOString(),
+  //   },
+  //   licenseVerifiedAt: new Date(),
+  // });
+
+//   await this.recalculateDriverKycStatus(driver.id);
+
+//   return {
+//     success: true,
+//     message: "Driver's license verified successfully",
+//     data: {
+//       licenseVerified: true,
+//       documentName: entity?.document_type?.document_name,
+//       country: entity?.document_type?.document_country_name,
+//     },
+//   };
+// }
+
+// REPLACE the whole verifyDriverLicense method with this submit-and-return version
+async verifyDriverLicense(
   userId: string,
   files: {
     drivers_license?: Express.Multer.File[];
@@ -122,61 +208,47 @@ async sendPhoneOtp(userId: string) {
 
   const insurance = files?.vehicle_insurance?.[0];
 
-  // 1. Upload images to Cloudinary
-  const frontUpload = await this.cloudinaryService.upload(front, {
-    folder: `kyc/drivers/${driver.id}/license`,
-  });
-  const regDocsUpload = await this.cloudinaryService.upload(regDocs, {
-    folder: `kyc/drivers/${driver.id}/license`,
-  });
-  const insuranceUpload = insurance
-    ? await this.cloudinaryService.upload(insurance, {
-        folder: `kyc/drivers/${driver.id}/insurance`,
-      })
-    : null;
+  // Uploads stay inline — fast, reliable, and we need the URLs for the job.
+  const [frontUpload, regDocsUpload, insuranceUpload] = await Promise.all([
+    this.cloudinaryService.upload(front, { folder: `kyc/drivers/${driver.id}/license` }),
+    this.cloudinaryService.upload(regDocs, { folder: `kyc/drivers/${driver.id}/license` }),
+    insurance
+      ? this.cloudinaryService.upload(insurance, { folder: `kyc/drivers/${driver.id}/insurance` })
+      : Promise.resolve(null),
+  ]);
 
-  // 2. Send the Cloudinary URLs to Dojah document analysis
-  let result: any;
-  try {
-    result = await this.dojahAdapter.verifyDriversLicenseViaImage({
-      driversLicense: frontUpload.secure_url,
-      regDocs: regDocsUpload.secure_url,
-    });
-  } catch (err) {
-    this.logger.error(`Dojah analysis failed for driver ${driver.id}`, err?.message);
-    throw new BadRequestException(err?.message || "Driver's license verification failed.");
-  }
-
-  const entity = result.entity ?? {};
-  if (!result.valid) {
-    throw new BadRequestException(
-      `Licence could not be validated (${entity?.status?.reason ?? 'NOT_VALID'})`,
-    );
-  }
-
-  await this.driverRepo.update(driver.id, {
-    //license: dto.licenseNumber ?? null,
-    licenseVerified: true,
+  // Mark processing so GET /kyc/status reflects it immediately.
+await this.driverRepo.update(driver.id, {
     licenseData: {
-      ...entity,
+      ...(driver.licenseData ?? {}),
       driverLicense: frontUpload.secure_url,
       regDocs: regDocsUpload.secure_url,
       vehicleInsurance: insuranceUpload?.secure_url ?? null,
-      verifiedAt: new Date().toISOString(),
-    },
-    licenseVerifiedAt: new Date(),
+      verificationState: 'processing',
+      submittedAt: new Date().toISOString(),
+    } as Record<string, any>,
   });
+  await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
 
-  await this.recalculateDriverKycStatus(driver.id);
+  await this.licenseQueue.add(
+    'verify',
+    {
+      driverId: driver.id,
+      driversLicense: frontUpload.secure_url,
+      regDocs: regDocsUpload.secure_url,
+    },
+    {
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 60_000 }, // 1m, 2m, 4m, ...
+      removeOnComplete: true,
+      removeOnFail: 100,
+    },
+  );
 
   return {
     success: true,
-    message: "Driver's license verified successfully",
-    data: {
-      licenseVerified: true,
-      documentName: entity?.document_type?.document_name,
-      country: entity?.document_type?.document_country_name,
-    },
+    status: 'processing',
+    message: "Your licence is being verified. We'll notify you shortly.",
   };
 }
 
@@ -225,7 +297,55 @@ async uploadDriverDocument(
   // ══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ══════════════════════════════════════════════════════════════════════════
+async finalizeLicenseVerified(driverId: string, entity: Record<string, any>): Promise<void> {
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) return;
 
+ await this.driverRepo.update(driverId, {
+    licenseVerified: true,
+    licenseVerifiedAt: new Date(),
+    licenseData: {
+      ...(driver.licenseData ?? {}),
+      ...entity,
+      verificationState: 'verified',
+      verifiedAt: new Date().toISOString(),
+    } as Record<string, any>,
+  });
+  await this.recalculateDriverKycStatus(driverId);
+
+  await this.notificationService.notify({
+    userId: driver.userId,
+    title: 'Licence Verified',
+    body: "Your driver's licence has been verified successfully.",
+    type: NotificationType.DOCUMENT_APPROVED,
+    data: { driverId },
+  });
+}
+
+async finalizeLicenseRejected(driverId: string, reason: string): Promise<void> {
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) return;
+
+ await this.driverRepo.update(driverId, {
+    licenseVerified: false,
+    reason,
+    licenseData: {
+      ...(driver.licenseData ?? {}),
+      verificationState: 'rejected',
+      rejectionReason: reason,
+      rejectedAt: new Date().toISOString(),
+    } as Record<string, any>,
+  });
+  await this.recalculateDriverKycStatus(driverId);
+
+  await this.notificationService.notify({
+    userId: driver.userId,
+    title: 'Licence Verification Failed',
+    body: `We couldn't verify your licence: ${reason}. Please re-upload clear documents.`,
+    type: NotificationType.DOCUMENT_REJECTED,
+    data: { driverId, reason },
+  });
+}
   /**
    * Recalculate and persist driver KYC status after any verification step.
    * COMPLETED = BVN (or NIN) verified + License verified + at least one doc approved.

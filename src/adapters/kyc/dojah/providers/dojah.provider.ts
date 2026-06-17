@@ -18,6 +18,7 @@ export class DojahProvider implements IDojah {
 
     this.client = axios.create({
       baseURL: baseUrl,
+      timeout: 30_000,
       headers: { AppId: appId, Authorization: privateKey, 'Content-Type': 'application/json' },
     });
   }
@@ -84,8 +85,14 @@ async verifyDriversLicenseViaImage(payload: {
       message: valid ? 'Document analysed successfully' : 'Document could not be validated',
     };
   } catch (error) {
-    this.logger.error('Dojah document analysis error', error?.response?.data);
-    throw new Error(error?.response?.data?.error || 'Document verification failed');
+  const status = error?.response?.status;
+  const retryable =
+    !status ||                       // network/timeout
+    status === 502 || status === 503 || status === 504 || status === 429;
+  this.logger.error('Dojah document analysis error', error?.response?.data);
+  const e: any = new Error(error?.response?.data?.error || 'Document verification failed');
+  e.retryable = retryable;
+  throw e;
   }
 }
 
