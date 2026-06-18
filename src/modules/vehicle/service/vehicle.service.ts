@@ -28,10 +28,10 @@ export class VehicleService {
     const driver = await this.driverRepo.findOne({ where: { userId } });
     if (!driver) throw new NotFoundException('Driver profile not found');
 
-    const existing = await this.vehicleRepo.findByDriverId(driver.id);
-    if (existing) {
-      throw new ConflictException('You already have a registered vehicle');
-    }
+    // const existing = await this.vehicleRepo.findByDriverId(driver.id);
+    // if (existing) {
+    //   throw new ConflictException('You already have a registered vehicle');
+    // }
 
     const plateTaken = await this.vehicleRepo.findByPlate(dto.plateNumber);
     if (plateTaken) {
