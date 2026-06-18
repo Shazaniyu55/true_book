@@ -317,6 +317,7 @@ export class AuthService {
 
   async verifyPhoneOtp(phone: string, otp:string, entityManager?: EntityManager): Promise<User>{
      const user = await this.userRepository.findByPhone(phone);
+     console.log(user)
      if (!user) throw new BadRequestException('User not found');
     //  if (user.phoneOtpCode !== otp) throw new BadRequestException('Invalid OTP');
      if (isOtpExpired(user.phoneOtpExpiresAt)) throw new BadRequestException('OTP has expired');
@@ -334,7 +335,7 @@ export class AuthService {
     const valid = user.phoneOtpCode
     ? await this.hashingUtil.compare(otp, user.phoneOtpCode)
     : false;
-
+console.log(valid)
       if (!valid) {
     await this.userRepository.updateUser(
       user.id,

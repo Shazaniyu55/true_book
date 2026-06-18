@@ -16,7 +16,7 @@ export class JwtUtilService {
   sign(payload: JwtPayload, options?: { expiresIn?: string | number }): string {
     return this.jwtService.sign(payload, {
       secret: this.configService.get<string>('common.auth.jwt.accessSecret'),
-      expiresIn: options?.expiresIn || this.configService.get<string>('common.auth.jwt.accessExpiresIn') || '15m',
+      expiresIn: options?.expiresIn || this.configService.get<string>('common.auth.jwt.accessExpiresIn') || '7d',
     });
   }
 
