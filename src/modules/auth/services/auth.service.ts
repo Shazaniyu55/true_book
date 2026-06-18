@@ -270,6 +270,8 @@ export class AuthService {
         return user;
       }
 
+
+      
     
  async verifyOtp(email: string, otp: string, entityManager?: EntityManager): Promise<{ user: User; accessToken: string; refreshToken: string }> {
   const user = await this.userRepository.findByEmail(email);
@@ -422,49 +424,24 @@ async forgotPassword(email: string, entityManager?: EntityManager): Promise<void
 }
 
 async resetPassword(
-  email: string,
-  otp: string,
+  accessToken: string,
   newPassword: string,
   entityManager?: EntityManager,
 ): Promise<void> {
-  const user = await this.userRepository.findByEmail(email);
+  let payload: { sub: string; purpose?: string };
+  try {
+    payload = this.jwtService.verify(accessToken);
+  } catch {
+    throw new BadRequestException('Reset link is invalid or has expired');
+  }
+
+  const user = await this.userRepository.findById(payload.sub);
   if (!user) throw new BadRequestException('User not found');
-
-  if (isOtpExpired(user.otpExpiresAt)) {
-    throw new BadRequestException('OTP has expired');
-  }
-
-  if ((user.otpAttempts ?? 0) >= AuthService.MAX_OTP_ATTEMPTS) {
-    await this.userRepository.updateUser(
-      user.id,
-      { otpCode: null, otpExpiresAt: null },
-      entityManager,
-    );
-    throw new BadRequestException('Too many attempts. Please request a new code.');
-  }
-
-  const valid = user.otpCode
-    ? await this.hashingUtil.compare(otp, user.otpCode)
-    : false;
-
-  if (!valid) {
-    await this.userRepository.updateUser(
-      user.id,
-      { otpAttempts: (user.otpAttempts ?? 0) + 1 },
-      entityManager,
-    );
-    throw new BadRequestException('Invalid OTP');
-  }
 
   const hashedPassword = await this.hashingUtil.hash(newPassword);
   await this.userRepository.updateUser(
     user.id,
-    {
-      password: hashedPassword,
-      otpCode: null,
-      otpExpiresAt: null,
-      otpAttempts: 0,
-    },
+    { password: hashedPassword },
     entityManager,
   );
 }

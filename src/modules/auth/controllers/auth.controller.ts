@@ -5,7 +5,7 @@ import { Public } from '@shared/decorators/isPublic.decorator';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { VerifyOtpDto, ResendOtpDto , VerifyPhoneDto, ResendPhoneOtpDto} from '../dtos/verify-otp.dto';
-import { ForgotPasswordDto, ResetPassowrdDto } from '../dtos/reset-password.dto';
+import { ForgotPasswordDto, ResetPasswordDto, VerifyResetOtpDto } from '../dtos/reset-password.dto';
 import { RegisterUsecase } from '../usecases/register.usecase';
 import { LoginUsecase } from '../usecases/login.usecase';
 import { VerifyOtpUsecase } from '../usecases/verify-otp.usecase';
@@ -39,7 +39,7 @@ export class AuthController {
     private readonly resendPhoneOtpUsecase:ResendPhoneOtpUsecase,
     private readonly registerAdminUsecase: RegisterAdminUsecase,
     private readonly loginAdminUsecase: LoginAdminUsecase,
-    private readonly verifyAdminOtpUsecase: VerifyAdminOtpUsecase
+    private readonly verifyAdminOtpUsecase: VerifyAdminOtpUsecase,
   ) {}
 
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
@@ -133,9 +133,11 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @ApiOperation({ summary: 'Reset password ' })
-  resetPassword(@Body() dto: ResetPassowrdDto) {
+  resetPassword(@Body() dto: ResetPasswordDto) {
     return this.broker.runUsecases([this.resetPasswordUsecase], dto);
   }
+
+
 
 
 }

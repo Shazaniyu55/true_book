@@ -50,4 +50,8 @@ async deleteUser(id: string, data: DeleteUserDto, entityManager?: EntityManager)
   return manager.findOne(User, { where: { id }, withDeleted: true });
 }
 
+async findById(id: string): Promise<User | null> {
+  return this.findOne({ where: { id } });
+}
+
 }

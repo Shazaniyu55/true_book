@@ -10,23 +10,25 @@ export class ForgotPasswordDto {
   email: string;
 }
 
-// Preserved typo from Laravel: /v1/reset-passowrd
-export class ResetPassowrdDto {
+export class ResetPasswordDto {
   @ApiProperty()
+  @IsString()
   @IsNotEmpty()
+  accessToken: string;
+
+  @ApiProperty()
+  @IsString()
+  @MinLength(8)
+  newPassword: string;
+}
+
+export class VerifyResetOtpDto {
+  @ApiProperty()
   @IsEmail()
-  @Transform(({ value }) => value?.toLowerCase()?.trim())
   email: string;
 
   @ApiProperty()
-  @IsNotEmpty()
   @IsString()
+  @IsNotEmpty()
   otp: string;
-
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsString()
-  @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, { message: 'Password must contain uppercase, lowercase, and number' })
-  password: string;
 }
