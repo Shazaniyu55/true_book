@@ -20,12 +20,13 @@ import { BullModule } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
 import { LICENSE_QUEUE } from './dtos/kyc.queue';
 import { LicenseProcessor } from './dtos/license.processor';
+import { Vehicle } from '@modules/core/entities/vehicle.entity';
 
 @Module({
   imports: [
     ConfigModule,
     CloudinaryModule,
-    TypeOrmModule.forFeature([Driver, Passenger, DocumentVerification, User]),
+    TypeOrmModule.forFeature([Driver, Passenger, DocumentVerification, User, Vehicle]),
      BullModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
