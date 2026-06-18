@@ -93,10 +93,6 @@ export class AuthService {
         referralCode,
         otpCode: hasedOtp,
         otpExpiresAt,
-        //country: dto.country,
-        //address: dto.address,
-        //city: dto.city,
-        //gender: dto.gender,
         roleId: role.id,
         role: safeRole,
         status: UserStatus.PENDING,
@@ -381,21 +377,29 @@ export class AuthService {
     // TODO: send OTP via notification service
   }
 
-  async resendPhoneOtp({phone}: ResendPhoneOtpDto, entityManager?: EntityManager): Promise<void>{
-    const user = await this.userRepository.findByPhone(phone);
-    if(!user) throw new BadRequestException("User not found");
-    if(user.isPhoneVerified) throw new BadRequestException("user phone already verified")
+async resendPhoneOtp({ phone }: ResendPhoneOtpDto, entityManager?: EntityManager): Promise<void> {
+  const user = await this.userRepository.findByPhone(phone);
+  if (!user) throw new BadRequestException('User not found');
+  if (user.isPhoneVerified) throw new BadRequestException('User phone already verified');
 
-    const phoneOtp = this.randomnessUtil.generateOtp();
+  const phoneOtp = this.randomnessUtil.generateOtp();
   const minutes = this.configService.get<number>('common.otp.durationMinutes');
-  const phoneExpires = user.phoneOtpExpiresAt = getOtpExpiry(minutes);
+  const phoneExpires = getOtpExpiry(minutes);
 
-    await this.dojahAdapter.sendSms({
-            destination: user.phone,
-      message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
-    })
-    await this.userRepository.updateUser(user.id, {phoneOtpCode: phoneOtp, phoneOtpExpiresAt: phoneExpires}, entityManager)
-  }
+  const hashedPhoneOtp = await this.hashingUtil.hash(phoneOtp);
+
+  // send the PLAINTEXT otp via SMS, store the HASH
+  await this.dojahAdapter.sendSms({
+    destination: user.phone,
+    message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
+  });
+
+  await this.userRepository.updateUser(
+    user.id,
+    { phoneOtpCode: hashedPhoneOtp, phoneOtpExpiresAt: phoneExpires, phoneOtpAttempts: 0 },
+    entityManager,
+  );
+}
 
   async forgotPassword(email: string, entityManager?: EntityManager): Promise<void> {
     const user = await this.userRepository.findByEmail(email);

@@ -13,6 +13,8 @@ import { NotificationService } from '@modules/notification/services/notification
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { BookingStatus, NotificationType, PaymentStatus, PayoutStatus } from 'src/types/enums';
 import { InitiatePayoutDto } from '../dtos/payout.dto';
+import { RedisCacheService } from '@modules/cache/redis-cache.service';
+import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 
 type PayoutEntity = Driver | Agent;
 type EntityKind = 'driver' | 'agent';
@@ -29,6 +31,8 @@ export class PayoutService {
     private readonly paystackAdapter: PaystackAdapter,
     private readonly notificationService: NotificationService,
     private readonly randomness: RandomnessUtil,
+    private readonly cache: RedisCacheService,
+    
   ) {}
 
   // ─── Driver/Agent requests a withdrawal ───────────────────────────────────
@@ -212,8 +216,16 @@ export class PayoutService {
     return [];
   }
 
-  async getBankList() {
-  return this.paystackAdapter.getBankList();
+//   async getBankList() {
+//   return this.paystackAdapter.getBankList();
+// }
+
+async getBankList() {
+  return this.cache.getOrSet(
+    CACHE_KEYS.BANK_LIST,
+    () => this.paystackAdapter.getBankList(),
+    CACHE_TTL.DAY,
+  );
 }
 
 async getWalletTransactions(

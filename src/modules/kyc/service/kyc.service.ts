@@ -107,9 +107,6 @@ async sendPhoneOtp(userId: string) {
    */
 
 
-
-
-// REPLACE the whole verifyDriverLicense method with this submit-and-return version
 async verifyDriverLicense(
   userId: string,
   files: {
@@ -152,6 +149,8 @@ await this.driverRepo.update(driver.id, {
     } as Record<string, any>,
   });
   await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
+
+  
 
   await this.licenseQueue.add(
     'verify',
