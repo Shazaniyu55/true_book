@@ -405,30 +405,69 @@ async resendPhoneOtp({ phone }: ResendPhoneOtpDto, entityManager?: EntityManager
   );
 }
 
-  async forgotPassword(email: string, entityManager?: EntityManager): Promise<void> {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user) return; // Don't reveal if email exists
+async forgotPassword(email: string, entityManager?: EntityManager): Promise<void> {
+  const user = await this.userRepository.findByEmail(email);
+  if (!user) return; // don't reveal whether the email exists
 
-    const otp = this.randomnessUtil.generateOtp();
-    const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
-    await this.emailService.sendPasswordReset({ to: user.email, firstName: user.firstName, otp });
-    await this.userRepository.updateUser(user.id, { otpCode: otp, otpExpiresAt }, entityManager);
-    // TODO: send reset OTP via notification service
+  const otp = this.randomnessUtil.generateOtp();
+  const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
+  const hashedOtp = await this.hashingUtil.hash(otp);
+
+  await this.emailService.sendPasswordReset({ to: user.email, firstName: user.firstName, otp });
+  await this.userRepository.updateUser(
+    user.id,
+    { otpCode: hashedOtp, otpExpiresAt, otpAttempts: 0 },
+    entityManager,
+  );
+}
+
+async resetPassword(
+  email: string,
+  otp: string,
+  newPassword: string,
+  entityManager?: EntityManager,
+): Promise<void> {
+  const user = await this.userRepository.findByEmail(email);
+  if (!user) throw new BadRequestException('User not found');
+
+  if (isOtpExpired(user.otpExpiresAt)) {
+    throw new BadRequestException('OTP has expired');
   }
 
-  async resetPassword(email: string, otp: string, newPassword: string, entityManager?: EntityManager): Promise<void> {
-    const user = await this.userRepository.findByEmail(email);
-    if (!user) throw new BadRequestException('User not found');
-    if (user.otpCode !== otp) throw new BadRequestException('Invalid OTP');
-    if (isOtpExpired(user.otpExpiresAt)) throw new BadRequestException('OTP has expired');
-
-    const hashedPassword = await this.hashingUtil.hash(newPassword);
+  if ((user.otpAttempts ?? 0) >= AuthService.MAX_OTP_ATTEMPTS) {
     await this.userRepository.updateUser(
       user.id,
-      { password: hashedPassword, otpCode: null, otpExpiresAt: null },
+      { otpCode: null, otpExpiresAt: null },
       entityManager,
     );
+    throw new BadRequestException('Too many attempts. Please request a new code.');
   }
+
+  const valid = user.otpCode
+    ? await this.hashingUtil.compare(otp, user.otpCode)
+    : false;
+
+  if (!valid) {
+    await this.userRepository.updateUser(
+      user.id,
+      { otpAttempts: (user.otpAttempts ?? 0) + 1 },
+      entityManager,
+    );
+    throw new BadRequestException('Invalid OTP');
+  }
+
+  const hashedPassword = await this.hashingUtil.hash(newPassword);
+  await this.userRepository.updateUser(
+    user.id,
+    {
+      password: hashedPassword,
+      otpCode: null,
+      otpExpiresAt: null,
+      otpAttempts: 0,
+    },
+    entityManager,
+  );
+}
 
   async deleteAccount(userId: string, dto: DeleteUserDto, entityManager?: EntityManager){
     const del = await this.userRepository.deleteUser(userId, dto, entityManager)
