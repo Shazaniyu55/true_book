@@ -45,6 +45,7 @@ export class VehicleService {
         driverId: driver.id,
         isActive: true,
         isVerified: false,
+        type: dto.type,
         vehiclePhoto: dto.vehiclePhoto ?? [],
         insurance: dto.insurance ?? null,
         registrationDoc: dto.registrationDoc ?? null,

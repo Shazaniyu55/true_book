@@ -3,8 +3,7 @@ import { IsArray, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
 import { Transform, Type } from 'class-transformer';
 
 export class CreateVehicleDto {
-  // @ApiProperty({ enum: VehicleType, example: VehicleType.HIACE })
-  // @IsEnum(VehicleType) type: VehicleType;
+  
 
   @ApiProperty({ example: "bus" })
   @IsString() type: string;
