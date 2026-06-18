@@ -373,7 +373,11 @@ export class AuthService {
     const otp = this.randomnessUtil.generateOtp();
     const otpExpiresAt = getOtpExpiry(this.configService.get<number>('common.otp.durationMinutes'));
     await this.emailService.sendOtp({ to: user.email, firstName: user.firstName, otp });
-    await this.userRepository.updateUser(user.id, { otpCode: otp, otpExpiresAt }, entityManager);
+    const hasedOtp = await this.hashingUtil.hash(otp);
+
+    await this.userRepository.updateUser(user.id, { otpCode: hasedOtp, otpExpiresAt }, entityManager);
+
+    
     // TODO: send OTP via notification service
   }
 
