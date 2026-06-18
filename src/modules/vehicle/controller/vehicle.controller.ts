@@ -24,32 +24,14 @@ export class VehicleController {
     private readonly vehicleService: VehicleService
   ) {}
 
-  // @DriverOnly()
-  // @Post('register')
-  // @ApiOperation({ summary: 'Driver: Register a vehicle (one per driver)' })
-  // register(@AuthUser() user: any, @Body() dto: CreateVehicleDto) {
-  //   return this.broker.runUsecases([this.createVehicleUsecase], { id: user.sub, dto });
-  // }
 
+@DriverOnly()
 @Post('register')
-@UseInterceptors(
-  FileFieldsInterceptor([
-    { name: 'vehiclePhoto', maxCount: 5 },
-    { name: 'insurance', maxCount: 1 },
-    { name: 'registrationDoc', maxCount: 1 },
-  ]),
-)
 async registerVehicle(
   @AuthUser() user: any,
   @Body() dto: CreateVehicleDto,
-  @UploadedFiles()
-  files: {
-    vehiclePhoto?: Express.Multer.File[];
-    insurance?: Express.Multer.File[];
-    registrationDoc?: Express.Multer.File[];
-  },
 ) {
-  return this.vehicleService.registerVehicle(user.id, dto, files);
+  return this.vehicleService.registerVehicle(user.id, dto);
 }
 
   @DriverOnly()

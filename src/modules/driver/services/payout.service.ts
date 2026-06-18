@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
@@ -212,6 +212,108 @@ export class PayoutService {
     return [];
   }
 
+  async getBankList() {
+  return this.paystackAdapter.getBankList();
+}
+
+async getWalletTransactions(
+  userId: string,
+  params: { page?: number; limit?: number; search?: string; start_date?: string; end_date?: string },
+) {
+  const { entity, kind } = await this.resolveUserEntity(userId);
+
+  const page = Number(params.page) > 0 ? Number(params.page) : 1;
+  const limit = Number(params.limit) > 0 ? Number(params.limit) : 20;
+  const skip = (page - 1) * limit;
+
+  const repo = this.dataSource.getRepository(Payout);
+  const qb = repo
+    .createQueryBuilder('p')
+    .leftJoinAndSelect('p.beneficiary', 'beneficiary')
+    .where(kind === 'driver' ? 'p.driverId = :id' : 'p.agentId = :id', { id: entity.id })
+    .orderBy('p.createdAt', 'DESC')
+    .skip(skip)
+    .take(limit);
+
+  if (params.search) {
+    qb.andWhere(
+      '(p.reference ILIKE :s OR p.reason ILIKE :s OR p.narration ILIKE :s OR p.status ILIKE :s)',
+      { s: `%${params.search}%` },
+    );
+  }
+  if (params.start_date) {
+    qb.andWhere('p.createdAt >= :start', { start: new Date(params.start_date) });
+  }
+  if (params.end_date) {
+    // include the whole end day
+    const end = new Date(params.end_date);
+    end.setHours(23, 59, 59, 999);
+    qb.andWhere('p.createdAt <= :end', { end });
+  }
+
+  const [data, total] = await qb.getManyAndCount();
+
+  return {
+    wallet: {
+      balance: Number(entity.currentBalance ?? 0),
+      accountType: kind,
+    },
+    data: data.map((p) => ({
+      id: p.id,
+      reference: p.reference,
+      amount: Number(p.amount ?? 0),
+      status: p.status,
+      reason: p.reason,
+      narration: p.narration,
+      bank: p.beneficiary?.bankName ?? null,
+      account_number: p.beneficiary?.accountNumber ?? null,
+      created_at: p.createdAt,
+    })),
+    meta: {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    },
+  };
+}
+
+async getSingleTransaction(userId: string, id: string) {
+  const { entity, kind } = await this.resolveUserEntity(userId);
+
+  const tx = await this.dataSource.getRepository(Payout).findOne({
+    where: { id },
+    relations: ['beneficiary', 'driver', 'driver.user', 'agent', 'agent.user'],
+  });
+  if (!tx) throw new NotFoundException('Transaction not found');
+
+  const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
+  if (!owns) throw new ForbiddenException('This transaction does not belong to you');
+
+  return {
+    id: tx.id,
+    reference: tx.reference,
+    amount: Number(tx.amount ?? 0),
+    status: tx.status,
+    reason: tx.reason,
+    narration: tx.narration,
+    transfer_code: tx.transferCode,
+    payment_method: tx.paymentMethod,
+    beneficiary: tx.beneficiary
+      ? {
+          bank_name: tx.beneficiary.bankName,
+          account_number: tx.beneficiary.accountNumber,
+          account_holder: tx.beneficiary.bankHolderName,
+        }
+      : null,
+    created_at: tx.createdAt,
+    updated_at: tx.updatedAt,
+  };
+}
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
   private async resolveEntity(userId: string, manager: EntityManager) {
     const driver = await manager.findOne(Driver, { where: { userId }, relations: ['user'] });
@@ -220,6 +322,14 @@ export class PayoutService {
     if (agent) return { entity: agent as PayoutEntity, kind: 'agent' as EntityKind };
     throw new NotFoundException('No payout account found for this user');
   }
+
+  private async resolveUserEntity(userId: string) {
+  const driver = await this.driverRepo.findOne({ where: { userId } });
+  if (driver) return { entity: driver as Driver | Agent, kind: 'driver' as const };
+  const agent = await this.agentRepo.findOne({ where: { userId } });
+  if (agent) return { entity: agent as Driver | Agent, kind: 'agent' as const };
+  throw new NotFoundException('No wallet account found for this user');
+}
 
   private async createPayoutRecord(
     entity: PayoutEntity,
@@ -313,4 +423,6 @@ export class PayoutService {
         : await manager.increment(Agent, { id: payout.agentId }, 'currentBalance', amount);
     }
   }
+
+  
 }

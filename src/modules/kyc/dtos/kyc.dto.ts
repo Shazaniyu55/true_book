@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Length,
   Matches,
 } from 'class-validator';
@@ -57,20 +58,16 @@ export class VerifyDriverLicenseDto {
   @IsString()
   licenseNumber: string;
 
-  // @ApiProperty({ example: '1990-05-15', description: 'Date of birth (YYYY-MM-DD)' })
-  // @IsNotEmpty()
-  // @IsDateString()
-  // dateOfBirth: string;
+  @ApiProperty({ description: 'Cloudinary URL of the driver license front image' })
+  @IsNotEmpty() @IsString() @IsUrl() driversLicense: string;
 
-  // @ApiProperty({ example: 'John' })
-  // @IsNotEmpty()
-  // @IsString()
-  // insurance: string;
+  @ApiProperty({ description: 'Cloudinary URL of the registration documents' })
+  @IsNotEmpty() @IsString() @IsUrl() regDocs: string;
 
-  // @ApiProperty({ example: 'Doe' })
-  // @IsNotEmpty()
-  // @IsString()
-  // regDocs: string;
+  @ApiPropertyOptional({ description: 'Cloudinary URL of the vehicle insurance' })
+  @IsOptional() @IsString() @IsUrl() vehicleInsurance?: string;
+
+  
 }
 
 // ─── Passenger KYC DTOs ───────────────────────────────────────────────────────

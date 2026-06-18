@@ -20,14 +20,9 @@ export class VehicleService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-   async registerVehicle(
+  async registerVehicle(
     userId: string,
     dto: CreateVehicleDto,
-    files: {
-      vehiclePhoto?: Express.Multer.File[];
-      insurance?: Express.Multer.File[];
-      registrationDoc?: Express.Multer.File[];
-    },
     em?: EntityManager,
   ) {
     const driver = await this.driverRepo.findOne({ where: { userId } });
@@ -43,44 +38,16 @@ export class VehicleService {
       throw new BadRequestException('A vehicle with this plate number already exists');
     }
 
-    // ── Upload photos to Cloudinary ──────────────────────────────────────
-    const vehiclePhoto: string[] = [];
-
-    if (files?.vehiclePhoto?.length) {
-      for (const file of files.vehiclePhoto) {
-        const uploaded = await this.cloudinaryService.upload(file, {
-          folder: `vehicles/${driver.id}/photos`,
-        });
-        vehiclePhoto.push(uploaded.secure_url);
-      }
-    }
-
-    let insuranceUrl: string | null = null;
-    if (files?.insurance?.[0]) {
-      const uploaded = await this.cloudinaryService.upload(files.insurance[0], {
-        folder: `vehicles/${driver.id}/insurance`,
-      });
-      insuranceUrl = uploaded.secure_url;
-    }
-
-    let registrationDocUrl: string | null = null;
-    if (files?.registrationDoc?.[0]) {
-      const uploaded = await this.cloudinaryService.upload(files.registrationDoc[0], {
-        folder: `vehicles/${driver.id}/registration`,
-      });
-      registrationDocUrl = uploaded.secure_url;
-    }
-
-    // ── Create vehicle ───────────────────────────────────────────────────
+    // ── Create vehicle (URLs come from the client as strings) ────────────
     const vehicle = await this.vehicleRepo.createVehicle(
       {
         ...dto,
         driverId: driver.id,
         isActive: true,
         isVerified: false,
-        vehiclePhoto,
-        insurance: insuranceUrl,
-        registrationDoc: registrationDocUrl,
+        vehiclePhoto: dto.vehiclePhoto ?? [],
+        insurance: dto.insurance ?? null,
+        registrationDoc: dto.registrationDoc ?? null,
       },
       em,
     );
@@ -89,6 +56,76 @@ export class VehicleService {
 
     return vehicle;
   }
+
+  //  async registerVehicle(
+  //   userId: string,
+  //   dto: CreateVehicleDto,
+  //   files: {
+  //     vehiclePhoto?: Express.Multer.File[];
+  //     insurance?: Express.Multer.File[];
+  //     registrationDoc?: Express.Multer.File[];
+  //   },
+  //   em?: EntityManager,
+  // ) {
+  //   const driver = await this.driverRepo.findOne({ where: { userId } });
+  //   if (!driver) throw new NotFoundException('Driver profile not found');
+
+  //   const existing = await this.vehicleRepo.findByDriverId(driver.id);
+  //   if (existing) {
+  //     throw new ConflictException('You already have a registered vehicle');
+  //   }
+
+  //   const plateTaken = await this.vehicleRepo.findByPlate(dto.plateNumber);
+  //   if (plateTaken) {
+  //     throw new BadRequestException('A vehicle with this plate number already exists');
+  //   }
+
+  //   // ── Upload photos to Cloudinary ──────────────────────────────────────
+  //   const vehiclePhoto: string[] = [];
+
+  //   if (files?.vehiclePhoto?.length) {
+  //     for (const file of files.vehiclePhoto) {
+  //       const uploaded = await this.cloudinaryService.upload(file, {
+  //         folder: `vehicles/${driver.id}/photos`,
+  //       });
+  //       vehiclePhoto.push(uploaded.secure_url);
+  //     }
+  //   }
+
+  //   let insuranceUrl: string | null = null;
+  //   if (files?.insurance?.[0]) {
+  //     const uploaded = await this.cloudinaryService.upload(files.insurance[0], {
+  //       folder: `vehicles/${driver.id}/insurance`,
+  //     });
+  //     insuranceUrl = uploaded.secure_url;
+  //   }
+
+  //   let registrationDocUrl: string | null = null;
+  //   if (files?.registrationDoc?.[0]) {
+  //     const uploaded = await this.cloudinaryService.upload(files.registrationDoc[0], {
+  //       folder: `vehicles/${driver.id}/registration`,
+  //     });
+  //     registrationDocUrl = uploaded.secure_url;
+  //   }
+
+  //   // ── Create vehicle ───────────────────────────────────────────────────
+  //   const vehicle = await this.vehicleRepo.createVehicle(
+  //     {
+  //       ...dto,
+  //       driverId: driver.id,
+  //       isActive: true,
+  //       isVerified: false,
+  //       vehiclePhoto,
+  //       insurance: insuranceUrl,
+  //       registrationDoc: registrationDocUrl,
+  //     },
+  //     em,
+  //   );
+
+  //   await this.driverRepo.update({ id: driver.id }, { vehicleId: vehicle.id });
+
+  //   return vehicle;
+  // }
 
   async getMyVehicle(userId: string): Promise<Vehicle> {
     const driver = await this.driverRepo.findOne({ where: { userId } });

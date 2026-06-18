@@ -15,7 +15,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody, ApiConsumes, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiParam, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiQuery } from '@nestjs/swagger';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -25,9 +25,6 @@ import {
   UpdateDriverTripDto,
   CancelDriverTripDto,
   CompleteDriverTripDto,
-  ActivateDriverTripDto,
-  GetDriverTripsQueryDto,
-  GetDriverTripsBookingsQueryDto,
   CreateTripResponseDto,
   CancelTripResponseDto,
   ActivateTripResponseDto,
@@ -53,13 +50,14 @@ import { InitiatePayoutDto } from '../dtos/payout.dto';
 import { InitiatePayoutUsecase } from '../usecases/initiatepayout.usecase';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
-import { JwtPayload } from 'src/types/interfaces';
 import { DriverTripService } from '../services/driver.service';
 import { GetVehicleTypeUsecase } from '../usecases/getvehicletype.usecase';
 import { GetDriverTripStatusUsecase } from '../usecases/getdrivertripstatus.usecase';
 import { GetDriverDashboardUsecase } from '../usecases/getdriverdashboard.usecase';
 import { TripStatus } from 'src/types/enums';
 import { GetDriverProfileUsecase } from '../usecases/getdriverprofile.usecase';
+import { PayoutService } from '../services/payout.service';
+import { WalletTxQueryDto } from '../dtos/wallet-query.dto';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -92,7 +90,8 @@ export class DriverTripController {
     private readonly getVehicleTypeUsecase:GetVehicleTypeUsecase,
     private readonly getDriverTripStatusUsecase: GetDriverTripStatusUsecase,
     private readonly getDriverDashboardUsecase: GetDriverDashboardUsecase,
-    private readonly getDriverProfileUsecase:GetDriverProfileUsecase
+    private readonly getDriverProfileUsecase:GetDriverProfileUsecase,
+    private readonly payoutService: PayoutService,
   ) {}
 
   /**
@@ -116,6 +115,35 @@ async createTrip(
 @ApiOperation({ summary: 'Driver: Request a withdrawal' })
 initiatePayout(@AuthUser() user: any, @Body() dto: InitiatePayoutDto) {
   return this.broker.runUsecases([this.initiatePayoutUsecase], { id: user.sub, dto });
+}
+
+@DriverOnly()
+@Get('payout/banks')
+@ApiOperation({ summary: 'Fetch supported bank list' })
+getBanks() {
+  return this.payoutService.getBankList();
+}
+
+@DriverOnly()
+@Get('payout/beneficiary')
+@ApiOperation({ summary: 'List my saved payout beneficiaries' })
+getBeneficiaries(@AuthUser() user: any) {
+  return this.payoutService.getBeneficiaries(user.sub);
+}
+
+@DriverOnly()
+@Get('transactions/wallet')
+@ApiOperation({ summary: 'Wallet balance + transaction history (search & date filters)' })
+getWalletTransactions(@AuthUser() user: any, @Query() query: WalletTxQueryDto) {
+  return this.payoutService.getWalletTransactions(user.sub, query);
+}
+
+@DriverOnly()
+@Get('transactions/:id/single')
+@ApiOperation({ summary: 'Get a single wallet transaction' })
+@ApiParam({ name: 'id', type: String })
+getSingleTransaction(@AuthUser() user: any, @Param('id') id: string) {
+  return this.payoutService.getSingleTransaction(user.sub, id);
 }
 
   @DriverOnly()

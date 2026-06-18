@@ -109,8 +109,7 @@ export class PaymentService {
   }
 
 // ─── Verify payment ───────────────────────────────────────────────────────
-// Pass an EntityManager when called from inside a Broker usecase transaction;
-// omit it (e.g. from the webhook) and it opens its own transaction.
+
 async verifyPayment(
   reference: string,
   channel: string,
@@ -227,9 +226,7 @@ async verifyPayment(
   }
 
   // ─── Bank list ────────────────────────────────────────────────────────────
-  // async getBankList() {
-  //   return this.paymentFactory.getBankList();
-  // }
+
 async getBankList() {
   return this.cache.getOrSet(
     CACHE_KEYS.BANK_LIST,
