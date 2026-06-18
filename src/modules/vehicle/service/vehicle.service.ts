@@ -127,7 +127,7 @@ export class VehicleService {
   //   return vehicle;
   // }
 
-  async getMyVehicle(userId: string): Promise<Vehicle> {
+  async getMyVehicle(userId: string): Promise<Vehicle[]> {
     const driver = await this.driverRepo.findOne({ where: { userId } });
     if (!driver) throw new NotFoundException('Driver profile not found');
 

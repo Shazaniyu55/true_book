@@ -19,8 +19,8 @@ export class VehicleRepository extends Repository<Vehicle> {
     return manager.save(Vehicle, vehicle);
   }
 
-  async findByDriverId(driverId: string): Promise<Vehicle> {
-    return this.findOne({ where: { driverId } });
+  async findByDriverId(driverId: string): Promise<Vehicle[]> {
+    return this.find({ where: { driverId } });
   }
 
   async findByPlate(plateNumber: string): Promise<Vehicle> {
