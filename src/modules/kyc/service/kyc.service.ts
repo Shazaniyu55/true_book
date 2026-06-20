@@ -99,115 +99,100 @@ export class KycService {
    * Verify driver's license via Dojah.
    */
   async verifyDriverLicense(
-    userId: string,
-    files: {
-      drivers_license?: Express.Multer.File[];
-      vehicle_insurance?: Express.Multer.File[];
-      reg_docs?: Express.Multer.File[];
-    },
-  ) {
-    const driver = await this.getDriverOrThrow(userId);
-    if (driver.licenseVerified) {
-      throw new ConflictException("Driver's license is already verified");
-    }
-
-    const front = files?.drivers_license?.[0];
-    if (!front) throw new BadRequestException('Drivers license image is required');
-
-    const regDocs = files?.reg_docs?.[0];
-    if (!regDocs) throw new BadRequestException('Registration documents are required');
-
-    const insurance = files?.vehicle_insurance?.[0];
-
-    // Uploads stay inline — fast, reliable, and we need the URLs for the job.
-    const [frontUpload, regDocsUpload, insuranceUpload] = await Promise.all([
-      this.cloudinaryService.upload(front, { folder: `kyc/drivers/${driver.id}/license` }),
-      this.cloudinaryService.upload(regDocs, { folder: `kyc/drivers/${driver.id}/license` }),
-      insurance
-        ? this.cloudinaryService.upload(insurance, { folder: `kyc/drivers/${driver.id}/insurance` })
-        : Promise.resolve(null),
-    ]);
-
-    // Mark processing so GET /kyc/status reflects it immediately.
-    await this.driverRepo.update(driver.id, {
-      licenseData: {
-        ...(driver.licenseData ?? {}),
-        driverLicense: frontUpload.secure_url,
-        regDocs: regDocsUpload.secure_url,
-        vehicleInsurance: insuranceUpload?.secure_url ?? null,
-        verificationState: 'processing',
-        submittedAt: new Date().toISOString(),
-      } as Record<string, any>,
-    });
-    await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
-
-    // Persist the vehicle-related docs to the vehicle record.
-    await this.attachDocsToVehicle(driver.id, {
-      driversLicense: frontUpload.secure_url,
-      regDocs: regDocsUpload.secure_url,
-      vehicleInsurance: insuranceUpload?.secure_url ?? null,
-    });
-
-    await this.licenseQueue.add(
-      'verify',
-      {
-        driverId: driver.id,
-        driversLicense: frontUpload.secure_url,
-        regDocs: regDocsUpload.secure_url,
-      },
-      {
-        attempts: 5,
-        backoff: { type: 'exponential', delay: 60_000 }, // 1m, 2m, 4m, ...
-        removeOnComplete: true,
-        removeOnFail: 100,
-      },
-    );
-
-    return {
-      success: true,
-      status: 'processing',
-      message: "Your licence is being verified. We'll notify you shortly.",
-    };
+  userId: string,
+  body: {
+    driversLicense: string;
+    regDocs: string;
+    vehicleInsurance?: string;
+  },
+) {
+  const driver = await this.getDriverOrThrow(userId);
+  if (driver.licenseVerified) {
+    throw new ConflictException("Driver's license is already verified");
   }
+
+  const { driversLicense, regDocs, vehicleInsurance } = body;
+
+  if (!driversLicense) throw new BadRequestException('Drivers license image is required');
+  if (!regDocs) throw new BadRequestException('Registration documents are required');
+
+  // Mark processing so GET /kyc/status reflects it immediately.
+  await this.driverRepo.update(driver.id, {
+    licenseData: {
+      ...(driver.licenseData ?? {}),
+      driverLicense: driversLicense,
+      regDocs: regDocs,
+      vehicleInsurance: vehicleInsurance ?? null,
+      verificationState: 'processing',
+      submittedAt: new Date().toISOString(),
+    } as Record<string, any>,
+  });
+  await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
+
+  // Persist the vehicle-related docs to the vehicle record.
+  await this.attachDocsToVehicle(driver.id, {
+    driversLicense,
+    regDocs,
+    vehicleInsurance: vehicleInsurance ?? null,
+  });
+
+  await this.licenseQueue.add(
+    'verify',
+    {
+      driverId: driver.id,
+      driversLicense,
+      regDocs,
+    },
+    {
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 60_000 }, // 1m, 2m, 4m, ...
+      removeOnComplete: true,
+      removeOnFail: 100,
+    },
+  );
+
+  return {
+    success: true,
+    status: 'processing',
+    message: "Your licence is being verified. We'll notify you shortly.",
+  };
+}
 
   /**
    * Upload a KYC document (stored as Cloudinary URL, pending admin review).
    */
-  async uploadDriverDocument(
-    userId: string,
-    dto: UploadDocumentDto,
-    file: Express.Multer.File,
-  ) {
-    const driver = await this.getDriverOrThrow(userId);
+  /**
+ * Register a KYC document (URL already produced by the app, pending admin review).
+ */
+async uploadDriverDocument(
+  userId: string,
+  dto: UploadDocumentDto,
+) {
+  const driver = await this.getDriverOrThrow(userId);
 
-    const existing = await this.docRepo.findOne({
-      where: {
-        driverId: driver.id,
-        documentType: dto.documentType,
-        status: DocumentStatus.PENDING,
-      },
-    });
-    if (existing) {
-      throw new ConflictException(`A ${dto.documentType} document is already pending review`);
-    }
-
-    // Upload under an authenticated request — validation happens inside the service
-    const uploaded = await this.cloudinaryService.upload(file, {
-      folder: `kyc/drivers/${driver.id}`,
-    });
-
-    const doc = this.docRepo.create({
+  const existing = await this.docRepo.findOne({
+    where: {
       driverId: driver.id,
       documentType: dto.documentType,
-      documentUrl: uploaded.secure_url, // server-produced, not client-supplied
       status: DocumentStatus.PENDING,
-    });
-
-    const saved = await this.docRepo.save(doc);
-    this.logger.log(`Document ${dto.documentType} uploaded for driver ${driver.id}`);
-
-    return { success: true, message: 'Document uploaded and queued for review', data: saved };
+    },
+  });
+  if (existing) {
+    throw new ConflictException(`A ${dto.documentType} document is already pending review`);
   }
+
+  const doc = this.docRepo.create({
+    driverId: driver.id,
+    documentType: dto.documentType,
+    documentUrl: dto.documentUrl,
+    status: DocumentStatus.PENDING,
+  });
+
+  const saved = await this.docRepo.save(doc);
+  this.logger.log(`Document ${dto.documentType} uploaded for driver ${driver.id}`);
+
+  return { success: true, message: 'Document uploaded and queued for review', data: saved };
+}
 
   // ══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS

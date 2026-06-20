@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsDateString,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -54,20 +53,18 @@ export class VerifyDriverNinDto {
 
 export class VerifyDriverLicenseDto {
   @ApiProperty({ example: 'ABC123456789', description: "Driver's license number" })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   licenseNumber: string;
 
-  @ApiProperty({ description: 'Cloudinary URL of the driver license front image' })
-  @IsNotEmpty() @IsString() @IsUrl() driversLicense: string;
+  @ApiProperty({ description: 'URL of the driver license front image' })
+  @IsOptional() @IsUrl() driversLicense: string;
 
-  @ApiProperty({ description: 'Cloudinary URL of the registration documents' })
-  @IsNotEmpty() @IsString() @IsUrl() regDocs: string;
+  @ApiProperty({ description: 'URL of the registration documents' })
+  @IsOptional() @IsUrl() regDocs: string;
 
-  @ApiPropertyOptional({ description: 'Cloudinary URL of the vehicle insurance' })
-  @IsOptional() @IsString() @IsUrl() vehicleInsurance?: string;
-
-  
+  @ApiPropertyOptional({ description: 'URL of the vehicle insurance' })
+  @IsOptional() @IsUrl() vehicleInsurance?: string;
 }
 
 // ─── Passenger KYC DTOs ───────────────────────────────────────────────────────
@@ -113,7 +110,10 @@ export class UploadDocumentDto {
   @IsEnum(DocumentType)
   documentType: DocumentType;
 
-
+  @ApiProperty({ description: 'Document URL (already uploaded by the app)' })
+  @IsNotEmpty()
+  @IsUrl()
+  documentUrl: string;
 }
 
 // ─── Response shapes ──────────────────────────────────────────────────────────

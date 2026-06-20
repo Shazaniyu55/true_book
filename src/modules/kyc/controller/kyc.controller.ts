@@ -1,5 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Post, UploadedFile, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
@@ -12,7 +12,6 @@ import {
   UploadDocumentDto,
   VerifyDriverLicenseDto,
 } from '../dtos/kyc.dto';
-import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { Broker } from '@broker/broker';
 import { GetDriverKycStatusUsecase } from '../usecase/getDriverKycStatus.usecase';
 
@@ -44,47 +43,19 @@ export class KycController {
 
 @DriverOnly()
 @Post('license')
-@UseInterceptors(FileFieldsInterceptor([
-  { name: 'drivers_license', maxCount: 1 },
-  { name: 'vehicle_insurance', maxCount: 1 },
-  { name: 'reg_docs', maxCount: 1 },
-]))
-@ApiConsumes('multipart/form-data')
-@ApiBody({
-  schema: {
-    type: 'object',
-    properties: {
-      drivers_license: { type: 'string', format: 'binary' },
-      vehicle_insurance: { type: 'string', format: 'binary' },
-      reg_docs: { type: 'string', format: 'binary' },
-      // licenseNumber: { type: 'string' },
-    },
-    required: ['drivers_license', 'reg_docs'],
-  },
-})
 verifyDriverLicense(
   @AuthUser() user: any,
-  @UploadedFiles() files: {
-    drivers_license?: Express.Multer.File[];
-    vehicle_insurance?: Express.Multer.File[];
-    reg_docs?: Express.Multer.File[];
-  },
-  // @Body() dto: VerifyDriverLicenseDto,
+  @Body() dto: VerifyDriverLicenseDto,
 ) {
-  return this.kycService.verifyDriverLicense(user.id, files);
+  return this.kycService.verifyDriverLicense(user.id, dto);
 }
 
   @DriverOnly()
   @Post('documents')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload a KYC document for admin review' })
   uploadDocument(
     @AuthUser() user: any,
-    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
   ) {
-    if (!file) throw new BadRequestException('Document file is required');
-    return this.kycService.uploadDriverDocument(user.id, dto, file);
+    return this.kycService.uploadDriverDocument(user.id, dto);
   }
 }
