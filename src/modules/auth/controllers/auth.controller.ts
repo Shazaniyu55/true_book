@@ -153,7 +153,7 @@ updatePassword(
 ) {
   return this.broker.runUsecases(
     [this.updatePasswordUsecase],
-    { ...dto, userId: user.sub },
+    { userId: user.sub, dto },
   );
 }
 

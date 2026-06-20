@@ -12,10 +12,9 @@ export class UpdatePasswordUsecase extends Usecase {
 
   async execute(
     entityManager: EntityManager,
-    args: UpdatePasswordDto & { userId: string },
+    args: { userId: string; dto: UpdatePasswordDto },
   ) {
-    const { userId, ...dto } = args;
-    await this.authService.updatePassword(userId, dto, entityManager);
+    await this.authService.updatePassword(args.userId, args.dto, entityManager);
     return { message: 'Password update successful' };
   }
 }

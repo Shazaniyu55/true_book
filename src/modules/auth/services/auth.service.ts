@@ -453,8 +453,24 @@ async updatePassword(
   dto: UpdatePasswordDto,
   entityManager?: EntityManager,
 ): Promise<void> {
+  if (!userId) throw new BadRequestException('Unable to identify user');
+
+  // Guard against missing fields reaching the compare/hash steps
+  if (!dto?.current_password || !dto?.password || !dto?.password_confirmation) {
+    throw new BadRequestException('All password fields are required');
+  }
+
+  if (dto.password !== dto.password_confirmation) {
+    throw new BadRequestException('Passwords must match');
+  }
+
   const user = await this.userRepository.findById(userId);
   if (!user) throw new BadRequestException('User not found');
+
+  // If the password column is `select: false`, user.password will be undefined.
+  if (!user.password) {
+    throw new BadRequestException('Unable to verify current password');
+  }
 
   const isCurrentValid = await this.hashingUtil.compare(
     dto.current_password,
@@ -462,10 +478,6 @@ async updatePassword(
   );
   if (!isCurrentValid) {
     throw new BadRequestException('Current password is incorrect');
-  }
-
-  if (dto.password !== dto.password_confirmation) {
-    throw new BadRequestException('Passwords must match');
   }
 
   const hashedPassword = await this.hashingUtil.hash(dto.password);
