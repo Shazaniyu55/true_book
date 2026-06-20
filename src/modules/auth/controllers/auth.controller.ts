@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Broker } from '@broker/broker';
 import { Public } from '@shared/decorators/isPublic.decorator';
@@ -21,6 +21,12 @@ import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
 import { LoginAdminUsecase } from '../usecases/loginadmin.usecase';
 import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
 import { Throttle } from '@nestjs/throttler';
+import { UpdatePasswordUsecase } from '../usecases/updatepassword.usecase';
+import { AuthUser } from '@shared/decorators/authUser.decorator';
+import { UpdatePasswordDto } from '../dtos/updatepassword.dto';
+import { DriverOnly } from '@shared/decorators/roles.decorator';
+import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
+import { RolesGuard } from '@shared/guards/roles.guard';
 
 
 @ApiTags('Auth')
@@ -40,6 +46,7 @@ export class AuthController {
     private readonly registerAdminUsecase: RegisterAdminUsecase,
     private readonly loginAdminUsecase: LoginAdminUsecase,
     private readonly verifyAdminOtpUsecase: VerifyAdminOtpUsecase,
+    private readonly updatePasswordUsecase:UpdatePasswordUsecase
   ) {}
 
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
@@ -137,7 +144,18 @@ export class AuthController {
     return this.broker.runUsecases([this.resetPasswordUsecase], dto);
   }
 
-
+@UseGuards(JwtAuthGuard, RolesGuard)
+@DriverOnly()
+@Patch('drivers/update-password')
+updatePassword(
+  @AuthUser() user: any,
+  @Body() dto: UpdatePasswordDto,
+) {
+  return this.broker.runUsecases(
+    [this.updatePasswordUsecase],
+    { ...dto, userId: user.sub },
+  );
+}
 
 
 }

@@ -170,6 +170,8 @@ await this.notifiyService.notify({
       return this.driverRepository.updateDriver(id, dto, entityManager);
     }
 
+    
+
   /**
    * Update trip details (only PENDING trips)
    */

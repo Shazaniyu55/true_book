@@ -44,6 +44,7 @@ import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 import { Trip } from '@modules/core/entities/trip.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { Payout } from '@modules/core/entities/payout.entity';
+import { UpdatePasswordUsecase } from './usecases/updatepassword.usecase';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { Payout } from '@modules/core/entities/payout.entity';
     VerifyOtpUsecase,
     VerifyPhoneOtpUsecase,
     ForgotPasswordUsecase,
+    UpdatePasswordUsecase,
     ResetPasswordUsecase,
     ResendOtpUsecase,
     ResendPhoneOtpUsecase,

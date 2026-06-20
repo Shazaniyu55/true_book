@@ -27,6 +27,7 @@ import { Admin } from '@modules/core/entities/admin.entity';
 import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
 import { AgentRepository } from '@adapters/repositories/agent.repository';
 import { NotificationService } from '@modules/notification/services/notification.service';
+import { UpdatePasswordDto } from '../dtos/updatepassword.dto';
 
 @Injectable()
 export class AuthService {
@@ -440,6 +441,34 @@ async resetPassword(
   if (!user) throw new BadRequestException('User not found');
 
   const hashedPassword = await this.hashingUtil.hash(newPassword);
+  await this.userRepository.updateUser(
+    user.id,
+    { password: hashedPassword },
+    entityManager,
+  );
+}
+
+async updatePassword(
+  userId: string,
+  dto: UpdatePasswordDto,
+  entityManager?: EntityManager,
+): Promise<void> {
+  const user = await this.userRepository.findById(userId);
+  if (!user) throw new BadRequestException('User not found');
+
+  const isCurrentValid = await this.hashingUtil.compare(
+    dto.current_password,
+    user.password,
+  );
+  if (!isCurrentValid) {
+    throw new BadRequestException('Current password is incorrect');
+  }
+
+  if (dto.password !== dto.password_confirmation) {
+    throw new BadRequestException('Passwords must match');
+  }
+
+  const hashedPassword = await this.hashingUtil.hash(dto.password);
   await this.userRepository.updateUser(
     user.id,
     { password: hashedPassword },
