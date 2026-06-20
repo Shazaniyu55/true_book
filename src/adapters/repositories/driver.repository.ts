@@ -36,9 +36,7 @@ export class DriverRepository extends Repository<Driver> {
     return this.findOne({ where: { id }, relations: ['users'] });
   }
 
-
-
- async updateDriver(
+  async updateDriver(
   id: string,
   dto: UpdateDriverProfileDto,
   entityManager?: EntityManager,
@@ -54,15 +52,11 @@ export class DriverRepository extends Repository<Driver> {
     throw new NotFoundException('Driver profile not found');
   }
 
-  // ---------------------------
-  // Update User fields
-  // ---------------------------
   const userUpdates: Partial<User> = {};
 
   if (dto.firstName) userUpdates.firstName = dto.firstName;
   if (dto.lastName) userUpdates.lastName = dto.lastName;
   if (dto.phone) userUpdates.phone = dto.phone;
-  // if (dto.fullName) userUpdates.lastName = dto.fullName; // looks like a bug too, see below
   if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
   if (dto.about) userUpdates.about = dto.about;
   if (dto.yearOfExp) userUpdates.yearOfExp = dto.yearOfExp;
@@ -73,38 +67,92 @@ export class DriverRepository extends Repository<Driver> {
   if (dto.gender) userUpdates.gender = dto.gender;
   if (dto.country) userUpdates.country = dto.country;
 
-
-
-
-
-  if (Object.keys(userUpdates).length > 0) {
-    await manager.update(User, driver.user.id, userUpdates);
-  }
-
-  // ---------------------------
-  // Update Driver fields
-  // ---------------------------
-  const driverUpdates: Partial<Driver> = {};
-
+  // merge state into the user's metadata JSON
   if (dto.state) {
-    driverUpdates.user.metadata = {
+    userUpdates.metadata = {
       ...(driver.user.metadata ?? {}),
       state: dto.state,
     };
   }
 
-  if (Object.keys(driverUpdates).length > 0) {
-    await manager.update(Driver, id, driverUpdates);
+  if (Object.keys(userUpdates).length > 0) {
+    await manager.update(User, driver.user.id, userUpdates);
   }
 
-  // ---------------------------
-  // Return updated data
-  // ---------------------------
   return await this.driverRepository.findOne({
-    where: { id },
+    where: { userId: id },     // was { id } — see note below
     relations: ['user'],
   });
 }
+
+
+//  async updateDriver(
+//   id: string,
+//   dto: UpdateDriverProfileDto,
+//   entityManager?: EntityManager,
+// ): Promise<Driver> {
+//   const manager = entityManager || this.entityManager;
+
+//   const driver = await this.driverRepository.findOne({
+//     where: { userId: id },
+//     relations: ['user'],
+//   });
+
+//   if (!driver) {
+//     throw new NotFoundException('Driver profile not found');
+//   }
+
+//   // ---------------------------
+//   // Update User fields
+//   // ---------------------------
+//   const userUpdates: Partial<User> = {};
+
+//   if (dto.firstName) userUpdates.firstName = dto.firstName;
+//   if (dto.lastName) userUpdates.lastName = dto.lastName;
+//   if (dto.phone) userUpdates.phone = dto.phone;
+//   // if (dto.fullName) userUpdates.lastName = dto.fullName; // looks like a bug too, see below
+//   if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
+//   if (dto.about) userUpdates.about = dto.about;
+//   if (dto.yearOfExp) userUpdates.yearOfExp = dto.yearOfExp;
+//   if (dto.state) userUpdates.state = dto.state;
+//   if (dto.dob) userUpdates.dob = dto.dob;
+//   if (dto.city) userUpdates.city = dto.city;
+//   if (dto.address) userUpdates.address = dto.address;
+//   if (dto.gender) userUpdates.gender = dto.gender;
+//   if (dto.country) userUpdates.country = dto.country;
+
+
+
+
+
+//   if (Object.keys(userUpdates).length > 0) {
+//     await manager.update(User, driver.user.id, userUpdates);
+//   }
+
+//   // ---------------------------
+//   // Update Driver fields
+//   // ---------------------------
+//   const driverUpdates: Partial<Driver> = {};
+
+//   if (dto.state) {
+//     driverUpdates.user.metadata = {
+//       ...(driver.user.metadata ?? {}),
+//       state: dto.state,
+//     };
+//   }
+
+//   if (Object.keys(driverUpdates).length > 0) {
+//     await manager.update(Driver, id, driverUpdates);
+//   }
+
+//   // ---------------------------
+//   // Return updated data
+//   // ---------------------------
+//   return await this.driverRepository.findOne({
+//     where: { id },
+//     relations: ['user'],
+//   });
+// }
 
     async getProfile(userId: string) {
       const passenger = await this.driverRepository.findOne({
