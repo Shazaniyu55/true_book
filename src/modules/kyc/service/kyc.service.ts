@@ -13,7 +13,7 @@ import { Passenger } from '@modules/core/entities/passenger.entity';
 import { DocumentVerification } from '@modules/core/entities/document-verification.entity';
 import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 
-import { UploadDocumentDto } from '../dtos/kyc.dto';
+import { UploadDocumentDto, VerifyDriverLicenseDto } from '../dtos/kyc.dto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { LICENSE_QUEUE, LicenseJobData } from '../dtos/kyc.queue';
@@ -98,20 +98,13 @@ export class KycService {
   /**
    * Verify driver's license via Dojah.
    */
-  async verifyDriverLicense(
-  userId: string,
-  body: {
-    driversLicense: string;
-    regDocs: string;
-    vehicleInsurance?: string;
-  },
-) {
+  async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
   const driver = await this.getDriverOrThrow(userId);
   if (driver.licenseVerified) {
     throw new ConflictException("Driver's license is already verified");
   }
 
-  const { driversLicense, regDocs, vehicleInsurance } = body;
+  const { driversLicense, regDocs, vehicleInsurance } = dto;
 
   if (!driversLicense) throw new BadRequestException('Drivers license image is required');
   if (!regDocs) throw new BadRequestException('Registration documents are required');
@@ -145,7 +138,7 @@ export class KycService {
     },
     {
       attempts: 5,
-      backoff: { type: 'exponential', delay: 60_000 }, // 1m, 2m, 4m, ...
+      backoff: { type: 'exponential', delay: 60_000 },
       removeOnComplete: true,
       removeOnFail: 100,
     },

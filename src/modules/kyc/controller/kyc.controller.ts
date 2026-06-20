@@ -47,7 +47,7 @@ verifyDriverLicense(
   @AuthUser() user: any,
   @Body() dto: VerifyDriverLicenseDto,
 ) {
-  return this.kycService.verifyDriverLicense(user.id, dto);
+  return this.kycService.verifyDriverLicense(user.sub, dto);
 }
 
   @DriverOnly()
@@ -56,6 +56,6 @@ verifyDriverLicense(
     @AuthUser() user: any,
     @Body() dto: UploadDocumentDto,
   ) {
-    return this.kycService.uploadDriverDocument(user.id, dto);
+    return this.kycService.uploadDriverDocument(user.sub, dto);
   }
 }
