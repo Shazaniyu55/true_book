@@ -164,16 +164,9 @@ await this.notifiyService.notify({
    async updateProfile(
       id: string,
       dto: UpdateDriverProfileDto,
-      file?: Express.Multer.File,
       entityManager?: EntityManager,
     ) {
-      if (file) {
-        const uploaded = await this.cloudinaryService.upload(file, {
-          folder: `drivers/${id}/profile`,
-          resource_type: 'image',
-        });
-        dto.profileImage = uploaded.secure_url; // repository maps this onto User.profilePhoto
-      }
+     
       return this.driverRepository.updateDriver(id, dto, entityManager);
     }
 

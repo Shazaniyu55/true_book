@@ -11,11 +11,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  ParseIntPipe,
-  UseInterceptors,
-  UploadedFile,
+
 } from '@nestjs/common';
-import { ApiTags, ApiParam, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiParam, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -48,7 +46,6 @@ import { GetMyTripUsecase } from '@modules/trip/usecases/getmytrip.usecase';
 import { TripListQueryDto } from '@modules/trip/dtos/trip.dto';
 import { InitiatePayoutDto } from '../dtos/payout.dto';
 import { InitiatePayoutUsecase } from '../usecases/initiatepayout.usecase';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 import { DriverTripService } from '../services/driver.service';
 import { GetVehicleTypeUsecase } from '../usecases/getvehicletype.usecase';
@@ -153,19 +150,15 @@ getSingleTransaction(@AuthUser() user: any, @Param('id') id: string) {
     return this.broker.runUsecases([this.getDriverProfileUsecase], { id: user.sub });
   }
 
-  @DriverOnly()
-  @Patch('update-profile')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Update my profile (name, phone, photo, state)' })
-  updateProfile(
-    @AuthUser() user: any,
-    @UploadedFile() file: Express.Multer.File,
-    @Body() dto: UpdateDriverProfileDto,
-
-  ) {
-    return this.driverService.updateProfile(user.sub, dto, file);
-  }
+@DriverOnly()
+@Patch('update-profile')
+@ApiOperation({ summary: 'Update my profile (name, phone, photo, state)' })
+updateProfile(
+  @AuthUser() user: any,
+  @Body() dto: UpdateDriverProfileDto,
+) {
+  return this.driverService.updateProfile(user.sub, dto);
+}
 
 @DriverOnly()
 @Get('trip/status')

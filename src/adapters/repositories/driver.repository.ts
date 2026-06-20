@@ -64,6 +64,18 @@ export class DriverRepository extends Repository<Driver> {
   if (dto.phone) userUpdates.phone = dto.phone;
   // if (dto.fullName) userUpdates.lastName = dto.fullName; // looks like a bug too, see below
   if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
+  if (dto.about) userUpdates.about = dto.about;
+  if (dto.yearOfExp) userUpdates.yearOfExp = dto.yearOfExp;
+  if (dto.state) userUpdates.state = dto.state;
+  if (dto.dob) userUpdates.dob = dto.dob;
+  if (dto.city) userUpdates.city = dto.city;
+  if (dto.address) userUpdates.address = dto.address;
+  if (dto.gender) userUpdates.gender = dto.gender;
+  if (dto.country) userUpdates.country = dto.country;
+
+
+
+
 
   if (Object.keys(userUpdates).length > 0) {
     await manager.update(User, driver.user.id, userUpdates);

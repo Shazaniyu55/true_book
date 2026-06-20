@@ -94,8 +94,17 @@ otpAttempts: number;
 @Column({ type: 'integer', default: 0 })
 phoneOtpAttempts: number;
 
-@Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   city: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  about: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  yearOfExp: string;
+
+    @Column({ type: 'varchar', nullable: true })
+  state: string;
 
   @Column({ type: 'varchar', nullable: true })
   country: string;

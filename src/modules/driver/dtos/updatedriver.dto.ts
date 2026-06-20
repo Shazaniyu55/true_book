@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsNotEmpty, IsObject, IsOptional, IsString, IsUrl, IsUUID } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsDateString, IsOptional, IsString, IsUrl } from 'class-validator';
 
 export class UpdateDriverProfileDto {
   @ApiPropertyOptional({ example: 'Emeka' })
@@ -15,13 +14,15 @@ export class UpdateDriverProfileDto {
   @ApiPropertyOptional({ example: '+2348012345678' })
   @IsOptional() @IsString() phone?: string;
 
-  @ApiPropertyOptional({ description: 'Profile photo URL (after Cloudinary upload)' })
-  @IsOptional() @IsString() profileImage?: string;
+@ApiPropertyOptional({ description: 'Profile photo URL (already uploaded by the app)' })
+@IsOptional()
+@IsUrl()
+profileImage?: string;
 
   @ApiPropertyOptional({ example: 'Lagos' })
   @IsOptional() @IsString() state?: string;
 
-    @ApiProperty({ example: '1999-6-05' })
+    @ApiProperty({ example: '1999-06-05' })
     @IsOptional()
     @IsDateString()
     dob: Date;
@@ -35,6 +36,16 @@ export class UpdateDriverProfileDto {
   @IsString()
   @IsOptional()
   address: string;
+
+      @ApiProperty({ example: 'about' })
+  @IsString()
+  @IsOptional()
+  about: string;
+
+  @ApiProperty({ example: 'Abuja 4 wuse' })
+  @IsString()
+  @IsOptional()
+  yearOfExp: string;
 
   @ApiProperty({ example: 'male' })
   @IsString()
