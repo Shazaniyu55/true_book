@@ -38,16 +38,7 @@ async function bootstrap() {
 if ([undefined, 'development', 'localhost'].includes(process.env.NODE_ENV)) {
   whitelist.push(/^https?:\/\/localhost(:\d+)?$/);
 }
-  // const whitelist = configService
-  //   .get<string>('CORS_WHITELIST')
-  //   .split(',')
-  //   .map((pattern) => new RegExp(pattern));
-
-  // // Enable localhost on dev/staging servers only
-  // if ([undefined, 'development', 'localhost'].includes(process.env.NODE_ENV)) {
-  //   // whitelist.push(/http(s)?:\/\/localhost:3000/);
-  //   whitelist.push(/http(s)?:\/\/localhost:/);
-  // }
+ 
 
   Logger.log(`Approved domains: ${whitelist.join(',')}`);
 
