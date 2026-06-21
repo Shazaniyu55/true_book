@@ -13,6 +13,19 @@ export class RedisCacheService {
     this.isConnected = !!redis;
   }
 
+   async onModuleInit() {
+    if (!this.isConnected) {
+      this.logger.warn('Redis client not provided — caching disabled, app will run uncached');
+      return;
+    }
+    try {
+      const pong = await this.redis.ping();   // forces the lazy connection to open
+      this.logger.log(`✓ Redis connected (ping: ${pong})`);
+    } catch (err) {
+      this.logger.error(`✗ Redis connection failed: ${err.message}`);
+    }
+  }
+
   async get<T = any>(key: string): Promise<T | null> {
     if (!this.isConnected) return null;
     try {

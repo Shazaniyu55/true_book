@@ -12,8 +12,8 @@ import { RedisCacheService } from './redis-cache.service';
       provide: REDIS_CLIENT,
       inject: [ConfigService],
       useFactory: (configService: ConfigService): Redis => {
-        const host = configService.get<string>('common.redis.host', 'localhost');
-        const port = configService.get<number>('common.redis.port', 6379);
+        const host = configService.get<string>('common.redis.host', 'redis-15370.crce309.us-east-1-6.ec2.cloud.redislabs.com');
+        const port = configService.get<number>('common.redis.port', 15370);
         const password = configService.get<string>('common.redis.password');
         const db = configService.get<number>('common.redis.db', 0);
 
