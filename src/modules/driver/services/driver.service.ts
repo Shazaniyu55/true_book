@@ -139,7 +139,7 @@ if (!vehicle.isVerified) {
 await this.notifiyService.notify({
   userId: userId,                          // driver's userId
   title: 'Trip Created Successfully',
-  body: `Your trip (${reference}) from ${dto.departureLocation} to ${dto.arrivalDestination} has been created and is pending approval.`,
+  body: `Your trip (${reference}) from ${dto.departureLocation} to ${dto.dropOffStation} has been created and is pending approval.`,
   type: NotificationType.TRIP_CREATED,    
   data: {
     tripId: savedTrip.id,
