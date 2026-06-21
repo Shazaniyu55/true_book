@@ -14,6 +14,8 @@ import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.servi
 import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
+import { RedisCacheService } from '@modules/cache/redis-cache.service';
+import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -42,6 +44,8 @@ export class DriverTripService {
     private readonly notifiyService:NotificationService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly driverRepository: DriverRepository,
+    private readonly cache: RedisCacheService, 
+    
     
     
 
@@ -407,7 +411,16 @@ async getDriverTripStatus(userId: string, type?: string) {
 }
 
 async getDriverDashboard(userId: string, query: { page?: number; limit?: number }) {
-  return this.driverRepository.getDriverDashboard(userId, query);
+    const page = query?.page ?? 1;
+    const limit = query?.limit ?? 20;
+    const key = `${CACHE_KEYS.DASHBOARD_STATS}:${page}:${limit}`;
+  
+ return this.cache.getOrSet(
+      key,
+      () => this.driverRepository.getDriverDashboard(userId, query),
+      CACHE_TTL.MEDIUM,
+    );
+  //return this.driverRepository.getDriverDashboard(userId, query);
 }
 
   async getProfile(id: string) {

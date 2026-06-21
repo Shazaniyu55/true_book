@@ -105,6 +105,7 @@ export class KycService {
   }
 
   const { driversLicense, regDocs, vehicleInsurance } = dto;
+  
 
   if (!driversLicense) throw new BadRequestException('Drivers license image is required');
   if (!regDocs) throw new BadRequestException('Registration documents are required');
