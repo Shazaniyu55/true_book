@@ -413,7 +413,7 @@ async getDriverTripStatus(userId: string, type?: string) {
 async getDriverDashboard(userId: string, query: { page?: number; limit?: number }) {
     const page = query?.page ?? 1;
     const limit = query?.limit ?? 20;
-    const key = `${CACHE_KEYS.DASHBOARD_STATS}:${page}:${limit}`;
+    const key = `${CACHE_KEYS.DRIVER_DASHBOARD_STATS}:${page}:${limit}`;
   
  return this.cache.getOrSet(
       key,

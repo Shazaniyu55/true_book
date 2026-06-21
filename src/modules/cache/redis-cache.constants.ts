@@ -12,6 +12,7 @@ export const CACHE_KEYS = {
   KILL_SWITCH: 'kill_switch:status',
   BANK_LIST: 'payment:bank_list',
   DASHBOARD_STATS: 'admin:dashboard_stats',
+  DRIVER_DASHBOARD_STATS: 'driver:dashboard_stats',
   USER: (id: number) => `user:${id}`,
   DRIVER: (id: number) => `driver:${id}`,
   TRIP: (id: number) => `trip:${id}`,
