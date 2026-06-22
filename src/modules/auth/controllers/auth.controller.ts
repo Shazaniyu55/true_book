@@ -20,7 +20,6 @@ import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
 import { LoginAdminDto } from '@modules/admin/dtos/login.dto';
 import { LoginAdminUsecase } from '../usecases/loginadmin.usecase';
 import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
-import { Throttle } from '@nestjs/throttler';
 import { UpdatePasswordUsecase } from '../usecases/updatepassword.usecase';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 import { UpdatePasswordDto } from '../dtos/updatepassword.dto';
@@ -49,7 +48,6 @@ export class AuthController {
     private readonly updatePasswordUsecase:UpdatePasswordUsecase
   ) {}
 
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Register a new a new user' })
@@ -57,14 +55,12 @@ export class AuthController {
     return this.broker.runUsecases([this.registerUsecase], dto);
   }
 
-    @Throttle({ default: { ttl: 60_000, limit: 5 } })
     @Post('register-admin')
     @ApiOperation({ summary: 'Create a new admin' })
     @ApiBody({ type: CreateAdminDto })
     createAdmin(@Body() dto: CreateAdminDto) {
       return this.broker.runUsecases([this.registerAdminUsecase], dto);
     }
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Post('login-admin')
   @ApiOperation({ summary: 'Admin login' })
   @ApiBody({ type: LoginAdminDto })
@@ -72,7 +68,6 @@ export class AuthController {
     return this.broker.runUsecases([this.loginAdminUsecase], dto);
   }
 
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Public()
   @Post('login')
   @ApiOperation({ summary: 'Login' })
@@ -102,7 +97,6 @@ export class AuthController {
     return this.broker.runUsecases([this.verifyphoneUsecase], dto);
   }
 
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Public()
   @Post('resend-otp')
   @ApiOperation({ summary: 'Resend OTP' })
@@ -115,7 +109,6 @@ export class AuthController {
     );
   }
 
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Public()
   @Post('resend-phone-otp')
   @ApiOperation({ summary: 'Resend phone OTP' })
@@ -128,7 +121,6 @@ export class AuthController {
     );
   }
 
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Public()
   @Post('forgot-password')
   @ApiOperation({ summary: 'Request password reset OTP' })
@@ -136,7 +128,6 @@ export class AuthController {
     return this.broker.runUsecases([this.forgotPasswordUsecase], dto);
   }
 
-  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @Public()
   @Post('reset-password')
   @ApiOperation({ summary: 'Reset password ' })
