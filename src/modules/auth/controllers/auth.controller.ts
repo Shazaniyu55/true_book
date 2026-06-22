@@ -55,12 +55,15 @@ export class AuthController {
     return this.broker.runUsecases([this.registerUsecase], dto);
   }
 
+    @Public()
     @Post('register-admin')
     @ApiOperation({ summary: 'Create a new admin' })
     @ApiBody({ type: CreateAdminDto })
     createAdmin(@Body() dto: CreateAdminDto) {
       return this.broker.runUsecases([this.registerAdminUsecase], dto);
     }
+
+  @Public()  
   @Post('login-admin')
   @ApiOperation({ summary: 'Admin login' })
   @ApiBody({ type: LoginAdminDto })
