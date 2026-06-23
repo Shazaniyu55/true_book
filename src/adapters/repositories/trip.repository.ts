@@ -270,51 +270,83 @@ private async releaseEscrowForBooking(booking: Booking, manager: EntityManager):
   return Number(escrow.netDriverAmount);
 }
 
-// async searchTrips(query: {page?: number, limit?:number, origin?: string, destination?:string, date?:string, seats?:number, maxPrice?:number, sortBy?:string, status?:string}): Promise<PagedDto<any>> {
-//         const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = query;
-//         const skip = (page - 1) * limit;
-    
-//         const qb = this.tripRepository.createQueryBuilder('trip')
-//           .leftJoinAndSelect('trip.driver', 'driver')
-//           .leftJoinAndSelect('driver.user', 'user')
-//           .leftJoinAndSelect('trip.vehicle', 'vehicle')
-//           .where('trip.status = :status', { status: status ?? TripStatus.ACTIVE });
-    
-//         if (origin) qb.andWhere('trip.origin ILIKE :origin', { origin: `%${origin}%` });
-//         if (destination) qb.andWhere('trip.destination ILIKE :destination', { destination: `%${destination}%` });
-//         if (date) {
-//           const start = new Date(date);
-//           const end = new Date(date);
-//           end.setDate(end.getDate() + 1);
-//           qb.andWhere('trip.departureTime BETWEEN :start AND :end', { start, end });
-//         }
-//         if (seats) qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
-//         if (maxPrice) qb.andWhere('trip.pricePerSeat <= :maxPrice', { maxPrice });
-    
-//         // Sorting
-//         switch (sortBy) {
-//           case 'price': qb.orderBy('trip.pricePerSeat', 'ASC'); break;
-//           case 'seats': qb.orderBy('(trip.totalSeats - trip.bookedSeats)', 'DESC'); break;
-//           default: qb.orderBy('trip.departureTime', 'ASC');
-//         }
-    
-//         const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-//             const pagedDto = new PagedDto();
-//             pagedDto.data = data.map((t) => ({...t,availableSeats: t.totalSeats,}));
+// async searchTrips(query: {
+//   page?: number;
+//   limit?: number;
+//   origin?: string;
+//   destination?: string;
+//   date?: string;
+//   seats?: number;
+//   maxPrice?: number;
+//   sortBy?: string;
+//   status?: string;
+// }): Promise<PagedDto<any>> {
+//   const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = query;
+//   const skip = (page - 1) * limit;
 
-//           pagedDto.meta = {
-//               page,
-//               limit,
-//               count: data.length,
-//               previousPage: page > 1 ? page - 1 : false,
-//               nextPage: skip + limit < total ? page + 1 : false,
-//               pageCount: Math.ceil(total / limit),
-//               totalRecords: total,
-//             };
-        
-//             return pagedDto;
-       
-//       }
+//   const qb = this.tripRepository
+//     .createQueryBuilder('trip')
+//     .leftJoinAndSelect('trip.driver', 'driver')
+//     .leftJoinAndSelect('driver.user', 'user')
+//     .leftJoinAndSelect('trip.vehicle', 'vehicle')
+//     .where('trip.status = :status', { status: status ?? TripStatus.ACTIVE });
+
+//   if (origin) {
+//     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
+//   }
+
+//   if (destination) {
+//     qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
+//       destination: `%${destination}%`,
+//     });
+//   }
+
+//   if (date) {
+//     qb.andWhere('trip.departureDate = :date', { date });
+//   }
+
+//   if (seats) {
+//     qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
+//   }
+
+//   if (maxPrice) {
+//     qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
+//   }
+
+//   switch (sortBy) {
+//     case 'price':
+//       qb.addSelect("trip.price::numeric", 'price_numeric')
+//         .orderBy('price_numeric', 'ASC');
+//       break;
+//     case 'seats':
+//       qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
+//         .orderBy('available_seats', 'DESC');
+//       break;
+//     default:
+//       qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
+//   }
+
+//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+//   const pagedDto = new PagedDto();
+//   pagedDto.data = data.map((t) => ({
+//     ...t,
+//     availableSeats: t.totalSeats - t.bookedSeats,
+//   }));
+
+//   pagedDto.meta = {
+//     page,
+//     limit,
+//     count: data.length,
+//     previousPage: page > 1 ? page - 1 : false,
+//     nextPage: skip + limit < total ? page + 1 : false,
+//     pageCount: Math.ceil(total / limit),
+//     totalRecords: total,
+//   };
+
+//   return pagedDto;
+// }
+
 async searchTrips(query: {
   page?: number;
   limit?: number;
@@ -325,8 +357,15 @@ async searchTrips(query: {
   maxPrice?: number;
   sortBy?: string;
   status?: string;
+  state?: string;   // ← ADD
+  location?: string; // ← ADD (filters against departureLocation)
 }): Promise<PagedDto<any>> {
-  const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = query;
+  const {
+    page = 1, limit = 20,
+    origin, destination, date, seats, maxPrice, sortBy, status,
+    state, location, // ← ADD
+  } = query;
+
   const skip = (page - 1) * limit;
 
   const qb = this.tripRepository
@@ -346,6 +385,16 @@ async searchTrips(query: {
     });
   }
 
+  // ← ADD: filter by state (case-insensitive)
+  if (state) {
+    qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
+  }
+
+  // ← ADD: filter by location/city against departureLocation
+  if (location) {
+    qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
+  }
+
   if (date) {
     qb.andWhere('trip.departureDate = :date', { date });
   }
@@ -360,7 +409,7 @@ async searchTrips(query: {
 
   switch (sortBy) {
     case 'price':
-      qb.addSelect("trip.price::numeric", 'price_numeric')
+      qb.addSelect('trip.price::numeric', 'price_numeric')
         .orderBy('price_numeric', 'ASC');
       break;
     case 'seats':
