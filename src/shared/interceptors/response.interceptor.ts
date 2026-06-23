@@ -10,6 +10,8 @@ import {
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { Response, Request } from 'express';
+import { instanceToPlain } from 'class-transformer';
+
 
 export interface TResponse<T> {
   statusCode: number;
@@ -43,7 +45,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, TResponse<T>> 
       statusCode,
       success: true,
       message: 'Request successful',
-      result: res,
+      result: instanceToPlain(res) as T,
       path: request.url,
       duration: Date.now() - startTime,
       timestamp: Date.now(),
