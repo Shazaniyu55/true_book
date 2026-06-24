@@ -120,6 +120,12 @@ export class SearchTripsDto {
 
   @ApiPropertyOptional({ description: 'Sort by price | departure | seats' })
   @IsOptional() @IsString() sortBy?: 'price' | 'departure' | 'seats';
+
+  @ApiPropertyOptional({ example: 'Lagos', description: 'Filter trips by state' })
+  @IsOptional() @IsString() state?: string;
+
+  @ApiPropertyOptional({ example: 'Ikeja', description: 'Filter trips by city/location' })
+  @IsOptional() @IsString() location?: string;
 }
 
 // ─── Cancel booking ────────────────────────────────────────────────────────

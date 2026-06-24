@@ -79,6 +79,10 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
     return await this.tripRepository.searchTrips(query);
   }
 
+  async searchTripState(query: SearchTripsDto){
+    return this.tripRepository.searchTripState(query);
+  }
+
   async scanTicket(driverUserId: string, dto: ScanTicketDto, em?: EntityManager) {
   return this.tripRepository.scanTicket(driverUserId, dto, em);
 }

@@ -24,20 +24,17 @@ const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '5'); // 5
 @Injectable()
 export class TripRepository extends Repository<Trip> {
   private readonly logger = new Logger(TripsService.name);
-
   constructor(
     private readonly entityManager: EntityManager,
     private readonly randomnessUtil: RandomnessUtil,
     private readonly expoService: ExpoService,
-    private readonly paymentFactory: PaymentFactory,
-    
+    private readonly paymentFactory: PaymentFactory,    
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
     @InjectRepository(Trip) private readonly tripRepository: Repository<Trip>,
     @InjectRepository(Escrow) private readonly escrowRepo: Repository<Escrow>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
-
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
 
     
@@ -205,7 +202,7 @@ if (vehicleCount === 0) {
       return await manager.save(Trip, trip);
     }
 
-    async scanTicket(
+async scanTicket(
   driverUserId: string,
   payload: { bookingCode: string; ticketToken: string },
   entityManager?: EntityManager,
@@ -270,82 +267,49 @@ private async releaseEscrowForBooking(booking: Booking, manager: EntityManager):
   return Number(escrow.netDriverAmount);
 }
 
-// async searchTrips(query: {
-//   page?: number;
-//   limit?: number;
-//   origin?: string;
-//   destination?: string;
-//   date?: string;
-//   seats?: number;
-//   maxPrice?: number;
-//   sortBy?: string;
-//   status?: string;
-// }): Promise<PagedDto<any>> {
-//   const { page = 1, limit = 20, origin, destination, date, seats, maxPrice, sortBy, status } = query;
-//   const skip = (page - 1) * limit;
 
-//   const qb = this.tripRepository
-//     .createQueryBuilder('trip')
-//     .leftJoinAndSelect('trip.driver', 'driver')
-//     .leftJoinAndSelect('driver.user', 'user')
-//     .leftJoinAndSelect('trip.vehicle', 'vehicle')
-//     .where('trip.status = :status', { status: status ?? TripStatus.ACTIVE });
+async searchTripState(query: {
+  page?: number;
+  limit?: number;
+  state?: string;
+}): Promise<PagedDto<any>> {
+  const { page = 1, limit = 20, state } = query;
 
-//   if (origin) {
-//     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
-//   }
+  const skip = (page - 1) * limit;
 
-//   if (destination) {
-//     qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
-//       destination: `%${destination}%`,
-//     });
-//   }
+  const qb = this.tripRepository
+    .createQueryBuilder('trip')
+    .leftJoinAndSelect('trip.driver', 'driver')
+    .leftJoinAndSelect('driver.user', 'user')
+    .leftJoinAndSelect('trip.vehicle', 'vehicle')
+    .where('trip.status = :status', { status: TripStatus.ACTIVE });
 
-//   if (date) {
-//     qb.andWhere('trip.departureDate = :date', { date });
-//   }
+  if (state) {
+    qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
+  }
 
-//   if (seats) {
-//     qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
-//   }
+  qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
 
-//   if (maxPrice) {
-//     qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
-//   }
+  const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
 
-//   switch (sortBy) {
-//     case 'price':
-//       qb.addSelect("trip.price::numeric", 'price_numeric')
-//         .orderBy('price_numeric', 'ASC');
-//       break;
-//     case 'seats':
-//       qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
-//         .orderBy('available_seats', 'DESC');
-//       break;
-//     default:
-//       qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
-//   }
+  const pagedDto = new PagedDto();
+  pagedDto.data = data.map((t) => ({
+    ...t,
+    availableSeats: t.totalSeats - t.bookedSeats,
+  }));
 
-//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+  pagedDto.meta = {
+    page,
+    limit,
+    count: data.length,
+    previousPage: page > 1 ? page - 1 : false,
+    nextPage: skip + limit < total ? page + 1 : false,
+    pageCount: Math.ceil(total / limit),
+    totalRecords: total,
+  };
 
-//   const pagedDto = new PagedDto();
-//   pagedDto.data = data.map((t) => ({
-//     ...t,
-//     availableSeats: t.totalSeats - t.bookedSeats,
-//   }));
-
-//   pagedDto.meta = {
-//     page,
-//     limit,
-//     count: data.length,
-//     previousPage: page > 1 ? page - 1 : false,
-//     nextPage: skip + limit < total ? page + 1 : false,
-//     pageCount: Math.ceil(total / limit),
-//     totalRecords: total,
-//   };
-
-//   return pagedDto;
-// }
+  return pagedDto;
+}
 
 async searchTrips(query: {
   page?: number;
@@ -357,8 +321,8 @@ async searchTrips(query: {
   maxPrice?: number;
   sortBy?: string;
   status?: string;
-  state?: string;   // ← ADD
-  location?: string; // ← ADD (filters against departureLocation)
+  state?: string;   
+  location?: string; 
 }): Promise<PagedDto<any>> {
   const {
     page = 1, limit = 20,
@@ -762,7 +726,7 @@ return booking;
     }
 
 
-    /**
+  /**
  * Returns trip counts grouped by status.
  * Pass a driverId to scope it to one driver; omit for a platform-wide tally.
  */

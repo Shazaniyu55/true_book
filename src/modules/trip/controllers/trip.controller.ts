@@ -52,6 +52,7 @@ import { GetBookingCodeUsecase } from '../usecases/getbookingcode.usecase';
 import { BookTripUsecase } from '../usecases/booktrip.usecase';
 import { ScanTicketUsecase } from '../usecases/scanticket.usecase';
 import { GetBoardingQrUsecase } from '../usecases/getboardingqr.usecase';
+import { SearchTripStateUsecase } from '../usecases/searchtripstate.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -76,7 +77,8 @@ export class TripsController {
     private readonly getBookingCodeUsecase:GetBookingCodeUsecase,
     private readonly bookTripUsecase:BookTripUsecase,
     private readonly scanTicketUsecase:ScanTicketUsecase,
-    private readonly getBoardingQrUsecase:GetBoardingQrUsecase
+    private readonly getBoardingQrUsecase:GetBoardingQrUsecase,
+    private readonly searchTripStateUsecase:SearchTripStateUsecase
   
   ) {}
 
@@ -92,6 +94,16 @@ export class TripsController {
   })
   searchTrips(@Query() dto: SearchTripsDto) {
     return this.broker.runUsecases([this.searchTripeUsecase], dto)
+  }
+
+  @Public()
+  @Get('search-state')
+  @ApiOperation({
+    summary: 'Search available trips',
+    description: 'Filter by state',
+  })
+  searchTripState(@Query() dto: SearchTripsDto) {
+    return this.broker.runUsecases([this.searchTripStateUsecase], dto)
   }
 
   @Public()
