@@ -10,7 +10,13 @@ export class BcryptHashingUtil implements HashingUtil {
     return bcrypt.hash(value as string, SALT_ROUNDS);
   }
 
-  async compare(value: string | Buffer, encrypted: string): Promise<boolean> {
-    return bcrypt.compare(value as string, encrypted);
-  }
+  // async compare(value: string | Buffer, encrypted: string): Promise<boolean> {
+  //   return bcrypt.compare(value as string, encrypted);
+  // }
+
+  async compare(plain: string, hash: string): Promise<boolean> {
+  if (!plain || !hash) return false;                  // guard against null/undefined
+  const normalized = hash.replace(/^\$2y\$/, '$2b$'); // Laravel $2y$ → Node $2b$
+  return bcrypt.compare(plain, normalized);
+}
 }
