@@ -62,16 +62,13 @@ export class PassengerController {
 
   @PassengerOnly()
   @Patch('update-profile')
-  @UseInterceptors(FileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Update my profile (name, phone, photo, state)' })
   updateProfile(
     @AuthUser() user: JwtPayload,
-    @UploadedFile() file: Express.Multer.File,
     @Body() dto: UpdatePassengerProfileDto,
 
   ) {
-    return this.passengerService.updateProfile(user.sub, dto, file);
+    return this.passengerService.updateProfile(user.sub, dto);
   }
 
   @PassengerOnly()

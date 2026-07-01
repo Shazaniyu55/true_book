@@ -29,16 +29,9 @@ export class PassengerService {
  async updateProfile(
     id: string,
     dto: UpdatePassengerProfileDto,
-    file?: Express.Multer.File,
     entityManager?: EntityManager,
   ) {
-    if (file) {
-      const uploaded = await this.cloudinaryService.upload(file, {
-        folder: `passengers/${id}/profile`,
-        resource_type: 'image',
-      });
-      dto.profileImage = uploaded.secure_url; // repository maps this onto User.profilePhoto
-    }
+  
     return this.passangerRepository.updatePassenger(id, dto, entityManager);
   }
 

@@ -114,6 +114,12 @@ async updatePassenger(
   if (dto.lastName) userUpdates.lastName = dto.lastName;
   if (dto.phone) userUpdates.phone = dto.phone;
   if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
+  if (dto.state) userUpdates.state = dto.state;
+  if (dto.dob) userUpdates.dob = dto.dob;
+  if (dto.city) userUpdates.city = dto.city;
+  if (dto.address) userUpdates.address = dto.address;
+  if (dto.gender) userUpdates.gender = dto.gender;
+  if (dto.country) userUpdates.country = dto.country;
 
   // NOTE: handle fullName explicitly — don't dump it into lastName.
   // Adjust this to match what your User entity actually supports.
