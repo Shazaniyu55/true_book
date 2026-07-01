@@ -405,14 +405,34 @@ async searchTrips(query: {
   return pagedDto;
 }
 
-    async getTripById(tripId: string) {
-    const trip = await this.tripRepository.findOne({
-      where: { id: tripId },
-      relations: ['driver', 'driver.user', 'vehicle'],
-    });
-    if (!trip) throw new NotFoundException('Trip not found');
-    return { ...trip, availableSeats: trip.totalSeats  };
-  }
+  //   async getTripById(tripId: string) {
+  //   const trip = await this.tripRepository.findOne({
+  //     where: { id: tripId },
+  //     relations: ['driver', 'driver.user', 'vehicle'],
+  //   });
+  //   if (!trip) throw new NotFoundException('Trip not found');
+  //   return { ...trip, availableSeats: trip.totalSeats  };
+  // }
+
+  async getTripById(tripId: string) {
+  const trip = await this.tripRepository.findOne({
+    where: { id: tripId },
+    relations: ['driver', 'driver.user', 'vehicle'],
+  });
+  if (!trip) throw new NotFoundException('Trip not found');
+
+  const bookings = await this.bookingRepo.find({
+    where: { tripId: trip.id },
+    relations: ['passenger', 'passenger.user'],
+    order: { createdAt: 'DESC' },
+  });
+
+  return {
+    ...trip,
+    availableSeats: trip.totalSeats - (trip.bookedSeats ?? 0),
+    bookings,
+  };
+}
 
   async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
   const manager = entityManager || this.entityManager;
@@ -677,10 +697,7 @@ return booking;
         
             return pagedDto;
 
-    // return {
-    //   data: data.map((t) => ({ ...t, availableSeats: t.totalSeats - t.bookedSeats })),
-    //   meta: { page, limit, total, pages: Math.ceil(total / limit) },
-    // };
+
   }
 
 

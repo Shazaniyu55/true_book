@@ -236,7 +236,7 @@ getAll() {
   })
 
   async getTripDetail(
-    @AuthUser() user: string,
+    @AuthUser() user: any,
     @Param('tripId') tripId: string,
   ) {
     return this.broker.runUsecases([this.getTripUsecase], {id: user.sub, tripId: tripId})
