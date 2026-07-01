@@ -124,7 +124,7 @@ if (!vehicle.isVerified) {
   vehicleId: dto.vehicleId,
   totalSeats: dto.totalSeats,                 // ← from DTO now
   availableSeats: dto.availableSeats,         // ← from DTO now
-  status: TripStatus.PENDING,
+  status: TripStatus.ACTIVE,
 });
 
          //await this.tripRepo.save(trip);

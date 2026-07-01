@@ -181,6 +181,7 @@ export class AuthService {
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
+
     const isPasswordValid = await this.hashingUtil.compare(dto.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
@@ -192,7 +193,7 @@ export class AuthService {
 
     const tokens = this.generateTokens(user);
 
-      this.notificationService.notify({
+      await this.notificationService.notify({
     userId: user.id,
     title: 'New Login',
     body: `You signed in to your Tru Booker account on ${new Date().toLocaleString()}.`,
