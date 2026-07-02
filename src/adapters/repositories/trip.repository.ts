@@ -81,7 +81,7 @@ if (vehicleCount === 0) {
           ...dto,
           reference,
           driverId: driver.id, 
-          status: TripStatus.ACTIVE,
+          status: TripStatus.PENDING,
           //bookedSeats: 0,
         });
 
