@@ -505,9 +505,9 @@ async getSingleTransaction(userId: string, id: string) {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   private async resolveEntity(userId: string, manager: EntityManager) {
-    const driver = await manager.findOne(Driver, { where: { userId }, relations: ['user'],lock: { mode: 'pessimistic_write' } });
+    const driver = await manager.findOne(Driver, { where: { userId }, lock: { mode: 'pessimistic_write' } });
     if (driver) return { entity: driver as PayoutEntity, kind: 'driver' as EntityKind };
-    const agent = await manager.findOne(Agent, { where: { userId }, relations: ['user'] });
+    const agent = await manager.findOne(Agent, { where: { userId }, lock: { mode: 'pessimistic_write' },});
     if (agent) return { entity: agent as PayoutEntity, kind: 'agent' as EntityKind };
     throw new NotFoundException('No payout account found for this user');
   }
