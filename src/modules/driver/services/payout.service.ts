@@ -45,9 +45,12 @@ export class PayoutService {
       //   : await this.createBeneficiary(entity, kind, dto, manager);
       // if (!beneficiary) throw new NotFoundException('Beneficiary not found');
 
+      // if (Number(entity.currentBalance) < Number(dto.amount)) {
+      //   return { message: 'Insufficient balance', status: false };
+      // }
       if (Number(entity.currentBalance) < Number(dto.amount)) {
-        return { message: 'Insufficient balance', status: false };
-      }
+  throw new BadRequestException('Insufficient balance');
+}
 
       const payout = await this.createPayoutRecord(entity, kind, dto, manager);
 
@@ -459,7 +462,7 @@ async getSingleTransaction(userId: string, id: string) {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   private async resolveEntity(userId: string, manager: EntityManager) {
-    const driver = await manager.findOne(Driver, { where: { userId }, relations: ['user'] });
+    const driver = await manager.findOne(Driver, { where: { userId }, relations: ['user'],lock: { mode: 'pessimistic_write' } });
     if (driver) return { entity: driver as PayoutEntity, kind: 'driver' as EntityKind };
     const agent = await manager.findOne(Agent, { where: { userId }, relations: ['user'] });
     if (agent) return { entity: agent as PayoutEntity, kind: 'agent' as EntityKind };

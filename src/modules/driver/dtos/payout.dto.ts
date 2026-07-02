@@ -1,9 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Min } from 'class-validator';
 
 export class InitiatePayoutDto {
   @ApiProperty({ example: 5000, description: 'Amount in NGN' })
-  @IsPositive() @IsNumber() amount: number;
+  // @IsPositive() @IsNumber() amount: number;
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  amount: number;
 
   @ApiPropertyOptional() @IsOptional() @IsString() narration?: string;
 
