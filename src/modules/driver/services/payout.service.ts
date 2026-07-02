@@ -40,16 +40,16 @@ export class PayoutService {
     return this.dataSource.transaction(async (manager) => {
       const { entity, kind } = await this.resolveEntity(userId, manager);
 
-      const beneficiary = dto.beneficiaryId
-        ? await manager.findOne(Beneficiary, { where: { id: dto.beneficiaryId } })
-        : await this.createBeneficiary(entity, kind, dto, manager);
-      if (!beneficiary) throw new NotFoundException('Beneficiary not found');
+      // const beneficiary = dto.beneficiaryId
+      //   ? await manager.findOne(Beneficiary, { where: { id: dto.beneficiaryId } })
+      //   : await this.createBeneficiary(entity, kind, dto, manager);
+      // if (!beneficiary) throw new NotFoundException('Beneficiary not found');
 
       if (Number(entity.currentBalance) < Number(dto.amount)) {
         return { message: 'Insufficient balance', status: false };
       }
 
-      const payout = await this.createPayoutRecord(entity, kind, beneficiary, dto, manager);
+      const payout = await this.createPayoutRecord(entity, kind, dto, manager);
 
       // Drivers (and refunds) dispense immediately; agents wait for admin approval.
       if (kind === 'driver' || dto.refund) {
@@ -477,7 +477,7 @@ async getSingleTransaction(userId: string, id: string) {
   private async createPayoutRecord(
     entity: PayoutEntity,
     kind: EntityKind,
-    beneficiary: Beneficiary,
+    //beneficiary: Beneficiary,
     dto: InitiatePayoutDto,
     manager: EntityManager,
   ): Promise<Payout> {
@@ -488,19 +488,19 @@ async getSingleTransaction(userId: string, id: string) {
       narration: dto.narration ?? 'Wallet withdrawal',
       status: PayoutStatus.PENDING,
       paymentMethod: 'bank_transfer',
-      beneficiaryId: beneficiary.id,
+      //beneficiaryId: beneficiary.id,
       driverId: kind === 'driver' ? entity.id : null,
       agentId: kind === 'agent' ? entity.id : null,
       payoutableType: kind,
       payoutableId: entity.id,
-      paymentDetails: {
-        account_number: beneficiary.accountNumber,
-        bank_name: beneficiary.bankName ?? 'Unknown Bank',
-        bank_code: beneficiary.bankCode,
-        bank_holder_name: beneficiary.bankHolderName ?? '',
-        currency: 'NGN',
-        debit_currency: 'NGN',
-      } as any,
+      // paymentDetails: {
+      //   account_number: beneficiary.accountNumber,
+      //   bank_name: beneficiary.bankName ?? 'Unknown Bank',
+      //   bank_code: beneficiary.bankCode,
+      //   bank_holder_name: beneficiary.bankHolderName ?? '',
+      //   currency: 'NGN',
+      //   debit_currency: 'NGN',
+      // } as any,
     });
     const saved = await manager.save(Payout, payout);
 
