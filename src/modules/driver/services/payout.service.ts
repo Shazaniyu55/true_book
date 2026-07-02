@@ -36,31 +36,74 @@ export class PayoutService {
   ) {}
 
   // ─── Driver/Agent requests a withdrawal ───────────────────────────────────
-  async initiatePayout(userId: string, dto: InitiatePayoutDto) {
-    return this.dataSource.transaction(async (manager) => {
-      const { entity, kind } = await this.resolveEntity(userId, manager);
+//   async initiatePayout(userId: string, dto: InitiatePayoutDto) {
+//     return this.dataSource.transaction(async (manager) => {
+//       const { entity, kind } = await this.resolveEntity(userId, manager);
 
-      // const beneficiary = dto.beneficiaryId
-      //   ? await manager.findOne(Beneficiary, { where: { id: dto.beneficiaryId } })
-      //   : await this.createBeneficiary(entity, kind, dto, manager);
-      // if (!beneficiary) throw new NotFoundException('Beneficiary not found');
+//       // const beneficiary = dto.beneficiaryId
+//       //   ? await manager.findOne(Beneficiary, { where: { id: dto.beneficiaryId } })
+//       //   : await this.createBeneficiary(entity, kind, dto, manager);
+//       // if (!beneficiary) throw new NotFoundException('Beneficiary not found');
 
-      // if (Number(entity.currentBalance) < Number(dto.amount)) {
-      //   return { message: 'Insufficient balance', status: false };
-      // }
-      if (Number(entity.currentBalance) < Number(dto.amount)) {
-  throw new BadRequestException('Insufficient balance');
+//       // if (Number(entity.currentBalance) < Number(dto.amount)) {
+//       //   return { message: 'Insufficient balance', status: false };
+//       // }
+      
+//       if (Number(entity.currentBalance) < Number(dto.amount)) {
+//   throw new BadRequestException('Insufficient balance');
+// }
+
+//       const payout = await this.createPayoutRecord(entity, kind, dto, manager);
+
+//       // Drivers (and refunds) dispense immediately; agents wait for admin approval.
+//       if (kind === 'driver' || dto.refund) {
+//         return this.dispenseFundFromPayout(payout.id, manager);
+//       }
+//       return { message: 'Payout initiated successfully', status: true };
+//     });
+//   }
+
+async initiatePayout(userId: string, dto: InitiatePayoutDto) {
+  return this.dataSource.transaction(async (manager) => {
+    const { entity, kind } = await this.resolveEntity(userId, manager);
+
+    // const beneficiary = dto.beneficiaryId
+    //   ? await manager.findOne(Beneficiary, { where: { id: dto.beneficiaryId } })
+    //   : await this.createBeneficiary(entity, kind, dto, manager);
+    // if (!beneficiary) throw new NotFoundException('Beneficiary not found');
+
+    if (!dto.accountNumber || !dto.bankCode) {
+      throw new BadRequestException('Account number and bank code are required');
+    }
+
+    // ── Verify the account number actually belongs to a real bank account ──
+    let resolved: { account_number: string; account_name: string;  };
+    try {
+      resolved = await this.paystackAdapter.nameEnquiry(
+        dto.accountNumber,
+        dto.bankCode,
+      );
+    } catch (err) {
+      this.logger.error(`Account resolve failed for ${dto.accountNumber}: ${err?.message}`);
+      throw new BadRequestException('Could not verify this account number with the bank');
+    }
+    if (!resolved?.account_name) {
+      throw new BadRequestException('Could not verify this account number with the bank');
+    }
+
+    if (Number(entity.currentBalance) < Number(dto.amount)) {
+      throw new BadRequestException('Insufficient balance');
+    }
+
+    const payout = await this.createPayoutRecord(entity, kind, dto, resolved, manager);
+
+    // Drivers (and refunds) dispense immediately; agents wait for admin approval.
+    if (kind === 'driver' || dto.refund) {
+      return this.dispenseFundFromPayout(payout.id, manager);
+    }
+    return { message: 'Payout initiated successfully', status: true };
+  });
 }
-
-      const payout = await this.createPayoutRecord(entity, kind, dto, manager);
-
-      // Drivers (and refunds) dispense immediately; agents wait for admin approval.
-      if (kind === 'driver' || dto.refund) {
-        return this.dispenseFundFromPayout(payout.id, manager);
-      }
-      return { message: 'Payout initiated successfully', status: true };
-    });
-  }
 
   // ─── Actually push money to the bank via Paystack ─────────────────────────
   async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
@@ -477,44 +520,82 @@ async getSingleTransaction(userId: string, id: string) {
   throw new NotFoundException('No wallet account found for this user');
 }
 
-  private async createPayoutRecord(
-    entity: PayoutEntity,
-    kind: EntityKind,
-    //beneficiary: Beneficiary,
-    dto: InitiatePayoutDto,
-    manager: EntityManager,
-  ): Promise<Payout> {
-    const reference = this.randomness.generateReference('PAYOUT').toLowerCase();
-    const payout = manager.create(Payout, {
-      reference,
-      amount: dto.amount,
-      narration: dto.narration ?? 'Wallet withdrawal',
-      status: PayoutStatus.PENDING,
-      paymentMethod: 'bank_transfer',
-      //beneficiaryId: beneficiary.id,
-      driverId: kind === 'driver' ? entity.id : null,
-      agentId: kind === 'agent' ? entity.id : null,
-      payoutableType: kind,
-      payoutableId: entity.id,
-      // paymentDetails: {
-      //   account_number: beneficiary.accountNumber,
-      //   bank_name: beneficiary.bankName ?? 'Unknown Bank',
-      //   bank_code: beneficiary.bankCode,
-      //   bank_holder_name: beneficiary.bankHolderName ?? '',
-      //   currency: 'NGN',
-      //   debit_currency: 'NGN',
-      // } as any,
-    });
-    const saved = await manager.save(Payout, payout);
+private async createPayoutRecord(
+  entity: PayoutEntity,
+  kind: EntityKind,
+  dto: InitiatePayoutDto,
+  resolved: { account_number: string; account_name: string; },
+  manager: EntityManager,
+): Promise<Payout> {
+  const reference = this.randomness.generateReference('PAYOUT').toLowerCase();
+  const payout = manager.create(Payout, {
+    reference,
+    amount: dto.amount,
+    narration: dto.narration ?? 'Wallet withdrawal',
+    status: PayoutStatus.PENDING,
+    paymentMethod: 'bank_transfer',
+    driverId: kind === 'driver' ? entity.id : null,
+    agentId: kind === 'agent' ? entity.id : null,
+    payoutableType: kind,
+    payoutableId: entity.id,
+    paymentDetails: {
+      account_number: dto.accountNumber,
+      bank_name: dto.bankName ?? 'Unknown Bank',
+      bank_code: dto.bankCode,
+      bank_holder_name: resolved.account_name,
+      currency: 'NGN',
+      debit_currency: 'NGN',
+    } as any,
+  });
+  const saved = await manager.save(Payout, payout);
 
-    await this.notificationService.notifyAdmins({
-      title: 'Withdrawal Application',
-      body: `${(entity as any).user?.firstName ?? 'A user'} applied to withdraw N${dto.amount} (ref ${reference}).`,
-      type: NotificationType.BROADCAST,
-      data: { payoutId: saved.id, reference },
-    });
-    return saved;
-  }
+  await this.notificationService.notifyAdmins({
+    title: 'Withdrawal Application',
+    body: `${(entity as any).user?.firstName ?? 'A user'} applied to withdraw N${dto.amount} (ref ${reference}).`,
+    type: NotificationType.BROADCAST,
+    data: { payoutId: saved.id, reference },
+  });
+  return saved;
+}
+
+  // private async createPayoutRecord(
+  //   entity: PayoutEntity,
+  //   kind: EntityKind,
+  //   //beneficiary: Beneficiary,
+  //   dto: InitiatePayoutDto,
+  //   manager: EntityManager,
+  // ): Promise<Payout> {
+  //   const reference = this.randomness.generateReference('PAYOUT').toLowerCase();
+  //   const payout = manager.create(Payout, {
+  //     reference,
+  //     amount: dto.amount,
+  //     narration: dto.narration ?? 'Wallet withdrawal',
+  //     status: PayoutStatus.PENDING,
+  //     paymentMethod: 'bank_transfer',
+  //     //beneficiaryId: beneficiary.id,
+  //     driverId: kind === 'driver' ? entity.id : null,
+  //     agentId: kind === 'agent' ? entity.id : null,
+  //     payoutableType: kind,
+  //     payoutableId: entity.id,
+  //     // paymentDetails: {
+  //     //   account_number: beneficiary.accountNumber,
+  //     //   bank_name: beneficiary.bankName ?? 'Unknown Bank',
+  //     //   bank_code: beneficiary.bankCode,
+  //     //   bank_holder_name: beneficiary.bankHolderName ?? '',
+  //     //   currency: 'NGN',
+  //     //   debit_currency: 'NGN',
+  //     // } as any,
+  //   });
+  //   const saved = await manager.save(Payout, payout);
+
+  //   await this.notificationService.notifyAdmins({
+  //     title: 'Withdrawal Application',
+  //     body: `${(entity as any).user?.firstName ?? 'A user'} applied to withdraw N${dto.amount} (ref ${reference}).`,
+  //     type: NotificationType.BROADCAST,
+  //     data: { payoutId: saved.id, reference },
+  //   });
+  //   return saved;
+  // }
 
   private async createBeneficiary(
     entity: PayoutEntity,
