@@ -27,7 +27,7 @@ export enum UserStatus {
 }
 
 export enum TripStatus {
-  PENDING = 'pending',
+  PENDING = 'upcoming',
   ACTIVE = 'active',
   COMPLETED = 'completed',
   CANCELLED = 'cancelled',
