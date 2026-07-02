@@ -11,8 +11,8 @@ The project is intentionally small. It gives new developers a working structure 
 - TypeORM 0.3
 - PostgreSQL
 - Swagger/OpenAPI
-- Joi environment validation
-- Jest
+- Joi /environment validation
+- Jest 
 - Bruno API collection
 
 ## Architecture
@@ -40,7 +40,7 @@ HTTP request
 | Service    | Holds domain/business logic                              | `src/modules/example/services/example-task.service.ts`        |
 | Repository | Wraps TypeORM persistence logic                          | `src/adapters/repositories/example-task.repository.ts`        |
 | Adapter    | Wraps infrastructure or provider-specific behavior       | `src/adapters/example/example-reference.adapter.ts`           |
-| Entity     | Defines database shape                                   | `src/modules/core/entities/example-task.entity.ts`            |
+| Entity     | Defines database shape                                   | `src/modules/core/entities/example-task.entity.ts`        |
 
 ## Project Layout
 
