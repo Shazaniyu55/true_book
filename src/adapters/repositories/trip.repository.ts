@@ -282,7 +282,7 @@ async searchTripState(query: {
     .leftJoinAndSelect('trip.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle')
-    .where('trip.status = :status', { status: TripStatus.ACTIVE });
+    .where('trip.status = :status', { status: TripStatus.PENDING });
 
   if (state) {
     qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
@@ -337,7 +337,7 @@ async searchTrips(query: {
     .leftJoinAndSelect('trip.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle')
-    .where('trip.status = :status', { status: status ?? TripStatus.ACTIVE });
+    .where('trip.status = :status', { status: status ?? TripStatus.PENDING });
 
   if (origin) {
     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });

@@ -4,7 +4,6 @@ import { IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUU
 
 export class InitiatePayoutDto {
   @ApiProperty({ example: 5000, description: 'Amount in NGN' })
-  // @IsPositive() @IsNumber() amount: number;
   @Type(() => Number)
   @IsNumber()
   @Min(1)
