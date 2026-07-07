@@ -106,72 +106,157 @@ async initiatePayout(userId: string, dto: InitiatePayoutDto) {
 }
 
   // ─── Actually push money to the bank via Paystack ─────────────────────────
-  async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
-    const run = async (manager: EntityManager) => {
-      const payout = await manager.findOne(Payout, {
-        where: { id: payoutId },
-        relations: ['driver', 'agent', 'beneficiary'],
+  // async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
+  //   const run = async (manager: EntityManager) => {
+  //     const payout = await manager.findOne(Payout, {
+  //       where: { id: payoutId },
+  //       relations: ['driver', 'agent', 'beneficiary'],
+  //     });
+  //     if (!payout) throw new NotFoundException('Payout not found');
+  //     const details = (payout.paymentDetails ?? {}) as Record<string, any>;
+
+  //     // 1. Gateway must have funds (amounts in Naira)
+  //     const { balance } = await this.paystackAdapter.checkBalance();
+  //     if (balance < Number(payout.amount)) {
+  //       return { message: "Can't process this request right now, try again later.", status: false };
+  //     }
+
+  //     // 2. Reuse or create a transfer recipient
+  //     let recipientCode = payout.recipientCode ?? payout.beneficiary?.recipientCode;
+  //     if (!recipientCode) {
+  //       const created = await this.paystackAdapter.createTransferRecipient({
+  //         name: details.bank_holder_name || payout.beneficiary?.bankHolderName || 'Beneficiary',
+  //         account_number: details.account_number,
+  //         bank_code: details.bank_code,
+  //       });
+  //       recipientCode = created.recipient_code;
+  //       if (payout.beneficiaryId) await manager.update(Beneficiary, payout.beneficiaryId, { recipientCode });
+  //     }
+
+  //     // 3. Initiate transfer (provider converts Naira → kobo)
+  //     let transfer: { transfer_code: string; status: string };
+  //     try {
+  //       transfer = await this.paystackAdapter.initiatePayout({
+  //         recipient_code: recipientCode,
+  //         account_number: details.account_number,
+  //         bank_code: details.bank_code,
+  //         amount: Number(payout.amount),
+  //         reason: payout.narration ?? 'Payout',
+  //       });
+  //     } catch (err) {
+  //       this.logger.error(`Payout transfer failed for ${payout.reference}: ${err?.message}`);
+  //       return { message: `Payment gateway error: ${err?.message}`, status: false };
+  //     }
+
+  //     // 4. Mark approved + debit wallet (debited HERE, so the transfer.success
+  //     //    webhook will skip it — see completePayout's pending-only claim).
+  //     await manager.update(Payout, payout.id, {
+  //       status: PayoutStatus.APPROVED,
+  //       transferCode: transfer.transfer_code,
+  //       recipientCode,
+  //       transactionDate: new Date(),
+  //     });
+  //     await this.adjustBalance(payout, Number(payout.amount), 'debit', manager);
+
+  //     const userId = payout.driver?.userId ?? payout.agent?.userId;
+  //     if (userId) {
+  //       await this.notificationService.notify({
+  //         userId,
+  //         title: 'Withdrawal Successful',
+  //         body: `Your withdrawal of N${payout.amount} has been processed.`,
+  //         type: NotificationType.PAYOUT_APPROVED,
+  //         data: { payoutId: payout.id, reference: payout.reference },
+  //       });
+  //     }
+  //     return { message: transfer.status ?? 'Transfer queued', status: true };
+  //   };
+  //   return em ? run(em) : this.dataSource.transaction(run);
+  // }
+
+  // ─── Actually push money to the bank via Paystack ─────────────────────────
+async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
+  const run = async (manager: EntityManager) => {
+    const payout = await manager.findOne(Payout, {
+      where: { id: payoutId },
+      relations: ['driver', 'agent', 'beneficiary'],
+    });
+    if (!payout) throw new NotFoundException('Payout not found');
+    const details = (payout.paymentDetails ?? {}) as Record<string, any>;
+
+    // 1. Gateway must have funds (amounts in Naira)
+    const { balance } = await this.paystackAdapter.checkBalance();
+    this.logger.debug(
+      `Payout ${payout.reference}: gateway balance ₦${balance} vs payout amount ₦${payout.amount}`,
+    );
+
+    if (balance < Number(payout.amount)) {
+      this.logger.warn(
+        `Payout ${payout.reference} blocked — insufficient gateway balance (₦${balance} < ₦${payout.amount})`,
+      );
+      // Don't leave the payout stuck in PENDING — mark it declined so the
+      // webhook can never mistakenly claim it and admins aren't left with ghosts.
+      await manager.update(Payout, payout.id, { status: PayoutStatus.DECLINED });
+      return {
+        message: "Can't process this request right now, try again later.",
+        status: false,
+      };
+    }
+
+    // 2. Reuse or create a transfer recipient
+    let recipientCode = payout.recipientCode ?? payout.beneficiary?.recipientCode;
+    if (!recipientCode) {
+      const created = await this.paystackAdapter.createTransferRecipient({
+        name: details.bank_holder_name || payout.beneficiary?.bankHolderName || 'Beneficiary',
+        account_number: details.account_number,
+        bank_code: details.bank_code,
       });
-      if (!payout) throw new NotFoundException('Payout not found');
-      const details = (payout.paymentDetails ?? {}) as Record<string, any>;
-
-      // 1. Gateway must have funds (amounts in Naira)
-      const { balance } = await this.paystackAdapter.checkBalance();
-      if (balance < Number(payout.amount)) {
-        return { message: "Can't process this request right now, try again later.", status: false };
+      recipientCode = created.recipient_code;
+      if (payout.beneficiaryId) {
+        await manager.update(Beneficiary, payout.beneficiaryId, { recipientCode });
       }
+    }
 
-      // 2. Reuse or create a transfer recipient
-      let recipientCode = payout.recipientCode ?? payout.beneficiary?.recipientCode;
-      if (!recipientCode) {
-        const created = await this.paystackAdapter.createTransferRecipient({
-          name: details.bank_holder_name || payout.beneficiary?.bankHolderName || 'Beneficiary',
-          account_number: details.account_number,
-          bank_code: details.bank_code,
-        });
-        recipientCode = created.recipient_code;
-        if (payout.beneficiaryId) await manager.update(Beneficiary, payout.beneficiaryId, { recipientCode });
-      }
-
-      // 3. Initiate transfer (provider converts Naira → kobo)
-      let transfer: { transfer_code: string; status: string };
-      try {
-        transfer = await this.paystackAdapter.initiatePayout({
-          recipient_code: recipientCode,
-          account_number: details.account_number,
-          bank_code: details.bank_code,
-          amount: Number(payout.amount),
-          reason: payout.narration ?? 'Payout',
-        });
-      } catch (err) {
-        this.logger.error(`Payout transfer failed for ${payout.reference}: ${err?.message}`);
-        return { message: `Payment gateway error: ${err?.message}`, status: false };
-      }
-
-      // 4. Mark approved + debit wallet (debited HERE, so the transfer.success
-      //    webhook will skip it — see completePayout's pending-only claim).
-      await manager.update(Payout, payout.id, {
-        status: PayoutStatus.APPROVED,
-        transferCode: transfer.transfer_code,
-        recipientCode,
-        transactionDate: new Date(),
+    // 3. Initiate transfer (provider converts Naira → kobo)
+    let transfer: { transfer_code: string; status: string };
+    try {
+      transfer = await this.paystackAdapter.initiatePayout({
+        recipient_code: recipientCode,
+        account_number: details.account_number,
+        bank_code: details.bank_code,
+        amount: Number(payout.amount),
+        reason: payout.narration ?? 'Payout',
       });
-      await this.adjustBalance(payout, Number(payout.amount), 'debit', manager);
+    } catch (err) {
+      this.logger.error(`Payout transfer failed for ${payout.reference}: ${err?.message}`);
+      // Same cleanup here — the transfer never happened, so decline the record.
+      await manager.update(Payout, payout.id, { status: PayoutStatus.DECLINED });
+      return { message: `Payment gateway error: ${err?.message}`, status: false };
+    }
 
-      const userId = payout.driver?.userId ?? payout.agent?.userId;
-      if (userId) {
-        await this.notificationService.notify({
-          userId,
-          title: 'Withdrawal Successful',
-          body: `Your withdrawal of N${payout.amount} has been processed.`,
-          type: NotificationType.PAYOUT_APPROVED,
-          data: { payoutId: payout.id, reference: payout.reference },
-        });
-      }
-      return { message: transfer.status ?? 'Transfer queued', status: true };
-    };
-    return em ? run(em) : this.dataSource.transaction(run);
-  }
+    // 4. Mark approved + debit wallet (debited HERE, so the transfer.success
+    //    webhook will skip it — see completePayout's pending-only claim).
+    await manager.update(Payout, payout.id, {
+      status: PayoutStatus.APPROVED,
+      transferCode: transfer.transfer_code,
+      recipientCode,
+      transactionDate: new Date(),
+    });
+    await this.adjustBalance(payout, Number(payout.amount), 'debit', manager);
+
+    const userId = payout.driver?.userId ?? payout.agent?.userId;
+    if (userId) {
+      await this.notificationService.notify({
+        userId,
+        title: 'Withdrawal Successful',
+        body: `Your withdrawal of N${payout.amount} has been processed.`,
+        type: NotificationType.PAYOUT_APPROVED,
+        data: { payoutId: payout.id, reference: payout.reference },
+      });
+    }
+    return { message: transfer.status ?? 'Transfer queued', status: true };
+  };
+  return em ? run(em) : this.dataSource.transaction(run);
+}
 
   // ─── Webhook: transfer.success / paymentrequest.success ───────────────────
   // Idempotent: atomically claims a PENDING payout, so a retried webhook (or a

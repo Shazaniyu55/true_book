@@ -154,12 +154,31 @@ verifyWebhookSignature(payload: string, signature: string): boolean {
     }
   }
 
-  async checkBalance(): Promise<{ balance: number; currency: string }> {
+//   async checkBalance(): Promise<{ balance: number; currency: string }> {
+//   try {
+//     const { data } = await this.client.get('/balance');
+//     const first = data?.data?.[0] ?? {};
+//     // Paystack returns balance in kobo
+//     return { balance: Number(first.balance ?? 0) / 100, currency: first.currency ?? 'NGN' };
+//   } catch (error) {
+//     this.logger.error('Paystack balance error', error?.response?.data);
+//     throw new Error('Failed to fetch gateway balance');
+//   }
+// }
+
+async checkBalance(): Promise<{ balance: number; currency: string }> {
   try {
     const { data } = await this.client.get('/balance');
-    const first = data?.data?.[0] ?? {};
-    // Paystack returns balance in kobo
-    return { balance: Number(first.balance ?? 0) / 100, currency: first.currency ?? 'NGN' };
+
+    // Paystack returns an ARRAY of balances per currency — pick NGN explicitly
+    const balances: any[] = data?.data ?? [];
+    const ngn = balances.find((b) => b.currency === 'NGN') ?? balances[0] ?? {};
+
+    const balance = Number(ngn.balance ?? 0) / 100; // kobo → naira
+    const currency = ngn.currency ?? 'NGN';
+
+    this.logger.debug(`Paystack balance: ₦${balance} (${currency})`);
+    return { balance, currency };
   } catch (error) {
     this.logger.error('Paystack balance error', error?.response?.data);
     throw new Error('Failed to fetch gateway balance');
