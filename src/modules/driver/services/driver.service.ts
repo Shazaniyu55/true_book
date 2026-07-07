@@ -116,7 +116,7 @@ if (!vehicle.isVerified) {
   busstopLatlong: dto.busstopLatlong,
   tripSpecification: dto.tripSpecification,
   waypoints: dto.waypoints,                   // ← entity has it
-  state: dto.state,
+  state: dto.arrivalDestination?.[0]?.state,
   description: dto.description,               // ← entity has it
   amenities: dto.amenities,                   // ← entity has it (string[])
   metadata: dto.metadata,                     // ← entity has it

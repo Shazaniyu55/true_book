@@ -17,7 +17,7 @@ export class Payout extends BaseEntity {
   @Column({ type: 'uuid', nullable: true })
   agentId: string | null;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid' , nullable: true})
   beneficiaryId: string;
 
   @ManyToOne(() => Driver)
