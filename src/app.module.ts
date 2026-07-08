@@ -37,6 +37,7 @@ import { CouponReferralModule } from '@modules/coupon-referral/cupon.module';
 import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 import { AppVersionModule } from '@modules/appversion/appversion.module';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
+import { TasksModule } from '@modules/task/task.module';
 
 
 
@@ -85,7 +86,8 @@ import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
     LocationModule,
     SystemSettingModule,
     CouponReferralModule,
-    CloudinaryModule
+    CloudinaryModule,
+    TasksModule
    
   ],
   controllers: [],
