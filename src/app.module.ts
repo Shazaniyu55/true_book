@@ -38,6 +38,7 @@ import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 import { AppVersionModule } from '@modules/appversion/appversion.module';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { TasksModule } from '@modules/task/task.module';
+import { GeocodingModule } from '@modules/geocoding/geocoding.module';
 
 
 
@@ -63,6 +64,7 @@ import { TasksModule } from '@modules/task/task.module';
     // ─── Global infrastructure
     RedisCacheModule,
     EmailModule,
+    GeocodingModule,
 
     // Kill Switch — must come before feature modules
     KillSwitchModule,
