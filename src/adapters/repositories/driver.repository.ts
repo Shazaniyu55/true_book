@@ -5,10 +5,11 @@ import { Driver } from '@modules/core/entities/driver.entity';
 import { UpdateDriverProfileDto } from '@modules/driver/dtos/updatedriver.dto';
 import { User } from '@modules/core/entities/user.entity';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
-import { EscrowStatus, TripStatus } from 'src/types/enums';
+import { EscrowStatus, PayoutStatus, TripStatus } from 'src/types/enums';
 import { Trip } from '@modules/core/entities/trip.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { Payout } from '@modules/core/entities/payout.entity';
+import { Booking } from '@modules/core/entities/booking.entity';
 
 @Injectable()
 export class DriverRepository extends Repository<Driver> {
@@ -110,59 +111,134 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
   });
   if (!driver) throw new NotFoundException('Driver profile not found');
 
-  const { page = 1, limit = 10 } = query;
+  const { page = 1, limit = 20 } = query;
   const skip = (page - 1) * limit;
 
-  // ── activity: trip counts by status ──
-  const [cancelled, completed] = await Promise.all([
+  // ── earnings window: last 7 days, computed in UTC so JS keys and SQL
+  //    day-bucketing always agree (the old code mixed local midnight with
+  //    toISOString(), which shifted every day back by one on UTC+ servers) ──
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  since.setUTCDate(since.getUTCDate() - 6);
+
+  const [
+    cancelled,
+    completed,
+    directCreditRows,
+    escrowRows,
+    payoutRow,
+    referralCount,
+    [upcoming, upcomingTotal],
+    [completedTrips, completedTotal],
+    [cancelledTrips, cancelledTotal],
+  ] = await Promise.all([
+    // ── activity: trip counts by status ──
     this.tripRepository.count({ where: { driverId: driver.id, status: TripStatus.CANCELLED } }),
     this.tripRepository.count({ where: { driverId: driver.id, status: TripStatus.COMPLETED } }),
+
+    // ── earnings source #1: direct payouts recorded on bookings.
+    //    completeTrip() -> creditDriverForTrip() bypasses escrow and stamps
+    //    booking.metadata with { driverCredited, netDriverAmount, driverCreditedAt } ──
+    this.entityManager
+      .createQueryBuilder(Booking, 'b')
+      .innerJoin(Trip, 't', 't.id = b.tripId')
+      .select("TO_CHAR(((b.metadata->>'driverCreditedAt')::timestamptz) AT TIME ZONE 'UTC', 'YYYY-MM-DD')", 'day')
+      .addSelect("COALESCE(SUM((b.metadata->>'netDriverAmount')::numeric), 0)", 'amount')
+      .where('t.driverId = :driverId', { driverId: driver.id })
+      .andWhere("b.metadata ? 'driverCreditedAt'")
+      .andWhere("(b.metadata->>'driverCredited')::boolean IS TRUE")
+      .andWhere("(b.metadata->>'driverCreditedAt')::timestamptz >= :since", { since })
+      .groupBy('day')
+      .getRawMany(),
+
+    // ── earnings source #2: legacy escrow releases that actually paid the
+    //    driver (exclude the "escrow bypassed" cleanup rows, which are
+    //    already counted via booking metadata above) ──
+    this.escrowRepo
+      .createQueryBuilder('e')
+      .select("TO_CHAR(e.releasedAt AT TIME ZONE 'UTC', 'YYYY-MM-DD')", 'day')
+      .addSelect('COALESCE(SUM(e.netDriverAmount), 0)', 'amount')
+      .where('e.driverId = :driverId', { driverId: driver.id })
+      .andWhere('e.status = :status', { status: EscrowStatus.RELEASED })
+      .andWhere("(e.releaseReason IS NULL OR e.releaseReason NOT ILIKE '%bypassed%')")
+      .andWhere('e.releasedAt >= :since', { since })
+      .groupBy('day')
+      .getRawMany(),
+
+    // ── payment: total ever paid out to this driver ──
+    this.payoutRepo
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
+      .where('p.driverId = :driverId', { driverId: driver.id })
+      .andWhere('p.status IN (:...statuses)', {
+        statuses: [PayoutStatus.APPROVED, PayoutStatus.COMPLETED],
+      })
+      .getRawOne(),
+
+    // ── referral ──
+    this.userRepo.count({ where: { referredBy: driver.userId } }),
+
+    // ── upcoming trips: paginated ──
+    this.tripRepository.findAndCount({
+      where: [
+        { driverId: driver.id, status: TripStatus.PENDING },
+        { driverId: driver.id, status: TripStatus.ACTIVE },
+      ],
+      order: { departureDate: 'ASC' },
+      skip,
+      take: limit,
+    }),
+
+    // ── completed trips: paginated, most recent first ──
+    this.tripRepository.findAndCount({
+      where: { driverId: driver.id, status: TripStatus.COMPLETED },
+      order: { departureDate: 'DESC' },
+      skip,
+      take: limit,
+    }),
+
+    // ── cancelled trips: paginated, most recent first ──
+    this.tripRepository.findAndCount({
+      where: { driverId: driver.id, status: TripStatus.CANCELLED },
+      order: { departureDate: 'DESC' },
+      skip,
+      take: limit,
+    }),
   ]);
 
-  // ── earnings: last 7 days of released escrow to this driver ──
-  const since = new Date();
-  since.setDate(since.getDate() - 6);
-  since.setHours(0, 0, 0, 0);
+  // Merge both earnings sources into one day → amount map
+  const earningMap = new Map<string, number>();
+  for (const r of [...directCreditRows, ...escrowRows]) {
+    earningMap.set(r.day, (earningMap.get(r.day) ?? 0) + Number(r.amount ?? 0));
+  }
 
-  const earningRows = await this.escrowRepo
-    .createQueryBuilder('e')
-    .select("TO_CHAR(e.releasedAt, 'YYYY-MM-DD')", 'day')
-    .addSelect('SUM(e.netDriverAmount)', 'amount')
-    .where('e.driverId = :driverId', { driverId: driver.id })
-    .andWhere('e.status = :status', { status: EscrowStatus.RELEASED })
-    .andWhere('e.releasedAt >= :since', { since })
-    .groupBy('day')
-    .orderBy('day', 'ASC')
-    .getRawMany();
-
-  const earningMap = new Map(earningRows.map((r) => [r.day, Number(r.amount ?? 0)]));
   const earnings = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(since);
-    d.setDate(since.getDate() + i);
+    d.setUTCDate(since.getUTCDate() + i);
     const key = d.toISOString().slice(0, 10);
     return { amount: earningMap.get(key) ?? 0, day: key };
   });
 
-  // ── payment: total ever paid out (approved) to this driver ──
-  const payoutRow = await this.payoutRepo
-    .createQueryBuilder('p')
-    .select('COALESCE(SUM(p.amount), 0)', 'total')
-    .where('p.driverId = :driverId', { driverId: driver.id })
-    .andWhere('p.status = :status', { status: 'approved' })
-    .getRawOne();
+  // Shared shape for every trip list on the dashboard
+  const mapTrip = (t: Trip) => ({
+    id: t.id,
+    status: t.status,
+    departure_date: t.departureDate,
+    departure_time: t.departureTime,
+    departure_location: t.departureLocation,
+    arrival_date: t.arrivalDate ?? '',
+    arrival_time: t.arrivalTime ?? '',
+    arrival_destination: this.normalizeDestination(t.arrivalDestination),
+  });
 
-  // ── referral ──
-  const referralCount = await this.userRepo.count({ where: { referredBy: driver.userId } });
-
-  // ── upcoming trips: paginated ──
-  const [upcoming, upcomingTotal] = await this.tripRepository.findAndCount({
-    where: [
-      { driverId: driver.id, status: TripStatus.PENDING },
-      { driverId: driver.id, status: TripStatus.ACTIVE },
-    ],
-    order: { departureDate: 'ASC' },
-    skip,
-    take: limit,
+  const buildMeta = (count: number, totalRecords: number) => ({
+    page,
+    limit,
+    count,
+    previousPage: page > 1 ? page - 1 : false,
+    nextPage: skip + limit < totalRecords ? page + 1 : false,
+    pageCount: Math.ceil(totalRecords / limit),
+    totalRecords,
   });
 
   return {
@@ -177,25 +253,16 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
       payment: { total_amount: String(payoutRow?.total ?? '0') },
       referral: { referral: String(referralCount) },
       upcoming_trips: {
-        data: upcoming.map((t) => ({
-          id: t.id,
-          status: t.status,
-          departure_date: t.departureDate,
-          departure_time: t.departureTime,
-          departure_location: t.departureLocation,
-          arrival_date: t.arrivalDate ?? '',
-          arrival_time: t.arrivalTime ?? '',
-          arrival_destination: this.normalizeDestination(t.arrivalDestination),
-        })),
-        meta: {
-          page,
-          limit,
-          count: upcoming.length,
-          previousPage: page > 1 ? page - 1 : false,
-          nextPage: skip + limit < upcomingTotal ? page + 1 : false,
-          pageCount: Math.ceil(upcomingTotal / limit),
-          totalRecords: upcomingTotal,
-        },
+        data: upcoming.map(mapTrip),
+        meta: buildMeta(upcoming.length, upcomingTotal),
+      },
+      completed_trips: {
+        data: completedTrips.map(mapTrip),
+        meta: buildMeta(completedTrips.length, completedTotal),
+      },
+      cancelled_trips: {
+        data: cancelledTrips.map(mapTrip),
+        meta: buildMeta(cancelledTrips.length, cancelledTotal),
       },
     },
   };
