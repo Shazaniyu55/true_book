@@ -22,10 +22,15 @@ profileImage?: string;
   @ApiPropertyOptional({ example: 'Lagos' })
   @IsOptional() @IsString() state?: string;
 
-    @ApiProperty({ example: '1999-06-05' })
-    @IsOptional()
-    @IsDateString()
-    dob: Date;
+    // @ApiProperty({ example: '1999-06-05' })
+    // @IsOptional()
+    // @IsDateString()
+    // dob: Date;
+
+  @ApiProperty({ example: '1999-06-05' })
+@IsOptional()
+@IsDateString()
+dob?: string;
 
   @ApiProperty({ example: 'Abuja' })
   @IsString()

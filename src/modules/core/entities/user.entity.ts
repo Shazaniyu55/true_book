@@ -3,7 +3,6 @@ import { Exclude } from 'class-transformer';
 import { UserRole, UserStatus } from '../../../types/enums';
 import { BaseEntity } from './base.entity';
 import { Role } from './role.entity';
-import { IsDateString } from 'class-validator';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -68,10 +67,13 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   otpCode: string;
 
-    @IsDateString()
-    @Exclude({ toPlainOnly: true })
-    @DeleteDateColumn()
-    dob?: Date;
+    // @IsDateString()
+    // @Exclude({ toPlainOnly: true })
+    // @DeleteDateColumn()
+    // dob?: Date;
+
+    @Column({ type: 'date', nullable: true })
+dob: string;
 
   @Exclude({ toPlainOnly: true })
   @Column({ type: 'varchar', nullable: true })
