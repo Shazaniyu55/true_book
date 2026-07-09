@@ -502,90 +502,119 @@ async getWalletTransactions(
   };
 }
 
+// async getSingleTransaction(userId: string, id: string) {
+//   const { entity, kind } = await this.resolveUserEntity(userId);
+
+//   const tx = await this.dataSource.getRepository(Payout).findOne({
+//     where: { id },
+//     relations: ['beneficiary', 'driver', 'driver.user', 'agent', 'agent.user'],
+//   });
+
+//   // Not a payout? It may be a trip-earnings credit (booking id).
+//   if (!tx) {
+//     if (kind !== 'driver') throw new NotFoundException('Transaction not found');
+
+//     const booking = await this.dataSource.getRepository(Booking).findOne({
+//       where: { id },
+//       relations: ['trip'],
+//     });
+//     if (!booking || !booking.metadata?.driverCredited)
+//       throw new NotFoundException('Transaction not found');
+//     if (booking.trip?.driverId !== entity.id)
+//       throw new ForbiddenException('This transaction does not belong to you');
+
+//     const meta = (booking.metadata ?? {}) as Record<string, any>;
+//     const gross = Number(booking.amountPaid ?? 0);
+//     const chargeFee = Number(meta.platformFee ?? 0);
+
+//     return {
+//       id: booking.id,
+//       type: 'credit' as const,
+//       reference: booking.bookingCode,
+//       payment_reference: booking.paymentReference ?? null,
+//       amount: Number(meta.netDriverAmount ?? gross - chargeFee),
+//       gross_amount: gross,
+//       charge_fee: chargeFee,
+//       total_amount: Number(booking.totalAmount ?? 0),
+//       discount_amount: Number(booking.discountAmount ?? 0),
+//       extra_luggage_charge: Number(meta.extraLuggageCharge ?? 0),
+//       seats: booking.seats,
+//       status: 'success',
+//       booking_status: booking.status,
+//       payment_status: booking.paymentStatus,
+//       payment_gateway: booking.paymentGateway ?? null,
+//       ticket_status: booking.ticketStatus ?? null,
+//       reason: 'Trip earnings',
+//       narration: `Earnings from booking ${booking.bookingCode}`,
+//       trip: booking.trip
+//         ? {
+//             id: booking.trip.id,
+//             reference: booking.trip.reference,
+//             departure_location: booking.trip.departureLocation ?? null,
+//             pick_station: booking.trip.pickStation ?? null,
+//             drop_off_station: booking.trip.dropOffStation ?? null,
+//             departure_date: booking.trip.departureDate ?? null,
+//             departure_time: booking.trip.departureTime ?? null,
+//           }
+//         : null,
+//       credited_at: meta.driverCreditedAt ?? null,
+//       created_at: meta.driverCreditedAt ? new Date(meta.driverCreditedAt) : booking.updatedAt,
+//       updated_at: booking.updatedAt,
+//     };
+//   }
+
+//   const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
+//   if (!owns) throw new ForbiddenException('This transaction does not belong to you');
+
+//   return {
+//     id: tx.id,
+//     type: 'debit' as const,
+//     reference: tx.reference,
+//     amount: Number(tx.amount ?? 0),
+//     status: tx.status,
+//     reason: tx.reason,
+//     narration: tx.narration,
+//     transfer_code: tx.transferCode,
+//     payment_method: tx.paymentMethod,
+//     beneficiary: tx.beneficiary
+//       ? {
+//           bank_name: tx.beneficiary.bankName,
+//           account_number: tx.beneficiary.accountNumber,
+//           account_holder: tx.beneficiary.bankHolderName,
+//         }
+//       : null,
+//     created_at: tx.createdAt,
+//     updated_at: tx.updatedAt,
+//   };
+// }
+
 async getSingleTransaction(userId: string, id: string) {
   const { entity, kind } = await this.resolveUserEntity(userId);
 
   const tx = await this.dataSource.getRepository(Payout).findOne({
     where: { id },
-    relations: ['beneficiary', 'driver', 'driver.user', 'agent', 'agent.user'],
+    relations: ['beneficiary'],
   });
 
-  // Not a payout? It may be a trip-earnings credit (booking id).
-  if (!tx) {
-    if (kind !== 'driver') throw new NotFoundException('Transaction not found');
-
-    const booking = await this.dataSource.getRepository(Booking).findOne({
-      where: { id },
-      relations: ['trip'],
-    });
-    if (!booking || !booking.metadata?.driverCredited)
-      throw new NotFoundException('Transaction not found');
-    if (booking.trip?.driverId !== entity.id)
-      throw new ForbiddenException('This transaction does not belong to you');
-
-    const meta = (booking.metadata ?? {}) as Record<string, any>;
-    const gross = Number(booking.amountPaid ?? 0);
-    const chargeFee = Number(meta.platformFee ?? 0);
-
-    return {
-      id: booking.id,
-      type: 'credit' as const,
-      reference: booking.bookingCode,
-      payment_reference: booking.paymentReference ?? null,
-      amount: Number(meta.netDriverAmount ?? gross - chargeFee),
-      gross_amount: gross,
-      charge_fee: chargeFee,
-      total_amount: Number(booking.totalAmount ?? 0),
-      discount_amount: Number(booking.discountAmount ?? 0),
-      extra_luggage_charge: Number(meta.extraLuggageCharge ?? 0),
-      seats: booking.seats,
-      status: 'success',
-      booking_status: booking.status,
-      payment_status: booking.paymentStatus,
-      payment_gateway: booking.paymentGateway ?? null,
-      ticket_status: booking.ticketStatus ?? null,
-      reason: 'Trip earnings',
-      narration: `Earnings from booking ${booking.bookingCode}`,
-      trip: booking.trip
-        ? {
-            id: booking.trip.id,
-            reference: booking.trip.reference,
-            departure_location: booking.trip.departureLocation ?? null,
-            pick_station: booking.trip.pickStation ?? null,
-            drop_off_station: booking.trip.dropOffStation ?? null,
-            departure_date: booking.trip.departureDate ?? null,
-            departure_time: booking.trip.departureTime ?? null,
-          }
-        : null,
-      credited_at: meta.driverCreditedAt ?? null,
-      created_at: meta.driverCreditedAt ? new Date(meta.driverCreditedAt) : booking.updatedAt,
-      updated_at: booking.updatedAt,
-    };
+  if (tx) {
+    const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
+    if (!owns) throw new ForbiddenException('This transaction does not belong to you');
+    return this.mapPayoutToDebit(tx);
   }
 
-  const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
-  if (!owns) throw new ForbiddenException('This transaction does not belong to you');
+  // Not a payout — try trip-earnings credit (booking id)
+  if (kind !== 'driver') throw new NotFoundException('Transaction not found');
 
-  return {
-    id: tx.id,
-    type: 'debit' as const,
-    reference: tx.reference,
-    amount: Number(tx.amount ?? 0),
-    status: tx.status,
-    reason: tx.reason,
-    narration: tx.narration,
-    transfer_code: tx.transferCode,
-    payment_method: tx.paymentMethod,
-    beneficiary: tx.beneficiary
-      ? {
-          bank_name: tx.beneficiary.bankName,
-          account_number: tx.beneficiary.accountNumber,
-          account_holder: tx.beneficiary.bankHolderName,
-        }
-      : null,
-    created_at: tx.createdAt,
-    updated_at: tx.updatedAt,
-  };
+  const booking = await this.dataSource.getRepository(Booking).findOne({
+    where: { id },
+    relations: ['trip'],
+  });
+  if (!booking || booking.metadata?.driverCredited !== true && booking.metadata?.driverCredited !== 'true')
+    throw new NotFoundException('Transaction not found');
+  if (booking.trip?.driverId !== entity.id)
+    throw new ForbiddenException('This transaction does not belong to you');
+
+  return this.mapBookingToCredit(booking);
 }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -736,8 +765,67 @@ private async createPayoutRecord(
     }
   }
 
+  private mapPayoutToDebit(p: Payout) {
+  return {
+    id: p.id,
+    type: 'debit' as const,
+    reference: p.reference,
+    amount: Number(p.amount ?? 0),
+    status: p.status,
+    reason: p.reason ?? 'Withdrawal',
+    narration: p.narration,
+    bank: p.beneficiary?.bankName ?? null,
+    account_number: p.beneficiary?.accountNumber ?? null,
+    created_at: p.createdAt,
+  };
+}
+
+private mapBookingToCredit(b: Booking) {
+  const meta = (b.metadata ?? {}) as Record<string, any>;
+  const gross = Number(b.amountPaid ?? 0);
+  const chargeFee = Number(meta.platformFee ?? 0);
+  const net = Number(meta.netDriverAmount ?? gross - chargeFee);
+
+  return {
+    id: b.id,
+    type: 'credit' as const,
+    reference: b.bookingCode,
+    payment_reference: b.paymentReference ?? null,
+    amount: net,
+    gross_amount: gross,
+    charge_fee: chargeFee,
+    total_amount: Number(b.totalAmount ?? 0),
+    discount_amount: Number(b.discountAmount ?? 0),
+    extra_luggage_charge: Number(meta.extraLuggageCharge ?? 0),
+    seats: b.seats,
+    status: 'success',
+    booking_status: b.status,
+    payment_status: b.paymentStatus,
+    payment_gateway: b.paymentGateway ?? null,
+    ticket_status: b.ticketStatus ?? null,
+    reason: 'Trip earnings',
+    narration: `Earnings from booking ${b.bookingCode}`,
+    trip: b.trip
+      ? {
+          id: b.trip.id,
+          reference: b.trip.reference,
+          departure_location: b.trip.departureLocation ?? null,
+          pick_station: b.trip.pickStation ?? null,
+          drop_off_station: b.trip.dropOffStation ?? null,
+          departure_date: b.trip.departureDate ?? null,
+          departure_time: b.trip.departureTime ?? null,
+        }
+      : null,
+    bank: null,
+    account_number: null,
+    credited_at: meta.driverCreditedAt ?? null,
+    created_at: meta.driverCreditedAt ? new Date(meta.driverCreditedAt) : b.updatedAt,
+  };
+}
   
 }
+
+
 
 // import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 // import { InjectRepository } from '@nestjs/typeorm';
