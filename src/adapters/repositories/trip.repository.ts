@@ -130,35 +130,104 @@ if (vehicleCount === 0) {
 
       }
 
-      async cancelTrip(id: string, dto: CancelTripDto, entityManager?: EntityManager,): Promise<Trip>{
-        const manager = entityManager || this.entityManager;
-         const trip = await this.getTripOwnedByDriver(id, dto.tripId);
-         if (![TripStatus.PENDING, TripStatus.ACTIVE].includes(trip.status))
-      throw new BadRequestException('Cannot cancel a completed or already-cancelled trip');
-      trip.status = TripStatus.CANCELLED;
-    trip.metadata = { ...(trip.metadata ?? {}), cancellationReason: dto.reason };
-    await manager.save(Trip, trip);
+      async cancelTrip(id: string, dto: CancelTripDto, entityManager?: EntityManager): Promise<Trip> {
+  const manager = entityManager || this.entityManager;
 
-    // Refund all confirmed/pending bookings
-    const bookings = await this.bookingRepo.find({
-      where: { tripId: trip.id },
-      relations: ['passenger', 'passenger.user'],
-    });
+  const trip = await this.getTripOwnedByDriver(id, dto.tripId);
+  if (![TripStatus.PENDING, TripStatus.ACTIVE].includes(trip.status))
+    throw new BadRequestException('Cannot cancel a completed or already-cancelled trip');
 
-       for (const booking of bookings) {
-      if ([BookingStatus.CONFIRMED, BookingStatus.PENDING].includes(booking.status)) {
-        await this.refundBookingEscrow(booking, manager);
-        booking.status = BookingStatus.CANCELLED;
-        booking.metadata = { ...(booking.metadata ?? {}), cancelReason: dto.reason };
-        await manager.save(Booking, booking);
+  trip.status = TripStatus.CANCELLED;
+  trip.metadata = { ...(trip.metadata ?? {}), cancellationReason: dto.reason };
+  await manager.save(Trip, trip);
 
-        // Notify each affected passenger
-     
-        
+  // Cancel + refund all confirmed/pending bookings
+  const bookings = await manager.find(Booking, {
+    where: { tripId: trip.id },
+    relations: ['passenger', 'passenger.user'],
+  });
+
+  const failedRefunds: string[] = [];
+
+  for (const booking of bookings) {
+    if (![BookingStatus.CONFIRMED, BookingStatus.PENDING].includes(booking.status)) continue;
+
+    // Refund directly via Paystack if this booking was paid
+    if (
+      booking.paymentStatus === PaymentStatus.SUCCESS &&
+      booking.paymentReference
+    ) {
+      try {
+        await this.paymentFactory.initiateRefund(
+          booking.paymentReference,
+          booking.amountPaid,
+        );
+        booking.paymentStatus = PaymentStatus.REFUNDED;
+        booking.metadata = {
+          ...(booking.metadata ?? {}),
+          refundedAt: new Date().toISOString(),
+          refundAmount: booking.amountPaid,
+        };
+      } catch (err) {
+        // Don't abort the loop — other passengers still need their refunds.
+        // Flag this booking so it can be retried later.
+        this.logger.error(
+          `Refund failed for booking ${booking.bookingCode} (trip ${trip.id})`,
+          err,
+        );
+        booking.metadata = {
+          ...(booking.metadata ?? {}),
+          refundFailed: true,
+          refundFailedAt: new Date().toISOString(),
+        };
+        failedRefunds.push(booking.bookingCode);
       }
     }
-        return trip;
-      }
+
+    booking.status = BookingStatus.CANCELLED;
+    booking.metadata = { ...(booking.metadata ?? {}), cancelReason: dto.reason };
+    await manager.save(Booking, booking);
+
+    // TODO: Notify each affected passenger
+  }
+
+  if (failedRefunds.length) {
+    this.logger.warn(
+      `Trip ${trip.id} cancelled with ${failedRefunds.length} failed refund(s): ${failedRefunds.join(', ')}`,
+    );
+  }
+
+  return trip;
+}
+    //   async cancelTrip(id: string, dto: CancelTripDto, entityManager?: EntityManager,): Promise<Trip>{
+    //     const manager = entityManager || this.entityManager;
+    //      const trip = await this.getTripOwnedByDriver(id, dto.tripId);
+    //      if (![TripStatus.PENDING, TripStatus.ACTIVE].includes(trip.status))
+    //   throw new BadRequestException('Cannot cancel a completed or already-cancelled trip');
+    //   trip.status = TripStatus.CANCELLED;
+    // trip.metadata = { ...(trip.metadata ?? {}), cancellationReason: dto.reason };
+    // await manager.save(Trip, trip);
+
+    // // Refund all confirmed/pending bookings
+    // const bookings = await this.bookingRepo.find({
+    //   where: { tripId: trip.id },
+    //   relations: ['passenger', 'passenger.user'],
+    // });
+
+    //    for (const booking of bookings) {
+    //   if ([BookingStatus.CONFIRMED, BookingStatus.PENDING].includes(booking.status)) {
+    //     await this.refundBookingEscrow(booking, manager);
+    //     booking.status = BookingStatus.CANCELLED;
+    //     booking.metadata = { ...(booking.metadata ?? {}), cancelReason: dto.reason };
+    //     await manager.save(Booking, booking);
+
+    //     // Notify each affected passenger
+     
+        
+    //   }
+    // }
+    //     return trip;
+    //   }
 
   
 
@@ -746,40 +815,102 @@ return booking;
 
   }
 
-  async cancelBooking(id: string, dto: CancelBookingDto, entityManager?: EntityManager){
-      const manager = entityManager || this.entityManager;
-          const passenger = await this.passengerRepo.findOne({ where: { id } });
-    if (!passenger) throw new NotFoundException('Passenger profile not found');
-      const booking = await this.bookingRepo.findOne({
-      where: { id: dto.bookingId, passengerId: passenger.id },
-      relations: ['trips'],
-    });
-    if (!booking) throw new NotFoundException('Booking not found');
-    if (![BookingStatus.PENDING, BookingStatus.CONFIRMED].includes(booking.status))
-      throw new BadRequestException('This booking cannot be cancelled');
+  // async cancelBooking(id: string, dto: CancelBookingDto, entityManager?: EntityManager){
+  //     const manager = entityManager || this.entityManager;
+  //         const passenger = await this.passengerRepo.findOne({ where: { userId: id } });
+  //   if (!passenger) throw new NotFoundException('Passenger profile not found');
+  //     const booking = await this.bookingRepo.findOne({
+  //     where: { id: dto.bookingId, passengerId: passenger.id },
+  //     relations: ['trip'],
+  //   });
+  //   if (!booking) throw new NotFoundException('Booking not found');
+  //   if (![BookingStatus.PENDING, BookingStatus.CONFIRMED].includes(booking.status))
+  //     throw new BadRequestException('This booking cannot be cancelled');
 
-       // Check cancellation window (e.g. 2 hours before departure)
-    const hoursBeforeDeparture =
-      (new Date(booking.trip.departureTime).getTime() - Date.now()) / (1000 * 60 * 60);
-    if (hoursBeforeDeparture < 2)
-      throw new BadRequestException('Cancellations must be made at least 2 hours before departure');
+  //      // Check cancellation window (e.g. 2 hours before departure)
+  //   const hoursBeforeDeparture =
+  //     (new Date(booking.trip.departureTime).getTime() - Date.now()) / (1000 * 60 * 60);
+  //   if (hoursBeforeDeparture < 2)
+  //     throw new BadRequestException('Cancellations must be made at least 2 hours before departure');
 
-        booking.status = BookingStatus.CANCELLED;
-    booking.metadata = { ...(booking.metadata ?? {}), cancelReason: dto.reason };
-    await manager.save(Booking, booking);
+  //       booking.status = BookingStatus.CANCELLED;
+  //   booking.metadata = { ...(booking.metadata ?? {}), cancelReason: dto.reason };
+  //   await manager.save(Booking, booking);
 
-       // Release locked seats
-    await manager.decrement(Trip, { id: booking.tripId }, 'bookedSeats', booking.seats);
+  //      // Release locked seats
+  //   await manager.decrement(Trip, { id: booking.tripId }, 'bookedSeats', booking.seats);
 
-        // Process escrow refund if payment was made
-    if (booking.paymentStatus === PaymentStatus.SUCCESS) {
-      await this.refundBookingEscrow(booking, manager);
+  //       // Process escrow refund if payment was made
+  //   if (booking.paymentStatus === PaymentStatus.SUCCESS) {
+  //     await this.refundBookingEscrow(booking, manager);
+  //   }
+  //       return { message: 'Booking cancelled successfully', booking };
+
+
+
+  // }
+
+async cancelBooking(id: string, dto: CancelBookingDto, entityManager?: EntityManager) {
+  const manager = entityManager || this.entityManager;
+
+  // `id` is the userId from the auth token
+  const passenger = await manager.findOne(Passenger, { where: { userId: id } });
+  if (!passenger) throw new NotFoundException('Passenger profile not found');
+
+  const booking = await manager.findOne(Booking, {
+    where: { id: dto.bookingId, passengerId: passenger.id },
+    relations: ['trip'],
+  });
+  if (!booking) throw new NotFoundException('Booking not found');
+
+  if (![BookingStatus.PENDING, BookingStatus.CONFIRMED].includes(booking.status))
+    throw new BadRequestException('This booking cannot be cancelled');
+
+  // Cancellation window: at least 2 hours before departure
+  const hoursBeforeDeparture =
+    (new Date(booking.trip.departureTime).getTime() - Date.now()) / (1000 * 60 * 60);
+  if (hoursBeforeDeparture < 2)
+    throw new BadRequestException(
+      'Cancellations must be made at least 2 hours before departure',
+    );
+
+  // ── Refund via Paystack if the booking was paid ──
+  // Done BEFORE marking cancelled: if the refund fails, the booking
+  // stays untouched and the passenger can simply retry.
+  if (
+    booking.paymentStatus === PaymentStatus.SUCCESS &&
+    booking.paymentReference
+  ) {
+    try {
+      await this.paymentFactory.initiateRefund(
+        booking.paymentReference,
+        booking.amountPaid,
+      );
+    } catch (err) {
+      this.logger.error(`Refund failed for booking ${booking.bookingCode}`, err);
+      throw new BadRequestException(
+        'Refund could not be processed. Please try again or contact support.',
+      );
     }
-        return { message: 'Booking cancelled successfully', booking };
-
-
-
+    booking.paymentStatus = PaymentStatus.REFUNDED;
   }
+
+  booking.status = BookingStatus.CANCELLED;
+  booking.metadata = {
+    ...(booking.metadata ?? {}),
+    cancelReason: dto.reason,
+    ...(booking.paymentStatus === PaymentStatus.REFUNDED && {
+      refundedAt: new Date().toISOString(),
+      refundAmount: booking.amountPaid,
+    }),
+  };
+  await manager.save(Booking, booking);
+
+  // Release locked seats
+  await manager.decrement(Trip, { id: booking.tripId }, 'bookedSeats', booking.seats);
+
+  return { message: 'Booking cancelled and refund initiated', booking };
+}
 
 
   async getMyBookings(userId: string, query: { page?: number; limit?: number; status?: string }) {
@@ -1026,22 +1157,50 @@ private async applyCoupon(
 
     // ─── Internal: refund escrow for cancelled booking ────────────────────────
 
-    private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
-    const escrow = await this.escrowRepo.findOne({ where: { id: booking.id } });
-    if (!escrow || escrow.status !== EscrowStatus.HELD) return;
+  //   private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
+  //   const escrow = await this.escrowRepo.findOne({ where: { id: booking.id } });
+  //   if (!escrow || escrow.status !== EscrowStatus.HELD) return;
 
-    // Initiate Paystack refund
-    try {
-      await this.paymentFactory['paystackAdapter']?.initiateRefund?.(
-        booking.paymentReference,
-        booking.amountPaid,
-      );
-    } catch (err) {
-      this.logger.error(`Refund failed for booking ${booking.bookingCode}`, err);
-    }
+  //   // Initiate Paystack refund
+  //   try {
+  //     await this.paymentFactory['paystackAdapter']?.initiateRefund?.(
+  //       booking.paymentReference,
+  //       booking.amountPaid,
+  //     );
+  //   } catch (err) {
+  //     this.logger.error(`Refund failed for booking ${booking.bookingCode}`, err);
+  //   }
 
-    escrow.status = EscrowStatus.REFUNDED;
-    escrow.refundedAt = new Date();
-    await manager.save(Escrow, escrow);
+  //   escrow.status = EscrowStatus.REFUNDED;
+  //   escrow.refundedAt = new Date();
+  //   await manager.save(Escrow, escrow);
+  // }
+
+  // ─── Internal: refund escrow for cancelled booking ────────────────────────
+
+private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
+  // Escrow is linked by bookingId, not by its own primary key
+  const escrow = await manager.findOne(Escrow, {
+    where: { bookingId: booking.id },
+  });
+  if (!escrow || escrow.status !== EscrowStatus.HELD) return;
+
+  // Initiate Paystack refund — if this fails, abort the whole cancellation
+  // so we never mark money as refunded when it wasn't
+  try {
+    await this.paymentFactory.initiateRefund(
+      booking.paymentReference,
+      booking.amountPaid,
+    );
+  } catch (err) {
+    this.logger.error(`Refund failed for booking ${booking.bookingCode}`, err);
+    throw new BadRequestException(
+      'Refund could not be processed. Please try again or contact support.',
+    );
   }
+
+  escrow.status = EscrowStatus.REFUNDED;
+  escrow.refundedAt = new Date();
+  await manager.save(Escrow, escrow);
+}
 }
