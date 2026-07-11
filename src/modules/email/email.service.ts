@@ -28,7 +28,7 @@ export class EmailService {
     const apiKey = this.configService.get<string>('common.resend.apiKey');
     this.from =
       this.configService.get<string>('common.resend.fromEmail') ??
-      'Tru Booker <noreply@trubooker.ng>';
+      'Tru Booker <trubooker16@gmail.com>';
     this.otpExpiryMinutes =
       this.configService.get<number>('common.otp.durationMinutes') ?? 10;
 
