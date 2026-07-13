@@ -253,7 +253,7 @@ await this.notifiyService.notify({
     const updates = {
       ...dto,
       departureTime: dto.departureTime ? new Date(dto.departureTime) : trip.departureTime,
-      amenities: dto.amenities ? this.parseAmenities(dto.amenities) : trip.features,
+      amenities: dto.features ? this.parseAmenities(dto.features) : trip.features,
     };
  
     Object.assign(trip, updates);

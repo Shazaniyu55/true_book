@@ -251,7 +251,7 @@ export class UpdateDriverTripDto {
 
   @IsString()
   @IsOptional()
-  amenities?: string;
+  features?: string;
 
   @IsOptional()
   @ValidateNested()
