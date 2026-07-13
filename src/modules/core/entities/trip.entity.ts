@@ -92,7 +92,7 @@ bookedSeats: number;
   description: string;
 
   @Column({ type: 'jsonb', nullable: true })          // ← ADD
-  amenities: string[];
+  features: string[];
 
    @Column({ type: 'varchar', nullable: true })
   reasonForTripCancellation: string | null;

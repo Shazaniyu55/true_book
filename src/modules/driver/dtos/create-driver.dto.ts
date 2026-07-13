@@ -177,7 +177,7 @@ export class CreateDriverTripDto {
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  amenities?: string[];                  // ← CHANGED: entity is jsonb string[], not string
+  features?: string[];                  // ← CHANGED: entity is jsonb string[], not string
 
   @IsObject()
   @IsOptional()
