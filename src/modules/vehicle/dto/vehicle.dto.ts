@@ -26,8 +26,7 @@ export class CreateVehicleDto {
   @ApiProperty({ example: 14 })
   @Type(() => Number) @IsInt() @Min(1) @Max(50) capacity: number;
 
-  // @ApiPropertyOptional({ description: 'Vehicle photo URL (after Cloudinary upload)' })
-  // @IsOptional() @IsString() vehiclePhoto?: string;
+
 
   @ApiPropertyOptional({
     description: 'Vehicle photo URLs (after Cloudinary upload)',

@@ -6,7 +6,6 @@ import { EntityManager } from 'typeorm';
 import { Passenger } from '@modules/core/entities/passenger.entity';
 import { UpdatePassengerProfileDto } from '../dtos/passanger.dto';
 import { PassengerRepository } from '@adapters/repositories/passenger.repository';
-import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 import { DeleteUserDto } from '@modules/auth/dtos/deleteuser.dto';
 
 @Injectable()
@@ -14,7 +13,6 @@ export class PassengerService {
   constructor(
 
     private readonly passangerRepository: PassengerRepository,
-    private readonly cloudinaryService: CloudinaryService,
     
   ) {}
 

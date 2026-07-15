@@ -21,8 +21,7 @@ import { ExpoService } from '@modules/notification/services/expo.service';
 import { TripsModule } from '@modules/trip/trip.module';
 import { PassengerModule } from '@modules/passenger/passenger.module';
 import { DriverModule } from '@modules/driver/driver.module';
-import { PaymentService } from '@modules/passenger/services/payment.service';
-import { PayoutService } from '@modules/driver/services/payout.service';
+
 
 @Module({
   imports: [

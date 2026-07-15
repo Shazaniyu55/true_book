@@ -32,61 +32,7 @@ export class PassengerRepository extends Repository<Passenger> {
     return this.findOne({ where: { id }, relations: ['users'] });
   }
 
-//   async updatePassenger(
-//   id: string,
-//   dto: UpdatePassengerProfileDto,
-//   entityManager?: EntityManager,
-// ): Promise<Passenger> {
-//   const manager = entityManager || this.entityManager;
 
-//   const passenger = await this.passengerRepository.findOne({
-//     where: { user: {id} },
-//     relations: ['user'],
-//   });
-
-//   if (!passenger) {
-//     throw new NotFoundException('Passenger profile not found');
-//   }
-
-//   // ---------------------------
-//   // Update User fields
-//   // ---------------------------
-//   const userUpdates: Partial<User> = {};
-
-//   if (dto.firstName) userUpdates.firstName = dto.firstName;
-//   if (dto.lastName) userUpdates.lastName = dto.lastName;
-//   if (dto.phone) userUpdates.phone = dto.phone;
-//   if (dto.fullName) userUpdates.lastName = dto.fullName;
-//   if (dto.profileImage) userUpdates.profileImage = dto.profileImage;
-
-//   if (Object.keys(userUpdates).length > 0) {
-//     await manager.update(User, passenger.user.id, userUpdates);
-//   }
-
-//   // ---------------------------
-//   // Update Passenger fields
-//   // ---------------------------
-//   const passengerUpdates: Partial<Passenger> = {};
-
-//   if (dto.state) {
-//     passengerUpdates.metadata = {
-//       ...(passenger.metadata ?? {}),
-//       state: dto.state,
-//     };
-//   }
-
-//   if (Object.keys(passengerUpdates).length > 0) {
-//     await manager.update(Passenger, id, passengerUpdates);
-//   }
-
-//   // ---------------------------
-//   // Returns data
-//   // ---------------------------
-//   return await this.passengerRepository.findOne({
-//     where: { id: id },
-//     relations: ['user'],
-//   });
-// }
 
 async updatePassenger(
   id: string, // this is the User id (user.sub from the JWT)

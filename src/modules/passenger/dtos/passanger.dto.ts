@@ -21,10 +21,7 @@ export class UpdatePassengerProfileDto {
   @ApiPropertyOptional({ example: 'Lagos' })
   @IsOptional() @IsString() state?: string;
 
-    // @ApiProperty({ example: '1999-6-05' })
-    // @IsOptional()
-    // @IsDateString()
-    // dob: Date;
+
 
     @ApiProperty({ example: '1999-06-05' })
 @IsOptional()

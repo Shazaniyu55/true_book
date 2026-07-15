@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { Admin } from '@modules/core/entities/admin.entity';
 import { AdminRepository } from '@adapters/repositories/admin.repository';

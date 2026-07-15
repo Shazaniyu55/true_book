@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UploadedFiles, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
@@ -8,7 +8,6 @@ import { ServiceName } from '@shared/decorators/servicename.decorators';
 import { Broker } from '@broker/broker';
 import { GetMyVehicleUsecase } from '../usecase/getvehicle.usecase';
 import { CreateVehicleDto } from '../dto/vehicle.dto';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { VehicleService } from '../service/vehicle.service';
 
 

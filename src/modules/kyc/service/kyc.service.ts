@@ -20,7 +20,6 @@ import { LICENSE_QUEUE, LicenseJobData } from '../dtos/kyc.queue';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { NotificationType } from 'src/types/enums';
 import { DocumentStatus, KycStatus } from '../../../types/enums';
-import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 import { User } from '@modules/core/entities/user.entity';
 import { getOtpExpiry } from '@shared/utils/helpers/common.utils';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
@@ -38,7 +37,6 @@ export class KycService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
     private readonly dojahAdapter: DojahAdapter,
-    private readonly cloudinaryService: CloudinaryService,
     private readonly randomnessUtil: RandomnessUtil,
     private readonly configService: ConfigService,
     @InjectQueue(LICENSE_QUEUE) private readonly licenseQueue: Queue<LicenseJobData>,

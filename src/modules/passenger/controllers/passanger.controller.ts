@@ -4,18 +4,14 @@ import {
   Get,
   Patch,
   Delete,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
   Post,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiConsumes,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
 
 
 
