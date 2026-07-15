@@ -46,8 +46,8 @@ export class Trip extends BaseEntity {
   @Column({ type: 'time', nullable: true })
   arrivalTime: string;
 
-    @Column({ type: 'varchar' })
-  departureLocation: string;
+    @Column({ type: 'jsonb',  nullable: true})
+  departureLocation: any[];
 
     @Column({ type: 'jsonb', nullable: true })
   arrivalDestination: any[];
@@ -72,6 +72,8 @@ export class Trip extends BaseEntity {
 
   @Column({ type: 'integer' })
   totalSeats: number;
+
+  
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price: number;
@@ -117,4 +119,5 @@ bookedSeats: number;
 
   @Column({ type: 'varchar', nullable: true })
 state: string | null;
+
 }
