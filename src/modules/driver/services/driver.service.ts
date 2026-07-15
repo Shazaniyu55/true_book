@@ -114,26 +114,26 @@ if (!vehicle.isVerified) {
     // }
  
     // 2. Bus stops: geocode each busStop entry if no latlongs supplied
-    let busstopLatlong = dto.busstopLatlong;
-    if (!busstopLatlong?.length && dto.busStop?.length) {
-      const points = await this.geocodingService.geocodeMany(dto.busStop);
-      busstopLatlong = points.filter((p) => p !== null);
-    }
+    // let busstopLatlong = dto.busstopLatlong;
+    // if (!busstopLatlong?.length && dto.busStop?.length) {
+    //   const points = await this.geocodingService.geocodeMany(dto.busStop);
+    //   busstopLatlong = points.filter((p) => p !== null);
+    // }
  
     // 3. Arrival: enrich each arrivalDestination entry with a latlng
     //    field if it doesn't already have one
-    let arrivalDestination = dto.arrivalDestination;
-    if (arrivalDestination?.length) {
-      arrivalDestination = await Promise.all(
-        arrivalDestination.map(async (dest) => {
-          if (dest?.latlng || dest?.lat) return dest; // already has coords
-          const point = await this.geocodingService.geocode(
-            this.geocodingService.extractAddress(dest),
-          );
-          return point ? { ...dest, latlng: { lat: point.lat, lng: point.lng } } : dest;
-        }),
-      );
-    }
+    // let arrivalDestination = dto.arrivalDestination;
+    // if (arrivalDestination?.length) {
+    //   arrivalDestination = await Promise.all(
+    //     arrivalDestination.map(async (dest) => {
+    //       if (dest?.latlng || dest?.lat) return dest; // already has coords
+    //       const point = await this.geocodingService.geocode(
+    //         this.geocodingService.extractAddress(dest),
+    //       );
+    //       return point ? { ...dest, latlng: { lat: point.lat, lng: point.lng } } : dest;
+    //     }),
+    //   );
+    // }
  
      // Create trip entity
      const trip = this.tripRepo.create({
@@ -145,14 +145,14 @@ if (!vehicle.isVerified) {
   departureLatlong: dto.departureLatlong,
   arrivalDate: dto.arrivalDate,
   arrivalTime: dto.arrivalTime,
-  arrivalDestination,
+  arrivalDestination: dto.arrivalDestination,
   pickStation: dto.pickStation,
   dropOffStation: dto.dropOffStation,
   busStop: dto.busStop,
-  busstopLatlong,
+  busstopLatlong: dto.busstopLatlong,
   tripSpecification: dto.tripSpecification,
   waypoints: dto.waypoints,                   // ← entity has it
-  state: arrivalDestination?.[0]?.state,
+  state: dto.arrivalDestination?.[0]?.state,
   description: dto.description,               // ← entity has it
   features: dto.features,                   // ← entity has it (string[])
   metadata: dto.metadata,                     // ← entity has it
