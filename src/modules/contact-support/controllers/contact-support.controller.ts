@@ -4,7 +4,7 @@ import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestj
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '@shared/guards/optional-jwt-auth.guard';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
-import { OptionalAuthUser } from '@shared/decorators/optionalAuthUser.decorator';
+import { OptionalAuthUser } from '@shared/decorators/optionalauthuser.decorator';
 import { Public } from '@shared/decorators/isPublic.decorator';
 
 import { ContactSupportStatus } from 'src/types/enums';
