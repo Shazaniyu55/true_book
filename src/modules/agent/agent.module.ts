@@ -19,6 +19,8 @@ import { KillSwitch } from '@modules/core/entities/kill-switch.entity';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
 import { SystemSettingModule } from '@modules/system/system.module';
+import { GetAgentDashboardUsecase } from './usecases/getAgentDashboard.usecase';
+import { ReferDriverUsecase } from './usecases/referedriver.usecase';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { SystemSettingModule } from '@modules/system/system.module';
   controllers: [AgentController],
   providers: [
     Broker,
+    GetAgentDashboardUsecase,
+    ReferDriverUsecase,
     AgentService,
     PaymentFactory,
     PaystackAdapter,
