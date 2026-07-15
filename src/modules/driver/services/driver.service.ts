@@ -117,7 +117,7 @@ if (!vehicle.isVerified) {
   waypoints: dto.waypoints,                   // ← entity has it
   state: dto.arrivalDestination?.[0]?.state,
   description: dto.description,               // ← entity has it
-  features: dto.features,                   // ← entity has it (string[])
+  vehicleFeatures: dto.vehicleFeatures,                   // ← entity has it (string[])
   metadata: dto.metadata,                     // ← entity has it
   bookingClosingDate: dto.bookingClosingDate,
   bookingClosingTime: dto.bookingClosingTime,
@@ -202,7 +202,7 @@ await this.notifiyService.notify({
     const updates = {
       ...dto,
       departureTime: dto.departureTime ? new Date(dto.departureTime) : trip.departureTime,
-      amenities: dto.features ? this.parseAmenities(dto.features) : trip.features,
+      amenities: dto.features ? this.parseAmenities(dto.features) : trip.vehicleFeatures,
     };
  
     Object.assign(trip, updates);
