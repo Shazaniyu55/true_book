@@ -382,48 +382,7 @@ async searchTripState(query: {
 
   return pagedDto;
 }
-// async searchTripState(query: {
-//   page?: number;
-//   limit?: number;
-//   state?: string;
-// }): Promise<PagedDto<any>> {
-//   const { page = 1, limit = 20, state } = query;
 
-//   const skip = (page - 1) * limit;
-
-//   const qb = this.tripRepository
-//     .createQueryBuilder('trip')
-//     .leftJoinAndSelect('trip.driver', 'driver')
-//     .leftJoinAndSelect('driver.user', 'user')
-//     .leftJoinAndSelect('trip.vehicle', 'vehicle')
-//     .where('trip.status = :status', { status: TripStatus.PENDING });
-
-//   if (state) {
-//     qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
-//   }
-
-//   qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
-
-//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-
-//   const pagedDto = new PagedDto();
-//   pagedDto.data = data.map((t) => ({
-//     ...t,
-//     availableSeats: t.totalSeats - t.bookedSeats,
-//   }));
-
-//   pagedDto.meta = {
-//     page,
-//     limit,
-//     count: data.length,
-//     previousPage: page > 1 ? page - 1 : false,
-//     nextPage: skip + limit < total ? page + 1 : false,
-//     pageCount: Math.ceil(total / limit),
-//     totalRecords: total,
-//   };
-
-//   return pagedDto;
-// }
 
 async searchTrips(query: {
   page?: number;
@@ -521,108 +480,7 @@ async searchTrips(query: {
   return pagedDto;
 }
 
-// async searchTrips(query: {
-//   page?: number;
-//   limit?: number;
-//   origin?: string;
-//   destination?: string;
-//   date?: string;
-//   seats?: number;
-//   maxPrice?: number;
-//   sortBy?: string;
-//   status?: string;
-//   state?: string;   
-//   location?: string; 
-// }): Promise<PagedDto<any>> {
-//   const {
-//     page = 1, limit = 20,
-//     origin, destination, date, seats, maxPrice, sortBy, status,
-//     state, location, // ← ADD
-//   } = query;
 
-//   const skip = (page - 1) * limit;
-
-//   const qb = this.tripRepository
-//     .createQueryBuilder('trip')
-//     .leftJoinAndSelect('trip.driver', 'driver')
-//     .leftJoinAndSelect('driver.user', 'user')
-//     .leftJoinAndSelect('trip.vehicle', 'vehicle')
-//     .where('trip.status = :status', { status: status ?? TripStatus.PENDING });
-
-//   if (origin) {
-//     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
-//   }
-
-//   if (destination) {
-//     qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
-//       destination: `%${destination}%`,
-//     });
-//   }
-
-//   // ← ADD: filter by state (case-insensitive)
-//   if (state) {
-//     qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
-//   }
-
-//   // ← ADD: filter by location/city against departureLocation
-//   if (location) {
-//     qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
-//   }
-
-//   if (date) {
-//     qb.andWhere('trip.departureDate = :date', { date });
-//   }
-
-//   if (seats) {
-//     qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
-//   }
-
-//   if (maxPrice) {
-//     qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
-//   }
-
-//   switch (sortBy) {
-//     case 'price':
-//       qb.addSelect('trip.price::numeric', 'price_numeric')
-//         .orderBy('price_numeric', 'ASC');
-//       break;
-//     case 'seats':
-//       qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
-//         .orderBy('available_seats', 'DESC');
-//       break;
-//     default:
-//       qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
-//   }
-
-//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-
-//   const pagedDto = new PagedDto();
-//   pagedDto.data = data.map((t) => ({
-//     ...t,
-//     availableSeats: t.totalSeats - t.bookedSeats,
-//   }));
-
-//   pagedDto.meta = {
-//     page,
-//     limit,
-//     count: data.length,
-//     previousPage: page > 1 ? page - 1 : false,
-//     nextPage: skip + limit < total ? page + 1 : false,
-//     pageCount: Math.ceil(total / limit),
-//     totalRecords: total,
-//   };
-
-//   return pagedDto;
-// }
-
-  //   async getTripById(tripId: string) {
-  //   const trip = await this.tripRepository.findOne({
-  //     where: { id: tripId },
-  //     relations: ['driver', 'driver.user', 'vehicle'],
-  //   });
-  //   if (!trip) throw new NotFoundException('Trip not found');
-  //   return { ...trip, availableSeats: trip.totalSeats  };
-  // }
 
   async getTripById(tripId: string) {
   const trip = await this.tripRepository.findOne({
