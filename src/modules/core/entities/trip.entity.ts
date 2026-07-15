@@ -46,8 +46,8 @@ export class Trip extends BaseEntity {
   @Column({ type: 'time', nullable: true })
   arrivalTime: string;
 
-    @Column({ type: 'jsonb',  nullable: true})
-  departureLocation: any[];
+    @Column({ type: 'varchar',  nullable: true})
+  departureLocation: string;
 
     @Column({ type: 'jsonb', nullable: true })
   arrivalDestination: any[];

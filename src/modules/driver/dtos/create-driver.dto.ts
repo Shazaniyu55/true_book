@@ -22,7 +22,7 @@ export class CreateDriverTripDto {
 
   @IsString()
   @IsNotEmpty()
-  departureLocation?: any[];
+  departureLocation: string;
 
   @IsArray()
   @IsOptional()
