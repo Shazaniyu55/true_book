@@ -1,6 +1,7 @@
 import { ContactSupport } from '@modules/core/entities/contact-support.entity';
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ContactSupportQueryDto, ContactSupportStatus, UserRole, CreateContactSupportDto } from 'src/types/enums';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ContactSupportStatus, UserRole } from 'src/types/enums';
+import { ContactSupportQueryDto, CreateContactSupportDto } from '../dtos/dto';
 import { PagedDto } from '@shared/interface/paged.interface';
 import { User } from '@modules/core/entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +15,7 @@ import { EmailService } from '@modules/email/email.service';
 export class ContactSupportService {
   constructor(
     @InjectRepository(ContactSupport) private readonly contactRepo: Repository<ContactSupport>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
     @InjectRepository(Agent) private readonly agentRepo: Repository<Agent>,
@@ -65,7 +67,24 @@ export class ContactSupportService {
 
   // ─── Create Contact Support Request ──────────────────────────────────────
 
-  async create(dto: CreateContactSupportDto, user?: User) {
+  async create(dto: CreateContactSupportDto, authPayload?: { id?: string; sub?: string; email?: string }) {
+    // request.user is the JWT payload ({ id, sub, email, role }) — it does
+    // NOT carry firstName/lastName, so load the full User entity when a
+    // token was supplied
+    let user: User | null = null;
+    const userId = authPayload?.id ?? authPayload?.sub;
+    if (userId) {
+      user = await this.userRepo.findOne({ where: { id: userId } });
+    }
+
+    // Guests must supply their own identity — authenticated users are
+    // resolved from the token above, so these fields are optional in the DTO
+    if (!user && (!dto.firstName?.trim() || !dto.lastName?.trim() || !dto.email?.trim())) {
+      throw new BadRequestException(
+        'firstName, lastName and email are required for guest support requests',
+      );
+    }
+
     // Resolve name and email — authenticated user takes priority
     const name = user
       ? `${user.firstName} ${user.lastName}`.trim()

@@ -7,13 +7,14 @@ import { ContactSupportService } from './services/contact-support.service';
 import { Driver } from '@modules/core/entities/driver.entity';
 import { Passenger } from '@modules/core/entities/passenger.entity';
 import { Agent } from '@modules/core/entities/agent.entity';
+import { User } from '@modules/core/entities/user.entity';
 import { EmailModule } from '@modules/email/email.module';
 
 
 
 @Module({
   
-  imports: [TypeOrmModule.forFeature([ContactSupport, Driver, Passenger, Agent]), EmailModule],
+  imports: [TypeOrmModule.forFeature([ContactSupport, User, Driver, Passenger, Agent]), EmailModule],
   controllers: [ContactSupportController],
   providers: [
     Broker,

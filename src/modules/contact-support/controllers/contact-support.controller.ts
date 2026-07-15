@@ -2,9 +2,13 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '@shared/guards/optional-jwt-auth.guard';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
+import { OptionalAuthUser } from '@shared/decorators/optionalAuthUser.decorator';
+import { Public } from '@shared/decorators/isPublic.decorator';
 
-import { ContactSupportQueryDto, ContactSupportStatus, CreateContactSupportDto } from 'src/types/enums';
+import { ContactSupportStatus } from 'src/types/enums';
+import { ContactSupportQueryDto, CreateContactSupportDto, UpdateContactSupportStatusDto } from '../dtos/dto';
 import { ContactSupportService } from '../services/contact-support.service';
 
 @ApiTags('Contact Support')
@@ -12,9 +16,14 @@ import { ContactSupportService } from '../services/contact-support.service';
 export class ContactSupportController {
   constructor(private readonly contactSupportService: ContactSupportService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Submit a contact support request' })
-  create(@Body() dto: CreateContactSupportDto, @AuthUser() user?: any) {
+  @Public()                          // bypass the global JwtAuthGuard so guests aren't 401'd
+  @UseGuards(OptionalJwtAuthGuard)   // ...but still attach the user when a valid token is sent
+  @Post('submit-request')
+  @ApiOperation({
+    summary: 'Submit a contact support request',
+    description: 'Public. If a Bearer token is supplied, the sender identity is resolved from the account; otherwise firstName, lastName and email are required in the body.',
+  })
+  create(@Body() dto: CreateContactSupportDto, @OptionalAuthUser() user?: any) {
     return this.contactSupportService.create(dto, user);
   }
 
@@ -59,8 +68,8 @@ export class ContactSupportController {
   @ApiParam({ name: 'id', type: String })
   updateStatus(
     @Param('id') id: string,
-    @Body('status') status: ContactSupportStatus,
+    @Body() dto: UpdateContactSupportStatusDto,
   ) {
-    return this.contactSupportService.updateStatus(id, status);
+    return this.contactSupportService.updateStatus(id, dto.status);
   }
 }
