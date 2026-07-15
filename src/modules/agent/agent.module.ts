@@ -21,6 +21,8 @@ import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
 import { SystemSettingModule } from '@modules/system/system.module';
 import { GetAgentDashboardUsecase } from './usecases/getAgentDashboard.usecase';
 import { ReferDriverUsecase } from './usecases/referedriver.usecase';
+import { GetDriverReferedUsecase } from './usecases/getDriverrefered.usecase';
+import { EarnFromDriverUsecase } from './usecases/earn.usecase';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { ReferDriverUsecase } from './usecases/referedriver.usecase';
     Broker,
     GetAgentDashboardUsecase,
     ReferDriverUsecase,
+    GetDriverReferedUsecase,
+    EarnFromDriverUsecase,
     AgentService,
     PaymentFactory,
     PaystackAdapter,

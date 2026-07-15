@@ -10,24 +10,16 @@ import {
   Min,
 } from 'class-validator';
 
-export class BookAgentTripDto {
-  @ApiProperty({ description: 'Trip ID to book' })
-  @IsNotEmpty() @IsNumber() tripId: string;
 
-  @ApiProperty({ description: 'User ID of the passenger being booked for' })
-  @IsNotEmpty() @IsNumber() passengerUserId: string;
+export class AgentRefer{
+  @ApiProperty({ example: 'uuid' })
+  @IsNotEmpty() @IsString() driverId: string;
 
-  @ApiProperty({ description: "Passenger's email for payment link" })
-  @IsNotEmpty() @IsEmail() passengerEmail: string;
+  @ApiProperty({ example: 'string' })
+  @IsNotEmpty() @IsString() referralCode: string;
 
-  @ApiProperty({ description: 'Number of seats to book', minimum: 1 })
-  @IsPositive() @Min(1) @IsNumber() seats: number;
 
-  @ApiPropertyOptional({ description: 'Discount coupon code' })
-  @IsOptional() @IsString() couponCode?: string;
-
-  @ApiPropertyOptional({ description: 'Payment success redirect URL' })
-  @IsOptional() @IsUrl() callbackUrl?: string;
+  
 }
 
 export class UpdateAgentBankDto {
