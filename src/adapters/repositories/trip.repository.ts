@@ -571,9 +571,9 @@ async searchTrips(query: {
     });
   }
 
-  if (state) {
-    qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
-  }
+  // if (state) {
+  //   qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
+  // }
 
   if (location) {
     qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
