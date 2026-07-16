@@ -655,8 +655,8 @@ async searchTrips(query: {
     relations: ['driver', 'driver.user', 'vehicle'],
   });
   if (!trip) throw new NotFoundException('Trip not found');
-  if (trip.status !== TripStatus.ACTIVE)
-    throw new BadRequestException('This trip is not accepting bookings');
+  // if (trip.status !== TripStatus.ACTIVE)
+  //   throw new BadRequestException('This trip is not accepting bookings');
 
   // ── driver manually closed bookings (mirrors Laravel closeBookings) ──
   if (trip.bookingStatus === 'closed')
