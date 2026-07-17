@@ -200,6 +200,12 @@ export class AuthService {
     type: NotificationType.BROADCAST,
     data: { userId: user.id, at: new Date().toISOString() },
   });
+
+  if (user.expoToken) {
+  this.expoService
+    .sendPushNotification(user.expoToken, 'New Login', 'You signed in to your account', { userId: user.id })
+    .catch(err => console.error('Expo push failed', err));
+}
   
     return { user, ...tokens };
   }
