@@ -60,6 +60,7 @@ import { GetTripChartSummaryUsecase } from '../usecases/gettripchartsummary.usec
 import { GetTripActivityUsecase } from '../usecases/gettripactivity.usecase';
 import { TripBookingsQueryDto, TripChartQueryDto, VerifyBookingDto } from '../dtos/trip.dto';
 import { GetCancellationReasonsUsecase } from '../usecases/getcancelreason.usecase';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -100,6 +101,7 @@ export class TripsController {
   // ──────────────────────────────────────────────────────────────────────────
 
   @Public()
+  @SkipThrottle()
   @Get('search-trip')
   @ApiOperation({
     summary: 'Search available trips',
@@ -110,6 +112,7 @@ export class TripsController {
   }
 
   @Public()
+  @SkipThrottle()
   @Get('search-state')
   @ApiOperation({
     summary: 'Search available trips',

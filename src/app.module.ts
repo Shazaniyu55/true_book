@@ -57,7 +57,7 @@ import { GeocodingModule } from '@modules/geocoding/geocoding.module';
         configService.get('typeorm'),
     }),
     
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
 
