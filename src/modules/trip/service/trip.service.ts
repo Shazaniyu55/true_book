@@ -55,6 +55,30 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
   return await this.tripRepository.activateTrip(userId, tripId);
 }
 
+ getCancellationReasons(audience?: string) {
+    const reasons = [
+      { id: 1, audience: 'driver', reason: 'Vehicle breakdown' },
+      { id: 2, audience: 'driver', reason: 'Personal emergency' },
+      { id: 3, audience: 'driver', reason: 'Bad weather conditions' },
+      { id: 4, audience: 'driver', reason: 'Not enough passengers booked' },
+      { id: 5, audience: 'driver', reason: 'Road closure or unsafe route' },
+      { id: 6, audience: 'passenger', reason: 'Change of plans' },
+      { id: 7, audience: 'passenger', reason: 'Found another means of transport' },
+      { id: 8, audience: 'passenger', reason: 'Booked by mistake' },
+      { id: 9, audience: 'passenger', reason: 'Trip departure time changed' },
+      { id: 10, audience: 'passenger', reason: 'Emergency / unforeseen circumstances' },
+      { id: 11, audience: 'both', reason: 'Other' },
+    ];
+ 
+    if (audience && ['driver', 'passenger'].includes(audience)) {
+      return reasons.filter(
+        (r) => r.audience === audience || r.audience === 'both',
+      );
+    }
+ 
+    return reasons;
+  }
+
   // ─── Driver: Complete trip → release escrow ───────────────────────────────
 
   async completeTrip(id: string, dto: CompleteTripDto): Promise<Trip> {

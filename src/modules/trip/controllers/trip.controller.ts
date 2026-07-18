@@ -59,6 +59,7 @@ import { StartTripUsecase } from '../usecases/starttrip.usecase';
 import { GetTripChartSummaryUsecase } from '../usecases/gettripchartsummary.usecase';
 import { GetTripActivityUsecase } from '../usecases/gettripactivity.usecase';
 import { TripBookingsQueryDto, TripChartQueryDto, VerifyBookingDto } from '../dtos/trip.dto';
+import { GetCancellationReasonsUsecase } from '../usecases/getcancelreason.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -89,7 +90,8 @@ export class TripsController {
     private readonly closeBookingsUsecase:CloseBookingsUsecase,
     private readonly startTripUsecase:StartTripUsecase,
     private readonly getTripChartSummaryUsecase:GetTripChartSummaryUsecase,
-    private readonly getTripActivityUsecase:GetTripActivityUsecase
+    private readonly getTripActivityUsecase:GetTripActivityUsecase,
+      private readonly getCancellationReasonsUsecase:GetCancellationReasonsUsecase
   
   ) {}
 
@@ -125,6 +127,19 @@ export class TripsController {
     @Param("tripId") tripId: string,
   ) {
     return this.broker.runUsecases([this.getTripUsecase], {tripId: tripId})
+  }
+
+  @Public()
+  @Get('cancellation/reasons')
+  @ApiOperation({
+    summary: 'Get trip cancellation reasons',
+    description:
+      'Returns the list of predefined cancellation reasons. Optionally filter with ?audience=driver or ?audience=passenger.',
+  })
+  getCancellationReasons(@Query('audience') audience?: string) {
+    return this.broker.runUsecases([this.getCancellationReasonsUsecase], {
+      audience: audience,
+    });
   }
 
   // ──────────────────────────────────────────────────────────────────────────

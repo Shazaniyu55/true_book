@@ -44,6 +44,7 @@ import { CloseBookingsUsecase } from './usecases/closebookings.usecase';
 import { StartTripUsecase } from './usecases/starttrip.usecase';
 import { GetTripChartSummaryUsecase } from './usecases/gettripchartsummary.usecase';
 import { GetTripActivityUsecase } from './usecases/gettripactivity.usecase';
+import { GetCancellationReasonsUsecase } from './usecases/getcancelreason.usecase';
 
 
 
@@ -76,6 +77,7 @@ import { GetTripActivityUsecase } from './usecases/gettripactivity.usecase';
 
     CreateTripUsecase,
     SearchTripUsecase,
+    GetCancellationReasonsUsecase,
     GetTripUsecase,
     ActivateTripUsecase,
     ScanTicketUsecase,
