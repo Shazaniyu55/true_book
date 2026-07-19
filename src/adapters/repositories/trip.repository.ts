@@ -497,6 +497,14 @@ async searchTripState(query: {
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle');
 
+  // Passengers should never see trips whose bookings the driver closed,
+  // or whose booking window has already passed
+  qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+  qb.andWhere(
+    `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+      OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+  );
+
   if (status) {
     qb.andWhere('trip.status = :status', { status });
   }
@@ -555,6 +563,14 @@ async searchTrips(query: {
     .leftJoinAndSelect('trip.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle');
+
+  // Passengers should never see trips whose bookings the driver closed,
+  // or whose booking window has already passed
+  qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+  qb.andWhere(
+    `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+      OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+  );
 
   // Only filter by status if explicitly provided
   if (status) {
@@ -1383,14 +1399,17 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 }
 
 
+
+
 // import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 // import { InjectRepository } from '@nestjs/typeorm';
-// import { DeepPartial, EntityManager, FindManyOptions, Repository } from 'typeorm';
+// import { Brackets, DeepPartial, EntityManager, FindManyOptions, Repository } from 'typeorm';
 // import { Trip } from '@modules/core/entities/trip.entity';
-// import { BookingStatus, CouponType, EscrowStatus, PaymentStatus, TicketStatus, TripStatus } from '../../types/enums';
+// import { BookingStatus, CouponType, EscrowStatus, NotificationType, PaymentStatus, TicketStatus, TripStatus } from '../../types/enums';
+// import { NotificationService } from '@modules/notification/services/notification.service';
 // import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 // import { Driver } from '@modules/core/entities/driver.entity';
-// import { BookTripDto, CancelBookingDto, CancelTripDto, CompleteTripDto, CreateTripDto, SearchTripsDto, UpdateTripDto } from '@modules/trip/dtos/trip.dto';
+// import { BookTripDto, CancelBookingDto, CancelTripDto, CompleteTripDto, CreateTripDto, UpdateTripDto } from '@modules/trip/dtos/trip.dto';
 // import { ExpoService } from '@modules/notification/services/expo.service';
 // import { Escrow } from '@modules/core/entities/escro.entity';
 // import { TripsService } from '@modules/trip/service/trip.service';
@@ -1413,6 +1432,7 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //     private readonly entityManager: EntityManager,
 //     private readonly randomnessUtil: RandomnessUtil,
 //     private readonly expoService: ExpoService,
+//     private readonly notificationService: NotificationService,
 //     private readonly paymentFactory: PaymentFactory,    
 //     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
 //     @InjectRepository(Trip) private readonly tripRepository: Repository<Trip>,
@@ -1488,8 +1508,8 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //       async completeTrip(id: string, dto: CompleteTripDto, entityManager?: EntityManager,): Promise<Trip>{
 //        const manager = entityManager || this.entityManager;
 //       const trip = await this.getTripOwnedByDriver(id, dto.tripId);
-//           if (trip.status !== TripStatus.ACTIVE)
-//       throw new BadRequestException('Only active trips can be completed');
+//           if (![TripStatus.ACTIVE, TripStatus.STARTED].includes(trip.status))
+//       throw new BadRequestException('Only active or started trips can be completed');
 
 
 //         trip.status = TripStatus.COMPLETED;
@@ -1499,7 +1519,12 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //       // Release all held escrows for confirmed bookings on this trip
 //     await this.releaseEscrowsForTrip(trip.id, manager);
 
-
+//     // Grab confirmed bookings (with passengers) BEFORE flipping them,
+//     // so we know who to notify afterwards
+//     const confirmedBookings = await manager.find(Booking, {
+//       where: { tripId: trip.id, status: BookingStatus.CONFIRMED },
+//       relations: ['passenger'],
+//     });
 
 //          // Mark all confirmed bookings as completed
 //            await manager.update(
@@ -1507,6 +1532,23 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //              { tripId: trip.id, status: BookingStatus.CONFIRMED },
 //              { status: BookingStatus.COMPLETED },
 //            );
+
+//     // Notify each passenger their trip is complete (best-effort,
+//     // mirrors Laravel's TripCompletedNotification)
+//     for (const booking of confirmedBookings) {
+//       if (!booking.passenger?.userId) continue;
+//       try {
+//         await this.notificationService.notify({
+//           userId: booking.passenger.userId,
+//           title: 'Trip Completed',
+//           body: `Your trip from ${trip.departureLocation} has been completed. Thanks for riding with us!`,
+//           type: NotificationType.TRIP_COMPLETED,
+//           data: { tripId: trip.id, bookingCode: booking.bookingCode },
+//         });
+//       } catch (err) {
+//         this.logger.warn(`Failed to notify passenger for booking ${booking.bookingCode}: ${err?.message}`);
+//       }
+//     }
        
        
        
@@ -1519,10 +1561,12 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //   const manager = entityManager || this.entityManager;
 
 //   const trip = await this.getTripOwnedByDriver(id, dto.tripId);
-//   if (![TripStatus.PENDING, TripStatus.ACTIVE].includes(trip.status))
+//   if (![TripStatus.PENDING, TripStatus.ACTIVE, TripStatus.STARTED].includes(trip.status))
 //     throw new BadRequestException('Cannot cancel a completed or already-cancelled trip');
 
 //   trip.status = TripStatus.CANCELLED;
+//   trip.cancelledByDriver = true;                       // ← powers the activity() analytics
+//   trip.reasonForTripCancellation = dto.reason ?? null; // ← powers the activity() analytics
 //   trip.metadata = { ...(trip.metadata ?? {}), cancellationReason: dto.reason };
 //   await manager.save(Trip, trip);
 
@@ -1570,10 +1614,28 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //     }
 
 //     booking.status = BookingStatus.CANCELLED;
-//     booking.metadata = { ...(booking.metadata ?? {}), cancelReason: dto.reason };
+//     booking.metadata = { ...(booking.metadata ?? {}), cancelReason: dto.reason, cancelledBy: 'driver' };
 //     await manager.save(Booking, booking);
 
-//     // TODO: Notify each affected passenger
+//     // Notify each affected passenger (best-effort — a push failure
+//     // must never abort the cancellation/refund loop)
+//     if (booking.passenger?.userId) {
+//       try {
+//         await this.notificationService.notify({
+//           userId: booking.passenger.userId,
+//           title: 'Trip Cancelled',
+//           body: `Your trip from ${trip.departureLocation} was cancelled by the driver. ${
+//             booking.paymentStatus === PaymentStatus.REFUNDED
+//               ? 'Your refund has been initiated.'
+//               : ''
+//           }`.trim(),
+//           type: NotificationType.TRIP_CANCELLED,
+//           data: { tripId: trip.id, bookingCode: booking.bookingCode, reason: dto.reason },
+//         });
+//       } catch (err) {
+//         this.logger.warn(`Failed to notify passenger for booking ${booking.bookingCode}: ${err?.message}`);
+//       }
+//     }
 //   }
 
 //   if (failedRefunds.length) {
@@ -1584,7 +1646,7 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 
 //   return trip;
 // }
-
+    
 
   
 
@@ -1670,7 +1732,136 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 
 //   const credited = await this.releaseEscrowForBooking(booking, manager);
 
+//   // Confirmation to the passenger (mirrors Laravel's BookTripConfirmationNotification)
+//   await this.notifyBookingVerified(booking);
+
 //   return { success: true, booking, credited };
+// }
+
+// /** Best-effort push to the passenger when their booking is verified/scanned. */
+// private async notifyBookingVerified(booking: Booking): Promise<void> {
+//   const passengerUserId = booking.passenger?.userId ?? booking.passenger?.user?.id;
+//   if (!passengerUserId) return;
+//   try {
+//     await this.notificationService.notify({
+//       userId: passengerUserId,
+//       title: 'Booking Verified',
+//       body: `Your booking ${booking.bookingCode} has been verified. Enjoy your trip!`,
+//       type: NotificationType.BOOKING_VERIFIED,
+//       data: { bookingId: booking.id, bookingCode: booking.bookingCode, tripId: booking.tripId },
+//     });
+//   } catch (err) {
+//     this.logger.warn(`Failed to send verification notification for ${booking.bookingCode}: ${err?.message}`);
+//   }
+// }
+
+// // ─── Driver: Verify a booking manually by code (PHP verifyBookings) ────────
+// // Fallback for when the QR can't be scanned (dead phone, broken screen).
+// // Same guarantees as scanTicket: ownership check, idempotent, credits escrow.
+
+// async verifyBookingByCode(
+//   driverUserId: string,
+//   bookingCode: string,
+//   entityManager?: EntityManager,
+// ) {
+//   const manager = entityManager || this.entityManager;
+
+//   const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
+//   if (!driver) throw new NotFoundException('Driver profile not found');
+
+//   const booking = await this.bookingRepo.findOne({
+//     where: { bookingCode },
+//     relations: ['trip', 'passenger', 'passenger.user'],
+//   });
+//   if (!booking) throw new NotFoundException('Invalid booking code');
+
+//   // ownership — booking must belong to this driver's trip
+//   if (booking.trip?.driverId !== driver.id)
+//     throw new ForbiddenException('This booking is not for your trip');
+
+//   // must be paid & confirmed
+//   if (booking.paymentStatus !== PaymentStatus.SUCCESS || booking.status !== BookingStatus.CONFIRMED)
+//     throw new BadRequestException('Booking is not active (unpaid or cancelled)');
+
+//   // idempotent — re-verifying never double-credits
+//   if (booking.ticketStatus === TicketStatus.SCANNED) {
+//     return { alreadyVerified: true, message: 'Already verified', booking, credited: 0 };
+//   }
+
+//   booking.ticketStatus = TicketStatus.SCANNED;
+//   booking.scannedAt = new Date();
+//   booking.scannedBy = driver.id;
+//   booking.isCheckedIn = true;
+//   booking.checkedInAt = new Date();
+//   await manager.save(Booking, booking);
+
+//   const credited = await this.releaseEscrowForBooking(booking, manager);
+
+//   await this.notifyBookingVerified(booking);
+
+//   return { success: true, message: 'Booking verified successfully', booking, credited };
+// }
+
+// // ─── Driver: Open/close bookings on a trip (PHP closeBookings) ─────────────
+// // Uses the existing `bookingStatus` varchar column already on the entity.
+
+// async setBookingStatus(
+//   driverUserId: string,
+//   tripId: string,
+//   open: boolean,
+//   entityManager?: EntityManager,
+// ): Promise<Trip> {
+//   const manager = entityManager || this.entityManager;
+
+//   const trip = await this.getTripOwnedByDriver(driverUserId, tripId);
+
+//   if (![TripStatus.PENDING, TripStatus.ACTIVE].includes(trip.status))
+//     throw new BadRequestException('Bookings can only be toggled on upcoming or active trips');
+
+//   trip.bookingStatus = open ? 'open' : 'closed';
+//   return manager.save(Trip, trip);
+// }
+
+// // ─── Driver: Start trip (PHP actionsToPerformWhenTripIsStarted) ────────────
+// // Marks the trip as STARTED and notifies every confirmed passenger.
+
+// async startTrip(
+//   driverUserId: string,
+//   tripId: string,
+//   entityManager?: EntityManager,
+// ): Promise<Trip> {
+//   const manager = entityManager || this.entityManager;
+
+//   const trip = await this.getTripOwnedByDriver(driverUserId, tripId);
+//   if (trip.status !== TripStatus.ACTIVE)
+//     throw new BadRequestException('Only active trips can be started');
+
+//   trip.status = TripStatus.STARTED;
+//   trip.metadata = { ...(trip.metadata ?? {}), startedAt: new Date().toISOString() };
+//   await manager.save(Trip, trip);
+
+//   // Notify all confirmed passengers (mirrors Laravel's TripStartedNotification)
+//   const bookings = await manager.find(Booking, {
+//     where: { tripId: trip.id, status: BookingStatus.CONFIRMED },
+//     relations: ['passenger'],
+//   });
+
+//   for (const booking of bookings) {
+//     if (!booking.passenger?.userId) continue;
+//     try {
+//       await this.notificationService.notify({
+//         userId: booking.passenger.userId,
+//         title: 'Trip Started',
+//         body: `Your trip from ${trip.departureLocation} has started.`,
+//         type: NotificationType.TRIP_STARTED,
+//         data: { tripId: trip.id, bookingCode: booking.bookingCode },
+//       });
+//     } catch (err) {
+//       this.logger.warn(`Failed to send trip-started notification for ${booking.bookingCode}: ${err?.message}`);
+//     }
+//   }
+
+//   return trip;
 // }
 
 // private async releaseEscrowForBooking(booking: Booking, manager: EntityManager): Promise<number> {
@@ -1783,9 +1974,9 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //     });
 //   }
 
-//   if (state) {
-//     qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
-//   }
+//   // if (state) {
+//   //   qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
+//   // }
 
 //   if (location) {
 //     qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
@@ -1867,8 +2058,12 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //     relations: ['driver', 'driver.user', 'vehicle'],
 //   });
 //   if (!trip) throw new NotFoundException('Trip not found');
-//   if (trip.status !== TripStatus.ACTIVE)
-//     throw new BadRequestException('This trip is not accepting bookings');
+//   // if (trip.status !== TripStatus.ACTIVE)
+//   //   throw new BadRequestException('This trip is not accepting bookings');
+
+//   // ── driver manually closed bookings (mirrors Laravel closeBookings) ──
+//   if (trip.bookingStatus === 'closed')
+//     throw new BadRequestException('Bookings for this trip have been closed by the driver');
 
 //   // ── time guards (mirrors Laravel) ──
 //   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
@@ -2030,6 +2225,7 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 
 //   }
 
+  
 
 // async cancelBooking(id: string, dto: CancelBookingDto, entityManager?: EntityManager) {
 //   const manager = entityManager || this.entityManager;
@@ -2154,14 +2350,32 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //   }
 
 
-//   async getTripBookings(id: string, tripId: string) {
+//   async getTripBookings(id: string, tripId: string, search?: string) {
 //     await this.getTripOwnedByDriver(id, tripId);
 
-//     return this.bookingRepo.find({
-//       where: { tripId },
-//       relations: ['passenger', 'passenger.user'],
-//       order: { createdAt: 'DESC' },
-//     });
+//     const qb = this.bookingRepo
+//       .createQueryBuilder('b')
+//       .leftJoinAndSelect('b.passenger', 'p')
+//       .leftJoinAndSelect('p.user', 'u')
+//       .where('b.tripId = :tripId', { tripId })
+//       .orderBy('b.createdAt', 'DESC');
+
+//     // ── PHP passengerInfo search: name / email / phone / booking code / status ──
+//     if (search?.trim()) {
+//       const term = `%${search.trim()}%`;
+//       qb.andWhere(
+//         new Brackets((w) => {
+//           w.where('u.firstName ILIKE :term', { term })
+//             .orWhere('u.lastName ILIKE :term', { term })
+//             .orWhere('u.email ILIKE :term', { term })
+//             .orWhere('u.phone ILIKE :term', { term })
+//             .orWhere('b.bookingCode ILIKE :term', { term })
+//             .orWhere('CAST(b.status AS TEXT) ILIKE :term', { term });
+//         }),
+//       );
+//     }
+
+//     return qb.getMany();
 //   }
 
 //   async checkInPassenger(userId: string, bookingId: string){
@@ -2257,6 +2471,210 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 
 
 
+// // ─── Driver: Trip summary charts (PHP tripSummary) ─────────────────────────
+// // daily → 24 hourly buckets for today, weekly → Mon–Sun, monthly → days of
+// // the month, yearly → Jan–Dec. One grouped query per call instead of the
+// // Laravel version's N queries.
+
+// async getTripChartSummary(
+//   driverUserId: string,
+//   filterBy: 'daily' | 'weekly' | 'monthly' | 'yearly' = 'daily',
+// ) {
+//   const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
+//   if (!driver) throw new NotFoundException('Driver profile not found');
+
+//   const now = new Date();
+//   let start: Date;
+//   let end: Date;
+//   let bucketExpr: string;
+
+//   switch (filterBy) {
+//     case 'weekly': {
+//       start = new Date(now);
+//       const day = (start.getDay() + 6) % 7; // Monday = 0
+//       start.setDate(start.getDate() - day);
+//       start.setHours(0, 0, 0, 0);
+//       end = new Date(start);
+//       end.setDate(end.getDate() + 7);
+//       bucketExpr = `TO_CHAR(t.createdAt, 'FMDay')`;
+//       break;
+//     }
+//     case 'monthly': {
+//       start = new Date(now.getFullYear(), now.getMonth(), 1);
+//       end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+//       bucketExpr = `TO_CHAR(t.createdAt, 'DD')`;
+//       break;
+//     }
+//     case 'yearly': {
+//       start = new Date(now.getFullYear(), 0, 1);
+//       end = new Date(now.getFullYear() + 1, 0, 1);
+//       bucketExpr = `TO_CHAR(t.createdAt, 'FMMonth')`;
+//       break;
+//     }
+//     case 'daily':
+//     default: {
+//       start = new Date(now);
+//       start.setHours(0, 0, 0, 0);
+//       end = new Date(start);
+//       end.setDate(end.getDate() + 1);
+//       bucketExpr = `TO_CHAR(t.createdAt, 'HH24')`;
+//       break;
+//     }
+//   }
+
+//   const rows: { bucket: string; total: string }[] = await this.tripRepository
+//     .createQueryBuilder('t')
+//     .select(bucketExpr, 'bucket')
+//     .addSelect('COUNT(*)', 'total')
+//     .where('t.driverId = :driverId', { driverId: driver.id })
+//     .andWhere('t.createdAt >= :start AND t.createdAt < :end', { start, end })
+//     .groupBy('bucket')
+//     .getRawMany();
+
+//   const counts = new Map(rows.map((r) => [r.bucket.trim(), Number(r.total)]));
+
+//   // Build full label sequence with zero-filled buckets (like the PHP loops)
+//   let labels: string[];
+//   let keys: string[];
+//   switch (filterBy) {
+//     case 'weekly':
+//       labels = keys = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+//       break;
+//     case 'monthly': {
+//       const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+//       keys = Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
+//       labels = keys;
+//       break;
+//     }
+//     case 'yearly':
+//       labels = keys = [
+//         'January', 'February', 'March', 'April', 'May', 'June',
+//         'July', 'August', 'September', 'October', 'November', 'December',
+//       ];
+//       break;
+//     case 'daily':
+//     default:
+//       keys = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+//       labels = keys.map((h) => `${h}:00`);
+//       break;
+//   }
+
+//   const data = keys.map((k) => counts.get(k) ?? 0);
+
+//   // ── trip_summary: trips created in the window, PHP-shaped ──
+//   const trips = await this.tripRepository
+//     .createQueryBuilder('t')
+//     .leftJoinAndSelect('t.vehicle', 'vehicle')
+//     .leftJoinAndSelect('t.passengers', 'bookings')
+//     .where('t.driverId = :driverId', { driverId: driver.id })
+//     .andWhere('t.createdAt >= :start AND t.createdAt < :end', { start, end })
+//     .orderBy('t.createdAt', 'DESC')
+//     .getMany();
+
+//   const tripSummary = trips.map((trip) => {
+//     const spec = this.parseTripSpecification(trip.tripSpecification);
+//     const bookings = (trip.passengers ?? []).filter(
+//       (b) => ![BookingStatus.CANCELLED].includes(b.status),
+//     );
+//     const dest = Array.isArray(trip.arrivalDestination)
+//       ? trip.arrivalDestination[0] ?? {}
+//       : trip.arrivalDestination ?? {};
+
+//     return {
+//       id: trip.id,
+//       status: trip.status,
+//       destination: {
+//         pick_station: trip.pickStation ?? trip.departureLocation,
+//         drop_off_station: trip.dropOffStation ?? '',
+//       },
+//       departure: { date: trip.departureDate, time: trip.departureTime },
+//       arrival: {
+//         date: trip.arrivalDate ?? '',
+//         time: trip.arrivalTime ?? '',
+//         destination: dest?.name ?? '',
+//         address: dest?.address ?? '',
+//         latitude: String(dest?.latitude ?? ''),
+//         long: String(dest?.longitude ?? ''),
+//         bus_stop: trip.busStop ?? [],
+//       },
+//       vehicle: trip.vehicle ?? null,
+//       luggage_size: spec.luggage_size ?? null,
+//       charge_for_extra_luggage: spec.charge_for_extra_luggage ?? null,
+//       passenger_booked: bookings.reduce((s, b) => s + Number(b.seats ?? 0), 0),
+//       extra_luggage: bookings.reduce(
+//         (s, b) => s + Number(b.metadata?.extraLuggageCharge ?? 0),
+//         0,
+//       ),
+//       cost: spec.price ?? trip.price,
+//     };
+//   });
+
+//   return {
+//     activity_summary: { labels, data },
+//     trip_summary: tripSummary,
+//   };
+// }
+
+// // ─── Driver: Cancellation activity analytics (PHP activity) ────────────────
+// // Splits cancellations into driver- vs passenger-initiated and returns a
+// // reasons breakdown normalized to percentages.
+
+// async getTripActivity(driverUserId: string) {
+//   const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
+//   if (!driver) throw new NotFoundException('Driver profile not found');
+
+//   // Trips this driver cancelled, grouped by reason.
+//   // COALESCE covers rows cancelled before the reason column was populated.
+//   const driverRows: { reason: string; total: string }[] = await this.tripRepository
+//     .createQueryBuilder('t')
+//     .select(
+//       `COALESCE(NULLIF(t.reasonForTripCancellation, ''), t.metadata->>'cancellationReason', 'unspecified')`,
+//       'reason',
+//     )
+//     .addSelect('COUNT(*)', 'total')
+//     .where('t.driverId = :driverId', { driverId: driver.id })
+//     .andWhere('t.status = :status', { status: TripStatus.CANCELLED })
+//     .groupBy('reason')
+//     .getRawMany();
+
+//   // Bookings passengers cancelled on this driver's trips, grouped by reason.
+//   // Driver-initiated trip cancellations stamp cancelledBy='driver' on the
+//   // booking metadata, so exclude those here.
+//   const passengerRows: { reason: string; total: string }[] = await this.bookingRepo
+//     .createQueryBuilder('b')
+//     .innerJoin(Trip, 't', 't.id = b.tripId')
+//     .select(`COALESCE(NULLIF(b.metadata->>'cancelReason', ''), 'unspecified')`, 'reason')
+//     .addSelect('COUNT(*)', 'total')
+//     .where('t.driverId = :driverId', { driverId: driver.id })
+//     .andWhere('b.status = :status', { status: BookingStatus.CANCELLED })
+//     .andWhere(`COALESCE(b.metadata->>'cancelledBy', 'passenger') != 'driver'`)
+//     .groupBy('reason')
+//     .getRawMany();
+
+//   const tripCancelledByDriver = driverRows.reduce((s, r) => s + Number(r.total), 0);
+//   const tripCancelledByPassenger = passengerRows.reduce((s, r) => s + Number(r.total), 0);
+
+//   // Merge both reason maps, then normalize to 100% (like the PHP loop)
+//   const reasons: Record<string, number> = {};
+//   for (const r of [...driverRows, ...passengerRows]) {
+//     reasons[r.reason] = (reasons[r.reason] ?? 0) + Number(r.total);
+//   }
+
+//   const totalCancellations = tripCancelledByDriver + tripCancelledByPassenger;
+//   if (totalCancellations > 0) {
+//     for (const reason of Object.keys(reasons)) {
+//       reasons[reason] = Math.round((reasons[reason] / totalCancellations) * 10000) / 100;
+//     }
+//   }
+
+//   return {
+//     total_cancellations: totalCancellations,
+//     trip_cancelled_by_driver: tripCancelledByDriver,
+//     trip_cancelled_by_passenger: tripCancelledByPassenger,
+//     reasons,
+//   };
+// }
+
 //     // ─── Internal: apply coupon ───────────────────────────────────────────────
   
 
@@ -2336,8 +2754,7 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //       }
 //     }
 
-//     // ─── Internal: refund escrow for cancelled booking ────────────────────────
-
+  
 
 //   // ─── Internal: refund escrow for cancelled booking ────────────────────────
 
@@ -2367,3 +2784,5 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 //   await manager.save(Escrow, escrow);
 // }
 // }
+
+

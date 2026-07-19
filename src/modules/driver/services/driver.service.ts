@@ -196,12 +196,18 @@ await this.notifiyService.notify({
       // Normalize "17:08" -> "17:08:00" so Postgres `time` always gets HH:mm:ss
       dto.departureTime =
         dto.departureTime.length === 5 ? `${dto.departureTime}:00` : dto.departureTime;
-
-      // Validate against the trip's departure DATE + the new time
-      this.validateDepartureDateTime(trip.departureDate, dto.departureTime);
     }
 
-    if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
+    // Validate departure date+time whenever either is being changed
+    if (dto.departureDate || dto.departureTime) {
+      this.validateDepartureDateTime(
+        dto.departureDate ?? trip.departureDate,
+        dto.departureTime ?? trip.departureTime,
+      );
+    }
+
+    const newPrice = dto.price ?? dto.pricePerSeat;
+    if (newPrice !== undefined && (newPrice < 100 || newPrice > 50000)) {
       throw new BadRequestException('Price per seat must be between 100 and 50000');
     }
 
@@ -209,12 +215,35 @@ await this.notifiyService.notify({
     // IMPORTANT: departureTime stays a STRING ("HH:mm:ss"). Never wrap it in
     // new Date() — new Date("17:08:00") is an Invalid Date, and TypeORM
     // formats it as "aN:aN:aN" when saving a `time` column.
+    if (dto.departureDate) trip.departureDate = dto.departureDate;
     if (dto.departureTime) trip.departureTime = dto.departureTime;
-    if (dto.origin) trip.departureLocation = dto.origin;
-    if (dto.destination) trip.dropOffStation = dto.destination;
+    if (dto.departureLocation ?? dto.origin) trip.departureLocation = dto.departureLocation ?? dto.origin;
+    if (dto.departureLatlong) trip.departureLatlong = dto.departureLatlong;
+    if (dto.arrivalDate) trip.arrivalDate = dto.arrivalDate;
+    if (dto.arrivalTime) {
+      trip.arrivalTime = dto.arrivalTime.length === 5 ? `${dto.arrivalTime}:00` : dto.arrivalTime;
+    }
+    if (dto.arrivalDestination) {
+      trip.arrivalDestination = dto.arrivalDestination;
+      trip.state = dto.arrivalDestination?.[0]?.state ?? trip.state;
+    }
+    if (dto.pickStation) trip.pickStation = dto.pickStation;
+    if (dto.dropOffStation ?? dto.destination) trip.dropOffStation = dto.dropOffStation ?? dto.destination;
+    if (dto.busStop) trip.busStop = dto.busStop;
+    if (dto.busstopLatlong) trip.busstopLatlong = dto.busstopLatlong;
+    if (dto.tripSpecification) trip.tripSpecification = dto.tripSpecification;
+    if (dto.waypoints) trip.waypoints = dto.waypoints;
+    if (dto.state) trip.state = dto.state;
     if (dto.description !== undefined) trip.description = dto.description;
-    if (dto.pricePerSeat !== undefined) trip.price = dto.pricePerSeat;
-    if (dto.features) trip.vehicleFeatures = this.parseAmenities(dto.features);
+    if (dto.vehicleFeatures) trip.vehicleFeatures = dto.vehicleFeatures;
+    else if (dto.features) trip.vehicleFeatures = this.parseAmenities(dto.features);
+    if (dto.bookingClosingDate) trip.bookingClosingDate = dto.bookingClosingDate;
+    if (dto.bookingClosingTime) {
+      trip.bookingClosingTime =
+        dto.bookingClosingTime.length === 5 ? `${dto.bookingClosingTime}:00` : dto.bookingClosingTime;
+    }
+    if (newPrice !== undefined) trip.price = newPrice;
+    if (dto.vehicleId) trip.vehicleId = dto.vehicleId;
     if (dto.metadata) trip.metadata = { ...trip.metadata, ...dto.metadata };
 
     if (dto.totalSeats !== undefined) {
@@ -757,10 +786,6 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
   }
 }
 
-
-
-
-
 // import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 // import { EntityManager, Repository } from 'typeorm';
 // import { Trip } from '@modules/core/entities/trip.entity';
@@ -773,13 +798,11 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 // import { Escrow } from '@modules/core/entities/escro.entity';
 // import { Vehicle } from '@modules/core/entities/vehicle.entity';
 // import { NotificationService } from '@modules/notification/services/notification.service';
-// import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 // import { DriverRepository } from '@adapters/repositories/driver.repository';
 // import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 // import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 // import { RedisCacheService } from '@modules/cache/redis-cache.service';
 // import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
-// import { GeocodingService } from '@modules/geocoding/geocoding.service';
  
 // const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '5'); // 5%
  
@@ -808,10 +831,8 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     @InjectRepository(VehicleType) private readonly vehicleTypeRepo: Repository<VehicleType>,
     
 //     private readonly notifiyService:NotificationService,
-//     private readonly cloudinaryService: CloudinaryService,
 //     private readonly driverRepository: DriverRepository,
 //     private readonly cache: RedisCacheService,
-//     private readonly geocodingService: GeocodingService, 
     
     
     
@@ -864,39 +885,6 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //       // Generate unique reference
 //     const reference = this.randomnessUtil.generateReference('TRP');
  
-//     // ── Geocode addresses via Google Maps ─────────────────────────────
-//     // Only fills in coordinates the client did NOT provide — never
-//     // overwrites GPS data sent from the app. Failures are non-fatal:
-//     // the trip is still created, just without coordinates.
- 
-//     // 1. Departure: geocode departureLocation if no latlong supplied
-//     // let departureLatlong = dto.departureLatlong;
-//     // if (!departureLatlong?.length && dto.departureLocation) {
-//     //   const point = await this.geocodingService.geocode(dto.departureLocation);
-//     //   if (point) departureLatlong = [point];
-//     // }
- 
-//     // 2. Bus stops: geocode each busStop entry if no latlongs supplied
-//     // let busstopLatlong = dto.busstopLatlong;
-//     // if (!busstopLatlong?.length && dto.busStop?.length) {
-//     //   const points = await this.geocodingService.geocodeMany(dto.busStop);
-//     //   busstopLatlong = points.filter((p) => p !== null);
-//     // }
- 
-//     // 3. Arrival: enrich each arrivalDestination entry with a latlng
-//     //    field if it doesn't already have one
-//     // let arrivalDestination = dto.arrivalDestination;
-//     // if (arrivalDestination?.length) {
-//     //   arrivalDestination = await Promise.all(
-//     //     arrivalDestination.map(async (dest) => {
-//     //       if (dest?.latlng || dest?.lat) return dest; // already has coords
-//     //       const point = await this.geocodingService.geocode(
-//     //         this.geocodingService.extractAddress(dest),
-//     //       );
-//     //       return point ? { ...dest, latlng: { lat: point.lat, lng: point.lng } } : dest;
-//     //     }),
-//     //   );
-//     // }
  
 //      // Create trip entity
 //      const trip = this.tripRepo.create({
@@ -917,7 +905,7 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //   waypoints: dto.waypoints,                   // ← entity has it
 //   state: dto.arrivalDestination?.[0]?.state,
 //   description: dto.description,               // ← entity has it
-//   features: dto.features,                   // ← entity has it (string[])
+//   vehicleFeatures: dto.vehicleFeatures,                   // ← entity has it (string[])
 //   metadata: dto.metadata,                     // ← entity has it
 //   bookingClosingDate: dto.bookingClosingDate,
 //   bookingClosingTime: dto.bookingClosingTime,
@@ -966,52 +954,74 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //   /**
 //    * Update trip details (only PENDING trips)
 //    */
+
+//   /**
+//    * Update trip details (only PENDING trips)
+//    */
 //   async updateTrip(userId: string, tripId: string, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
 //     this.logger.debug(`Updating trip ${tripId} for driver ${userId}`);
-//       const manager = em ?? this.tripRepo.manager;
-//           // Validate driver and ownership
+//     const manager = em ?? this.tripRepo.manager;
+
+//     // Validate driver and ownership
 //     const trip = await this.getTripOwnedByDriver(userId, tripId);
-//         // Only allow updates on PENDING trips
+
+//     // Only allow updates on PENDING trips
 //     if (trip.status !== TripStatus.PENDING) {
 //       throw new BadRequestException('Can only update trips in PENDING status');
 //     }
- 
-//         // Check for confirmed bookings
-//         const confirmedCount = await this.bookingRepo.count({
-//           where: { tripId, status: BookingStatus.CONFIRMED },
-//         });
- 
-//            if (confirmedCount > 0) {
+
+//     // Check for confirmed bookings
+//     const confirmedCount = await this.bookingRepo.count({
+//       where: { tripId, status: BookingStatus.CONFIRMED },
+//     });
+
+//     if (confirmedCount > 0) {
 //       throw new BadRequestException('Cannot edit a trip that already has confirmed bookings');
 //     }
- 
+
 //     // Validate update data
 //     if (dto.departureTime) {
-//       this.validateDepartureTime(dto.departureTime);
+//       // Normalize "17:08" -> "17:08:00" so Postgres `time` always gets HH:mm:ss
+//       dto.departureTime =
+//         dto.departureTime.length === 5 ? `${dto.departureTime}:00` : dto.departureTime;
+
+//       // Validate against the trip's departure DATE + the new time
+//       this.validateDepartureDateTime(trip.departureDate, dto.departureTime);
 //     }
- 
+
 //     if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
 //       throw new BadRequestException('Price per seat must be between 100 and 50000');
 //     }
- 
-//      if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
-//       throw new BadRequestException('Price per seat must be between 100 and 50000');
+
+//     // Apply updates — map DTO fields to actual entity columns.
+//     // IMPORTANT: departureTime stays a STRING ("HH:mm:ss"). Never wrap it in
+//     // new Date() — new Date("17:08:00") is an Invalid Date, and TypeORM
+//     // formats it as "aN:aN:aN" when saving a `time` column.
+//     if (dto.departureTime) trip.departureTime = dto.departureTime;
+//     if (dto.origin) trip.departureLocation = dto.origin;
+//     if (dto.destination) trip.dropOffStation = dto.destination;
+//     if (dto.description !== undefined) trip.description = dto.description;
+//     if (dto.pricePerSeat !== undefined) trip.price = dto.pricePerSeat;
+//     if (dto.features) trip.vehicleFeatures = this.parseAmenities(dto.features);
+//     if (dto.metadata) trip.metadata = { ...trip.metadata, ...dto.metadata };
+
+//     if (dto.totalSeats !== undefined) {
+//       const booked = trip.bookedSeats ?? 0;
+//       if (dto.totalSeats < booked) {
+//         throw new BadRequestException(
+//           `Total seats cannot be less than already booked seats (${booked})`,
+//         );
+//       }
+//       trip.totalSeats = dto.totalSeats;
+//       trip.availableSeats = dto.totalSeats - booked;
 //     }
- 
-//     // Apply updates
-//     const updates = {
-//       ...dto,
-//       departureTime: dto.departureTime ? new Date(dto.departureTime) : trip.departureTime,
-//       amenities: dto.features ? this.parseAmenities(dto.features) : trip.features,
-//     };
- 
-//     Object.assign(trip, updates);
+
 //     const updated = await manager.save(Trip, trip);
- 
+
 //     this.logger.log(`Trip ${tripId} updated by driver ${userId}`);
 //     return updated;
- 
 //   }
+
  
 //   async getVehicleType(): Promise<VehicleType[]>{
 //       return this.driverRepository.getVehicleType()
@@ -1031,10 +1041,16 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //       );
 //     }
  
-//     const departureDate = new Date(trip.departureTime);
-//     const now = new Date();
+//     // const departureDate = new Date(trip.departureTime);
+//     // const now = new Date();
  
-//     if (departureDate <= now) {
+//     // if (departureDate <= now) {
+//     //   throw new BadRequestException('Cannot activate a trip that has already departed or expired');
+//     // }
+
+//     const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
+
+//     if (isNaN(departure.getTime()) || departure <= new Date()) {
 //       throw new BadRequestException('Cannot activate a trip that has already departed or expired');
 //     }
  
@@ -1063,9 +1079,9 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     const manager = em ?? this.tripRepo.manager;
 //     const trip = await this.getTripOwnedByDriver(userId, tripId);
  
-//     if (![TripStatus.PENDING, TripStatus.ACTIVE].includes(trip.status)) {
+//     if (![TripStatus.PENDING, TripStatus.ACTIVE, TripStatus.STARTED].includes(trip.status)) {
 //       throw new BadRequestException(
-//         `Cannot cancel a trip with status: ${trip.status}. Only PENDING or ACTIVE trips can be cancelled.`,
+//         `Cannot cancel a trip with status: ${trip.status}. Only PENDING, ACTIVE or STARTED trips can be cancelled.`,
 //       );
 //     }
  
@@ -1075,6 +1091,8 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     }
  
 //     trip.status = TripStatus.CANCELLED;
+//     trip.cancelledByDriver = true;                          // ← powers activity analytics
+//     trip.reasonForTripCancellation = dto.reason.trim();     // ← powers activity analytics
 //     trip.metadata = {
 //       ...trip.metadata,
 //       cancellationReason: dto.reason.trim(),
@@ -1102,6 +1120,7 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //         booking.metadata = {
 //           ...booking.metadata,
 //           cancelReason: dto.reason.trim(),
+//           cancelledBy: 'driver',                            // ← excluded from passenger stats
 //           cancelledAt: new Date().toISOString(),
 //           refundReason: 'Trip cancelled by driver',
 //         };
@@ -1160,9 +1179,9 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     const manager = em ?? this.tripRepo.manager;
 //     const trip = await this.getTripOwnedByDriver(userId, tripId);
  
-//     if (trip.status !== TripStatus.ACTIVE) {
+//     if (![TripStatus.ACTIVE, TripStatus.STARTED].includes(trip.status)) {
 //       throw new BadRequestException(
-//         `Cannot complete a trip with status: ${trip.status}. Only ACTIVE trips can be completed.`,
+//         `Cannot complete a trip with status: ${trip.status}. Only ACTIVE or STARTED trips can be completed.`,
 //       );
 //     }
  
@@ -1304,7 +1323,27 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     if (!trip) throw new NotFoundException('Trip not found or does not belong to you');
 //     return trip;
 //   }
- 
+  
+//   private validateDepartureDateTime(departureDate: string, departureTime: string): void {
+//     // Combine "2026-07-20" + "17:08:00" into a parseable datetime
+//     const departure = new Date(`${departureDate}T${departureTime}`);
+
+//     if (isNaN(departure.getTime())) {
+//       throw new BadRequestException('Invalid departure date/time');
+//     }
+
+//     const now = new Date();
+
+//     if (departure <= now) {
+//       throw new BadRequestException('Departure time must be in the future');
+//     }
+
+//     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+//     if (departure < twoHoursFromNow) {
+//       throw new BadRequestException('Trip must be at least 2 hours in the future');
+//     }
+//   }
+
 //   // --------- //
 //     private validateDepartureTime(departureTime: string): void {
 //       const departureDate = new Date(departureTime);
@@ -1460,6 +1499,11 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     return { completedCount, totalEarnings, platformFeeTotal };
 //   }
 // }
+
+
+
+
+
 
 
 
