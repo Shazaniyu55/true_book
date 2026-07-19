@@ -132,15 +132,12 @@ export class UpdateDriverTripDto {
   @IsOptional()
   destination?: string;
 
-  // @IsString()
-  // @IsOptional()
-  // departureTime?: string;
-    @IsNotEmpty()
-    @IsString()
-    @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
-      message: 'departureTime must be in HH:mm or HH:mm:ss format',
-    })
-    departureTime: string;
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'departureTime must be in HH:mm or HH:mm:ss format',
+  })
+  departureTime?: string;
 
   @IsNumber()
   @Min(1)
@@ -165,6 +162,49 @@ export class UpdateDriverTripDto {
   @ValidateNested()
   metadata?: Record<string, any>;
 }
+
+// export class UpdateDriverTripDto {
+//   @IsString()
+//   @IsOptional()
+//   origin?: string;
+
+//   @IsString()
+//   @IsOptional()
+//   destination?: string;
+
+//   // @IsString()
+//   // @IsOptional()
+//   // departureTime?: string;
+//     @IsNotEmpty()
+//     @IsString()
+//     @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+//       message: 'departureTime must be in HH:mm or HH:mm:ss format',
+//     })
+//     departureTime: string;
+
+//   @IsNumber()
+//   @Min(1)
+//   @Max(50)
+//   @IsOptional()
+//   totalSeats?: number;
+
+//   @IsNumber()
+//   @Min(100)
+//   @IsOptional()
+//   pricePerSeat?: number;
+
+//   @IsString()
+//   @IsOptional()
+//   description?: string;
+
+//   @IsString()
+//   @IsOptional()
+//   features?: string;
+
+//   @IsOptional()
+//   @ValidateNested()
+//   metadata?: Record<string, any>;
+// }
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════

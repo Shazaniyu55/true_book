@@ -166,52 +166,119 @@ await this.notifiyService.notify({
   /**
    * Update trip details (only PENDING trips)
    */
+
+  /**
+   * Update trip details (only PENDING trips)
+   */
   async updateTrip(userId: string, tripId: string, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
     this.logger.debug(`Updating trip ${tripId} for driver ${userId}`);
-      const manager = em ?? this.tripRepo.manager;
-          // Validate driver and ownership
+    const manager = em ?? this.tripRepo.manager;
+
+    // Validate driver and ownership
     const trip = await this.getTripOwnedByDriver(userId, tripId);
-        // Only allow updates on PENDING trips
+
+    // Only allow updates on PENDING trips
     if (trip.status !== TripStatus.PENDING) {
       throw new BadRequestException('Can only update trips in PENDING status');
     }
- 
-        // Check for confirmed bookings
-        const confirmedCount = await this.bookingRepo.count({
-          where: { tripId, status: BookingStatus.CONFIRMED },
-        });
- 
-           if (confirmedCount > 0) {
+
+    // Check for confirmed bookings
+    const confirmedCount = await this.bookingRepo.count({
+      where: { tripId, status: BookingStatus.CONFIRMED },
+    });
+
+    if (confirmedCount > 0) {
       throw new BadRequestException('Cannot edit a trip that already has confirmed bookings');
     }
- 
+
     // Validate update data
     if (dto.departureTime) {
-      this.validateDepartureTime(dto.departureTime);
+      // Normalize "17:08" -> "17:08:00" so Postgres `time` always gets HH:mm:ss
+      dto.departureTime =
+        dto.departureTime.length === 5 ? `${dto.departureTime}:00` : dto.departureTime;
+
+      // Validate against the trip's departure DATE + the new time
+      this.validateDepartureDateTime(trip.departureDate, dto.departureTime);
     }
- 
+
     if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
       throw new BadRequestException('Price per seat must be between 100 and 50000');
     }
- 
-     if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
-      throw new BadRequestException('Price per seat must be between 100 and 50000');
+
+    // Apply updates — map DTO fields to actual entity columns.
+    // IMPORTANT: departureTime stays a STRING ("HH:mm:ss"). Never wrap it in
+    // new Date() — new Date("17:08:00") is an Invalid Date, and TypeORM
+    // formats it as "aN:aN:aN" when saving a `time` column.
+    if (dto.departureTime) trip.departureTime = dto.departureTime;
+    if (dto.origin) trip.departureLocation = dto.origin;
+    if (dto.destination) trip.dropOffStation = dto.destination;
+    if (dto.description !== undefined) trip.description = dto.description;
+    if (dto.pricePerSeat !== undefined) trip.price = dto.pricePerSeat;
+    if (dto.features) trip.vehicleFeatures = this.parseAmenities(dto.features);
+    if (dto.metadata) trip.metadata = { ...trip.metadata, ...dto.metadata };
+
+    if (dto.totalSeats !== undefined) {
+      const booked = trip.bookedSeats ?? 0;
+      if (dto.totalSeats < booked) {
+        throw new BadRequestException(
+          `Total seats cannot be less than already booked seats (${booked})`,
+        );
+      }
+      trip.totalSeats = dto.totalSeats;
+      trip.availableSeats = dto.totalSeats - booked;
     }
- 
-    // Apply updates
-    const updates = {
-      ...dto,
-      departureTime: dto.departureTime ? new Date(dto.departureTime) : trip.departureTime,
-      amenities: dto.features ? this.parseAmenities(dto.features) : trip.vehicleFeatures,
-    };
- 
-    Object.assign(trip, updates);
+
     const updated = await manager.save(Trip, trip);
- 
+
     this.logger.log(`Trip ${tripId} updated by driver ${userId}`);
     return updated;
- 
   }
+  // async updateTrip(userId: string, tripId: string, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
+  //   this.logger.debug(`Updating trip ${tripId} for driver ${userId}`);
+  //     const manager = em ?? this.tripRepo.manager;
+  //         // Validate driver and ownership
+  //   const trip = await this.getTripOwnedByDriver(userId, tripId);
+  //       // Only allow updates on PENDING trips
+  //   if (trip.status !== TripStatus.PENDING) {
+  //     throw new BadRequestException('Can only update trips in PENDING status');
+  //   }
+ 
+  //       // Check for confirmed bookings
+  //       const confirmedCount = await this.bookingRepo.count({
+  //         where: { tripId, status: BookingStatus.CONFIRMED },
+  //       });
+ 
+  //          if (confirmedCount > 0) {
+  //     throw new BadRequestException('Cannot edit a trip that already has confirmed bookings');
+  //   }
+ 
+  //   // Validate update data
+  //   if (dto.departureTime) {
+  //     this.validateDepartureTime(dto.departureTime);
+  //   }
+ 
+  //   if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
+  //     throw new BadRequestException('Price per seat must be between 100 and 50000');
+  //   }
+ 
+  //    if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
+  //     throw new BadRequestException('Price per seat must be between 100 and 50000');
+  //   }
+ 
+  //   // Apply updates
+  //   const updates = {
+  //     ...dto,
+  //     departureTime: dto.departureTime ? new Date(dto.departureTime) : trip.departureTime,
+  //     amenities: dto.features ? this.parseAmenities(dto.features) : trip.vehicleFeatures,
+  //   };
+ 
+  //   Object.assign(trip, updates);
+  //   const updated = await manager.save(Trip, trip);
+ 
+  //   this.logger.log(`Trip ${tripId} updated by driver ${userId}`);
+  //   return updated;
+ 
+  // }
  
   async getVehicleType(): Promise<VehicleType[]>{
       return this.driverRepository.getVehicleType()
@@ -231,10 +298,16 @@ await this.notifiyService.notify({
       );
     }
  
-    const departureDate = new Date(trip.departureTime);
-    const now = new Date();
+    // const departureDate = new Date(trip.departureTime);
+    // const now = new Date();
  
-    if (departureDate <= now) {
+    // if (departureDate <= now) {
+    //   throw new BadRequestException('Cannot activate a trip that has already departed or expired');
+    // }
+
+    const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
+
+    if (isNaN(departure.getTime()) || departure <= new Date()) {
       throw new BadRequestException('Cannot activate a trip that has already departed or expired');
     }
  
@@ -507,7 +580,27 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
     if (!trip) throw new NotFoundException('Trip not found or does not belong to you');
     return trip;
   }
- 
+  
+  private validateDepartureDateTime(departureDate: string, departureTime: string): void {
+    // Combine "2026-07-20" + "17:08:00" into a parseable datetime
+    const departure = new Date(`${departureDate}T${departureTime}`);
+
+    if (isNaN(departure.getTime())) {
+      throw new BadRequestException('Invalid departure date/time');
+    }
+
+    const now = new Date();
+
+    if (departure <= now) {
+      throw new BadRequestException('Departure time must be in the future');
+    }
+
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    if (departure < twoHoursFromNow) {
+      throw new BadRequestException('Trip must be at least 2 hours in the future');
+    }
+  }
+
   // --------- //
     private validateDepartureTime(departureTime: string): void {
       const departureDate = new Date(departureTime);
