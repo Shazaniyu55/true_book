@@ -11,7 +11,7 @@ const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
 
 export class CreateDriverTripDto {
   // ── departure (required) ──
-  @IsDateString()
+  @IsString()
   @IsNotEmpty()
   departureDate: string;
 
@@ -29,7 +29,7 @@ export class CreateDriverTripDto {
   departureLatlong?: any[];
 
   // ── arrival (optional) ──
-  @IsDateString()
+  @IsString()
   @IsOptional()
   arrivalDate?: string;
 
@@ -86,7 +86,7 @@ export class CreateDriverTripDto {
   metadata?: Record<string, any>;        // ← @ValidateNested needs a typed class; @IsObject is simpler for free-form jsonb
 
   // ── booking window (optional) ──
-  @IsDateString()
+  @IsString()
   @IsOptional()
   bookingClosingDate?: string;
 
@@ -132,7 +132,7 @@ export class UpdateDriverTripDto {
   @IsOptional()
   destination?: string;
 
-  @IsDateString()
+  @IsString()
   @IsOptional()
   departureTime?: string;
 

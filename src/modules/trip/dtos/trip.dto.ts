@@ -29,12 +29,24 @@ export class CreateTripDto {
   @IsNotEmpty() @IsString() destination: string;
 
 
+  @ApiProperty({ example: '07:00', description: 'Departure time in HH:mm or HH:mm:ss format' })
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'departureTime must be in HH:mm or HH:mm:ss format',
+  })
+  departureTime: string;
 
-  @ApiProperty({ example: '2025-08-15T07:00:00.000Z' })
-  @IsNotEmpty() @IsDateString() departureTime: string;
+  // @ApiProperty({ example: '2025-08-15T07:00:00.000Z' })
+  // @IsNotEmpty() @IsDateString() departureTime: string;
 
-  @ApiPropertyOptional({ example: '2025-08-15T15:00:00.000Z' })
-  @IsOptional() @IsDateString() arrivalTime?: string;
+  @IsString()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, { message: 'arrivalTime must be in HH:mm or HH:mm:ss format' })
+  @IsOptional()
+  arrivalTime?: string;
+
+  // @ApiPropertyOptional({ example: '2025-08-15T15:00:00.000Z' })
+  // @IsOptional() @IsDateString() arrivalTime?: string;
 
   @ApiProperty({ example: 14, description: 'Total seats available' })
   @IsPositive() @Min(1) @IsNumber() totalSeats: number;
@@ -53,6 +65,11 @@ export class CreateTripDto {
 
   @ApiPropertyOptional()
   @IsOptional() metadata?: Record<string, any>;
+
+  @IsString()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, { message: 'bookingClosingTime must be in HH:mm or HH:mm:ss format' })
+  @IsOptional()
+  bookingClosingTime?: string;
 }
 
 // ─── Update trip ───────────────────────────────────────────────────────────
