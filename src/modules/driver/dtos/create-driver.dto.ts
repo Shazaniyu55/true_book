@@ -132,9 +132,15 @@ export class UpdateDriverTripDto {
   @IsOptional()
   destination?: string;
 
-  @IsString()
-  @IsOptional()
-  departureTime?: string;
+  // @IsString()
+  // @IsOptional()
+  // departureTime?: string;
+    @IsNotEmpty()
+    @IsString()
+    @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+      message: 'departureTime must be in HH:mm or HH:mm:ss format',
+    })
+    departureTime: string;
 
   @IsNumber()
   @Min(1)
