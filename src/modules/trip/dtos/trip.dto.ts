@@ -28,16 +28,10 @@ export class CreateTripDto {
   @ApiProperty({ example: 'Abuja (Wuse)' })
   @IsNotEmpty() @IsString() destination: string;
 
-  @ApiProperty({ example: '07:00', description: 'Departure time in HH:mm or HH:mm:ss format' })
-  @IsNotEmpty()
-  @IsString()
-  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
-    message: 'departureTime must be in HH:mm or HH:mm:ss format',
-  })
-  departureTime: string;
 
-  // @ApiProperty({ example: '2025-08-15T07:00:00.000Z' })
-  // @IsNotEmpty() @IsDateString() departureTime: string;
+
+  @ApiProperty({ example: '2025-08-15T07:00:00.000Z' })
+  @IsNotEmpty() @IsDateString() departureTime: string;
 
   @ApiPropertyOptional({ example: '2025-08-15T15:00:00.000Z' })
   @IsOptional() @IsDateString() arrivalTime?: string;
@@ -66,7 +60,14 @@ export class CreateTripDto {
 export class UpdateTripDto {
   @ApiPropertyOptional() @IsOptional() @IsString() origin?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() destination?: string;
-  @ApiPropertyOptional() @IsOptional() @IsDateString() departureTime?: string;
+  @ApiProperty({ example: '07:00', description: 'Departure time in HH:mm or HH:mm:ss format' })
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'departureTime must be in HH:mm or HH:mm:ss format',
+  })
+  departureTime: string;
+  // @ApiPropertyOptional() @IsOptional() @IsDateString() departureTime?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() arrivalTime?: string;
   @ApiPropertyOptional() @IsOptional() @IsPositive() @IsNumber() totalSeats?: number;
   @ApiPropertyOptional() @IsOptional() @IsPositive() @IsNumber() pricePerSeat?: number;
