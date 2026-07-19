@@ -11,6 +11,7 @@ import {
   IsString,
   IsUrl,
   IsUUID,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -27,10 +28,16 @@ export class CreateTripDto {
   @ApiProperty({ example: 'Abuja (Wuse)' })
   @IsNotEmpty() @IsString() destination: string;
 
+  @ApiProperty({ example: '07:00', description: 'Departure time in HH:mm or HH:mm:ss format' })
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^\d{2}:\d{2}(:\d{2})?$/, {
+    message: 'departureTime must be in HH:mm or HH:mm:ss format',
+  })
+  departureTime: string;
 
-
-  @ApiProperty({ example: '2025-08-15T07:00:00.000Z' })
-  @IsNotEmpty() @IsDateString() departureTime: string;
+  // @ApiProperty({ example: '2025-08-15T07:00:00.000Z' })
+  // @IsNotEmpty() @IsDateString() departureTime: string;
 
   @ApiPropertyOptional({ example: '2025-08-15T15:00:00.000Z' })
   @IsOptional() @IsDateString() arrivalTime?: string;
