@@ -23,9 +23,10 @@ import { VerifyAdminOtpUsecase } from '../usecases/verifyadminotp.usecase';
 import { UpdatePasswordUsecase } from '../usecases/updatepassword.usecase';
 import { AuthUser } from '@shared/decorators/authUser.decorator';
 import { UpdatePasswordDto } from '../dtos/updatepassword.dto';
-import { DriverOnly } from '@shared/decorators/roles.decorator';
+import { DriverOnly, PassengerOnly } from '@shared/decorators/roles.decorator';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
+import { UpdatePassengerPasswordUsecase } from '../usecases/updatepassengerpass.usecase';
 
 
 @ApiTags('Auth')
@@ -45,7 +46,8 @@ export class AuthController {
     private readonly registerAdminUsecase: RegisterAdminUsecase,
     private readonly loginAdminUsecase: LoginAdminUsecase,
     private readonly verifyAdminOtpUsecase: VerifyAdminOtpUsecase,
-    private readonly updatePasswordUsecase:UpdatePasswordUsecase
+    private readonly updatePasswordUsecase:UpdatePasswordUsecase,
+    private readonly updatePassengerPasswordUsecase:UpdatePassengerPasswordUsecase
   ) {}
 
   @Public()
@@ -147,6 +149,20 @@ updatePassword(
 ) {
   return this.broker.runUsecases(
     [this.updatePasswordUsecase],
+    { userId: user.sub, dto },
+  );
+}
+
+
+@UseGuards(JwtAuthGuard, RolesGuard)
+@PassengerOnly()
+@Patch('passenger/update-password')
+updatePassengerPassword(
+  @AuthUser() user: any,
+  @Body() dto: UpdatePasswordDto,
+) {
+  return this.broker.runUsecases(
+    [this.updatePassengerPasswordUsecase],
     { userId: user.sub, dto },
   );
 }

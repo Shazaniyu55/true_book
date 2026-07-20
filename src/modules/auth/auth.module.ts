@@ -45,6 +45,7 @@ import { Trip } from '@modules/core/entities/trip.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { Payout } from '@modules/core/entities/payout.entity';
 import { UpdatePasswordUsecase } from './usecases/updatepassword.usecase';
+import { UpdatePassengerPasswordUsecase } from './usecases/updatepassengerpass.usecase';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { UpdatePasswordUsecase } from './usecases/updatepassword.usecase';
     RegisterAdminUsecase,
     LoginAdminUsecase,
     VerifyAdminOtpUsecase,
+    UpdatePassengerPasswordUsecase,
     VerifyOtpUsecase,
     VerifyPhoneOtpUsecase,
     ForgotPasswordUsecase,
