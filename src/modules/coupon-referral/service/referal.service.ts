@@ -203,8 +203,29 @@ export class ReferralService {
       take: limit,
       order: { createdAt: 'DESC' },
     });
+    const referrer = await this.userRepo.findOne({ where: { id: userId } });
+     const coupons = data.filter((r) => r.isQualified).length;
 
-    return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
+      return {
+    referral_code: referrer?.referralCode ?? '',
+    friends: total,
+    coupons,
+    referred_user: data.map((r) => ({
+      created_at: r.createdAt.toISOString(),
+      earned: 0, // no source field on Referral entity yet
+      referred: {
+        email: r.referredUser?.email ?? '',
+        first_name: r.referredUser?.firstName ?? '',
+        last_name: r.referredUser?.lastName ?? '',
+        profile_picture: r.referredUser?.profileImage ?? '',
+      },
+      status: r.isQualified ? 'qualified' : 'pending',
+      used: 0, // no source field on Referral entity yet
+    })),
+    meta: { page, limit, total, pages: Math.ceil(total / limit) },
+  };
+
+    //return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
 
   // ─── Config helpers ───────────────────────────────────────────────────────
