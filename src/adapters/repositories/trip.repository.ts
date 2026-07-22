@@ -827,12 +827,13 @@ async searchTrips(query: {
 //   });
 //   if (!passenger) throw new NotFoundException('Passenger profile not found');
 
-//   // ── duplicate live intent → resume it instead of failing ──
+  
 //   const existing = await this.bookingIntentRepo.findOne({
 //     where: { tripId: trip.id, passengerId: passenger.id, status: BookingIntentStatus.PENDING },
 //     relations: ['passenger', 'passenger.user'],
 //   });
 //   if (existing && (!existing.expiresAt || existing.expiresAt > new Date())) {
+//     //await this.bookingIntentRepo.delete();
 //     const payment = await this.paymentFactory.initiatePayment({
 //       amount: Number(existing.amountPaid),
 //       email: passenger.user.email,
@@ -940,7 +941,7 @@ async searchTrips(query: {
 //   };
 // }
 
-//case3
+//case 3
 async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
   const manager = entityManager || this.entityManager;
 
@@ -971,41 +972,20 @@ async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
   });
   if (!passenger) throw new NotFoundException('Passenger profile not found');
 
-  // ── existing pending intent for this trip+passenger ──
+  // ── existing pending intent → delete it and start fresh ──
   const existing = await this.bookingIntentRepo.findOne({
     where: { tripId: trip.id, passengerId: passenger.id, status: BookingIntentStatus.PENDING },
-    relations: ['passenger', 'passenger.user'],
   });
-
   if (existing) {
-    const stillLive = !existing.expiresAt || existing.expiresAt > new Date();
-
-    if (stillLive) {
-      // resume it — hand back a fresh payment link, NO duplicate error, NO new seat hold
-      const payment = await this.paymentFactory.initiatePayment({
-        amount: Number(existing.amountPaid),
-        email: passenger.user.email,
-        reference: existing.paymentReference,
-        callback_url: dto.callbackUrl,
-        metadata: {
-          bookingCode: existing.bookingCode,
-          intentId: existing.id,
-          tripId: trip.id,
-          passengerId: passenger.id,
-          driverId: trip.driverId,
-          seats: existing.seats,
-          type: 'trip_booking',
-        },
-      });
-      return { intent: existing, payment, resumed: true };
-    }
-
-    // expired → retire it and release the seat it was holding, then fall through
-    await manager.update(BookingIntent, existing.id, { status: BookingIntentStatus.EXPIRED });
+    // remove the stale pending payment tied to it (avoids orphan rows)
+    await manager.delete(Payment, { bookingIntentId: existing.id });
+    // release the seat the old intent was holding
     await manager.decrement(Trip, { id: trip.id }, 'bookedSeats', existing.seats);
+    // delete the old intent itself
+    await manager.delete(BookingIntent, { id: existing.id });
   }
 
-  // ── seats (checked AFTER releasing any expired hold above) ──
+  // ── seats (re-read AFTER releasing any old hold above) ──
   const freshTrip = await this.tripRepository.findOne({ where: { id: trip.id } });
   const available = freshTrip.totalSeats - (freshTrip.bookedSeats ?? 0);
   if (dto.seats > available)
@@ -1032,7 +1012,7 @@ async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
   const bookingCode = this.randomnessUtil.generateBookingCode(8);
   const paymentReference = this.randomnessUtil.generateReference('BKG');
 
-  // ── store a BookingIntent (NOT a booking) ──
+  // ── store a fresh BookingIntent (NOT a booking) ──
   const intent = await manager.save(
     BookingIntent,
     manager.create(BookingIntent, {
@@ -1052,7 +1032,7 @@ async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
     }),
   );
 
-  // hold the seat during the payment window (released on expiry sweep)
+  // hold the seat during the payment window
   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
 
   await manager.save(
@@ -1099,7 +1079,6 @@ async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
     },
   };
 }
-
 
 //   async confirmBookingPayment(  bookingId: string,
 //     paymentReference: string,
