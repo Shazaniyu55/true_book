@@ -33,7 +33,8 @@ import { BookingIntent } from '@modules/core/entities/booking_intent.entity';
   imports: [
     CloudinaryModule,
     CouponReferralModule,
-    TypeOrmModule.forFeature([Passenger, User, Booking, Payment, Trip, Driver, BookingIntent]),
+    TypeOrmModule.forFeature([Passenger, User, Booking, Payment, Trip, Driver, BookingIntent
+    ]),
   ],
   controllers: [PassengerController],
   providers: [

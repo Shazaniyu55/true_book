@@ -16,7 +16,7 @@ import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
  
-const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '5'); // 5%
+const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7'); // 5%
  
 /**
  * ═══════════════════════════════════════════════════════════════════════════

@@ -24,7 +24,7 @@ import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 import { BookingIntent, BookingIntentStatus } from '@modules/core/entities/booking_intent.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { Coupon } from '@modules/core/entities/coupon.entity';
-const PLATFORM_FEE_RATE = 10;
+const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7');
 
 @Injectable()
 export class PaymentService {

@@ -26,7 +26,7 @@ export class ContactSupportService {
     private async getSupportEmail(userId?: string): Promise<{ email: string; userType: UserRole }> {
     if (!userId) {
       return {
-        email: 'trubookersupport@trubooker.com',
+        email: 'support@trubooker.com',
         userType: UserRole.PASSENGER,
       };
     }
@@ -35,7 +35,7 @@ export class ContactSupportService {
     const driver = await this.driverRepo.findOne({ where: { userId } });
     if (driver) {
       return {
-        email: 'drivers@email.trubooker.com',
+        email: 'operatorsupport@trubooker.com',
         userType: UserRole.DRIVER,
       };
     }
@@ -44,7 +44,7 @@ export class ContactSupportService {
     const passenger = await this.passengerRepo.findOne({ where: { userId } });
     if (passenger) {
       return {
-        email: 'passengers@email.trubooker.com',
+        email: 'support@trubooker.com',
         userType: UserRole.PASSENGER,
       };
     }
@@ -53,14 +53,14 @@ export class ContactSupportService {
     const agent = await this.agentRepo.findOne({ where: { userId } });
     if (agent) {
       return {
-        email: 'agentsupport@trubooker.com',
+        email: 'support@trubooker.com',
         userType: UserRole.AGENT,
       };
     }
 
     // Default fallback
     return {
-      email: 'trubookersupport@trubooker.com',
+      email: 'support@trubooker.com',
       userType: UserRole.PASSENGER,
     };
   }
