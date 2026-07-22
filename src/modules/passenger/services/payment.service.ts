@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -33,83 +34,150 @@ export class PaymentService {
     @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
     @InjectRepository(Booking) private readonly bookingRepo: Repository<Booking>,
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
+    @InjectRepository(BookingIntent) private readonly bookingIntentRepo: Repository<BookingIntent>,
     private readonly dataSource: DataSource,
     private readonly paymentFactory: PaymentFactory,
     private readonly couponService: CouponService,
     private readonly notificationService: NotificationService,
     private readonly randomness: RandomnessUtil,
      private readonly cache: RedisCacheService,
+
   ) {}
 
   // ─── Initiate payment ─────────────────────────────────────────────────────
   async initiatePayment(userId: string, dto: InitiatePaymentDto) {
-    const passenger = await this.passengerRepo.findOne({
-      where: { userId },
-      relations: ['user'],
-    });
-    if (!passenger) throw new NotFoundException('Passenger profile not found');
+  const passenger = await this.passengerRepo.findOne({
+    where: { userId },
+    relations: ['user'],
+  });
+  if (!passenger) throw new NotFoundException('Passenger profile not found');
 
-    const booking = await this.bookingRepo.findOne({
-      where: { id: dto.bookTripId },
-      relations: ['trip', 'passenger', 'passenger.user'],
-    });
-    if (!booking) throw new NotFoundException('Booking not found');
-    if (booking.passengerId !== passenger.id)
-      throw new ForbiddenException('This booking does not belong to you');
+  // dto.bookTripId now carries the INTENT id, not a booking id
+  const intent = await this.bookingIntentRepo.findOne({
+    where: { id: dto.bookTripId },
+    relations: ['trip', 'passenger', 'passenger.user'],
+  });
+  if (!intent) throw new NotFoundException('Booking intent not found');
+  if (intent.passengerId !== passenger.id)
+    throw new ForbiddenException('This booking does not belong to you');
+  if (intent.status !== BookingIntentStatus.PENDING)
+    throw new BadRequestException('This booking can no longer be paid for');
+  if (intent.expiresAt && intent.expiresAt <= new Date())
+    throw new BadRequestException('This booking has expired — please book again');
 
-    const trip = booking.trip;
-    if (!trip) throw new NotFoundException('Trip not found for this booking');
+  const trip = intent.trip;
+  if (!trip) throw new NotFoundException('Trip not found for this booking');
 
-    const reference = this.randomness.generateReference('TRIP');
+  // fresh reference each time (gateways reject reused references once charged)
+  const reference = this.randomness.generateReference('TRIP');
+  const amount = Number(intent.amountPaid ?? intent.totalAmount ?? 0);
 
+  // keep the intent pointing at the reference the webhook will confirm
+  await this.bookingIntentRepo.update(intent.id, { paymentReference: reference });
 
-    let amount = Number(booking.amountPaid ?? booking.totalAmount ?? 0);
-    if (booking.couponCode && !Number(booking.discountAmount)) {
-      const { discountAmount } = await this.couponService.applyCoupon(
-        booking.couponCode,
-        Number(booking.totalAmount),
-      );
-      if (discountAmount > 0) {
-        amount = Math.max(Number(booking.totalAmount) - discountAmount, 0);
-        await this.bookingRepo.update(booking.id, { discountAmount, amountPaid: amount });
-      }
-    }
-
-    const payment = await this.paymentRepo.save(
-      this.paymentRepo.create({
-        bookingId: booking.id,
-        passengerId: passenger.id,
-        tripId: trip.id,
-        currency: 'NGN',
-        billingDetails: dto.billingDetails ?? {},
-        status: PaymentStatus.PENDING,
-        txRef: reference,
-        amount,
-        customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
-        customerEmail: passenger.user.email,
-      }),
-    );
-
-    const gateway = await this.paymentFactory.initiatePayment({
+  const payment = await this.paymentRepo.save(
+    this.paymentRepo.create({
+      bookingIntentId: intent.id,        // ← was bookingId
+      passengerId: passenger.id,
+      tripId: trip.id,
+      currency: 'NGN',
+      billingDetails: dto.billingDetails ?? {},
+      status: PaymentStatus.PENDING,
+      txRef: reference,
       amount,
-      email: passenger.user.email,
-      reference,
-      callback_url: dto.callbackUrl,
-      metadata: {
-        paymentId: payment.id,
-        bookingId: booking.id,
-        bookingCode: booking.bookingCode,
-        tripId: trip.id,
-        passengerId: passenger.id,
-        driverId: trip.driverId,
-        type: 'trip_booking',
-        billingDetails: dto.billingDetails ?? {},
-      },
-    });
+      customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+      customerEmail: passenger.user.email,
+    }),
+  );
 
-    this.logger.log(`Payment initiated ${reference} for booking ${booking.bookingCode}`);
-    return { payment, ...gateway };
-  }
+  const gateway = await this.paymentFactory.initiatePayment({
+    amount,
+    email: passenger.user.email,
+    reference,
+    callback_url: dto.callbackUrl,
+    metadata: {
+      paymentId: payment.id,
+      intentId: intent.id,               // ← was bookingId / bookingCode from booking
+      bookingCode: intent.bookingCode,
+      tripId: trip.id,
+      passengerId: passenger.id,
+      driverId: trip.driverId,
+      type: 'trip_booking',
+    },
+  });
+
+  this.logger.log(`Payment initiated ${reference} for intent ${intent.bookingCode}`);
+  return { payment, ...gateway };
+}
+
+  // async initiatePayment(userId: string, dto: InitiatePaymentDto) {
+  //   const passenger = await this.passengerRepo.findOne({
+  //     where: { userId },
+  //     relations: ['user'],
+  //   });
+  //   if (!passenger) throw new NotFoundException('Passenger profile not found');
+
+  //   const booking = await this.bookingRepo.findOne({
+  //     where: { id: dto.bookTripId },
+  //     relations: ['trip', 'passenger', 'passenger.user'],
+  //   });
+  //   if (!booking) throw new NotFoundException('Booking not found');
+  //   if (booking.passengerId !== passenger.id)
+  //     throw new ForbiddenException('This booking does not belong to you');
+
+  //   const trip = booking.trip;
+  //   if (!trip) throw new NotFoundException('Trip not found for this booking');
+
+  //   const reference = this.randomness.generateReference('TRIP');
+
+
+  //   let amount = Number(booking.amountPaid ?? booking.totalAmount ?? 0);
+  //   if (booking.couponCode && !Number(booking.discountAmount)) {
+  //     const { discountAmount } = await this.couponService.applyCoupon(
+  //       booking.couponCode,
+  //       Number(booking.totalAmount),
+  //     );
+  //     if (discountAmount > 0) {
+  //       amount = Math.max(Number(booking.totalAmount) - discountAmount, 0);
+  //       await this.bookingRepo.update(booking.id, { discountAmount, amountPaid: amount });
+  //     }
+  //   }
+
+  //   const payment = await this.paymentRepo.save(
+  //     this.paymentRepo.create({
+  //       bookingId: booking.id,
+  //       passengerId: passenger.id,
+  //       tripId: trip.id,
+  //       currency: 'NGN',
+  //       billingDetails: dto.billingDetails ?? {},
+  //       status: PaymentStatus.PENDING,
+  //       txRef: reference,
+  //       amount,
+  //       customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+  //       customerEmail: passenger.user.email,
+  //     }),
+  //   );
+
+  //   const gateway = await this.paymentFactory.initiatePayment({
+  //     amount,
+  //     email: passenger.user.email,
+  //     reference,
+  //     callback_url: dto.callbackUrl,
+  //     metadata: {
+  //       paymentId: payment.id,
+  //       bookingId: booking.id,
+  //       bookingCode: booking.bookingCode,
+  //       tripId: trip.id,
+  //       passengerId: passenger.id,
+  //       driverId: trip.driverId,
+  //       type: 'trip_booking',
+  //       billingDetails: dto.billingDetails ?? {},
+  //     },
+  //   });
+
+  //   this.logger.log(`Payment initiated ${reference} for booking ${booking.bookingCode}`);
+  //   return { payment, ...gateway };
+  // }
 
 // ─── Verify payment ───────────────────────────────────────────────────────
 

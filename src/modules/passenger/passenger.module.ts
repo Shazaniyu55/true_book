@@ -25,6 +25,7 @@ import { PaystackProvider } from '@adapters/payment/paystack/providers/paystack.
 import { FlutterwaveAdapter } from '@adapters/payment/flutterwave/flutterwave.adapter';
 import { FlutterwaveProvider } from '@adapters/payment/flutterwave/providers/flutterwave.provider';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
+import { BookingIntent } from '@modules/core/entities/booking_intent.entity';
 
 
 
@@ -32,7 +33,7 @@ import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
   imports: [
     CloudinaryModule,
     CouponReferralModule,
-    TypeOrmModule.forFeature([Passenger, User, Booking, Payment, Trip, Driver]),
+    TypeOrmModule.forFeature([Passenger, User, Booking, Payment, Trip, Driver, BookingIntent]),
   ],
   controllers: [PassengerController],
   providers: [
