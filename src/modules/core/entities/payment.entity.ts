@@ -21,6 +21,9 @@ export class Payment extends BaseEntity {
   @JoinColumn({ name: 'passengerId' })
   passenger: Passenger;
 
+ @Column({ type: 'uuid', nullable: true })
+bookingIntentId: string;
+
   @Column({ type: 'uuid', nullable: true })
   tripId: string;
 

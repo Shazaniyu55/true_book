@@ -17,6 +17,7 @@ import { Coupon } from '@modules/core/entities/coupon.entity';
 import { PagedDto } from '@shared/interface/paged.interface';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
 import { Payment } from '@modules/core/entities/payment.entity';
+import { BookingIntent, BookingIntentStatus } from '@modules/core/entities/booking_intent.entity';
 
 
 /** Platform fee rate (deducted from driver payout) */
@@ -38,6 +39,7 @@ export class TripRepository extends Repository<Trip> {
     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
+    @InjectRepository(BookingIntent) private readonly bookingIntentRepo: Repository<BookingIntent>,
 
     
     
@@ -663,7 +665,133 @@ async searchTrips(query: {
   };
 }
 
-  async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
+//   async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
+//   const manager = entityManager || this.entityManager;
+
+//   const trip = await this.tripRepository.findOne({
+//     where: { id: dto.tripId },
+//     relations: ['driver', 'driver.user', 'vehicle'],
+//   });
+//   if (!trip) throw new NotFoundException('Trip not found');
+//   // if (trip.status !== TripStatus.ACTIVE)
+//   //   throw new BadRequestException('This trip is not accepting bookings');
+
+//   // ── driver manually closed bookings (mirrors Laravel closeBookings) ──
+//   if (trip.bookingStatus === 'closed')
+//     throw new BadRequestException('Bookings for this trip have been closed by the driver');
+
+//   // ── time guards (mirrors Laravel) ──
+//   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
+//   if (!isNaN(departure.getTime()) && departure.getTime() <= Date.now())
+//     throw new BadRequestException("You can't book this trip — departure time has elapsed");
+
+//   if (trip.bookingClosingDate && trip.bookingClosingTime) {
+//     const closing = new Date(`${trip.bookingClosingDate}T${trip.bookingClosingTime}`);
+//     if (!isNaN(closing.getTime()) && closing.getTime() <= Date.now())
+//       throw new BadRequestException("You can't book this trip — booking time is over");
+//   }
+
+//   // ── seats (now respects bookedSeats) ──
+//   const available = trip.totalSeats - (trip.bookedSeats ?? 0);
+//   if (dto.seats > available)
+//     throw new BadRequestException(`Only ${available} seat(s) available`);
+
+//   const passenger = await this.passengerRepo.findOne({
+//     where: { userId },
+//     relations: ['user'],
+//   });
+//   if (!passenger) throw new NotFoundException('Passenger profile not found');
+
+//   // ── duplicate pending booking (keys fixed) ──
+//   const existing = await this.bookingRepo.findOne({
+//     where: { tripId: trip.id, passengerId: passenger.id, status: BookingStatus.PENDING },
+//   });
+//   if (existing) throw new BadRequestException('You already have a pending booking for this trip');
+
+//   // ── pricing: base × seats + extra luggage ──
+//   const spec = this.parseTripSpecification(trip.tripSpecification);
+//   const basePrice = Number(spec.price ?? trip.price ?? 0);
+//   let totalAmount = basePrice * dto.seats;
+
+//   const luggageSize = Number(spec.luggage_size ?? 0);
+//   const luggageCharge = Number(spec.charge_for_extra_luggage ?? 0);
+//   const totalWeight = (dto.extraLuggage ?? []).reduce((s, l) => s + Number(l.weight ?? 0), 0);
+//   let extraLuggageCharge = 0;
+//   if (luggageSize > 0 && totalWeight > 0) {
+//     extraLuggageCharge = Math.ceil(totalWeight / luggageSize) * luggageCharge;
+//     totalAmount += extraLuggageCharge;
+//   }
+
+//   // ── coupon (rejects invalid, like Laravel) ──
+//   const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, totalAmount);
+
+//   const amountPaid = Math.max(0, totalAmount - discountAmount);
+//   const bookingCode = this.randomnessUtil.generateBookingCode(8);
+//   const paymentReference = this.randomnessUtil.generateReference('BKG');
+
+//   const booking = manager.create(Booking, {
+//     bookingCode,
+//     tripId: trip.id,
+//     passengerId: passenger.id,
+//     seats: dto.seats,
+//     totalAmount,            // NGN — do NOT multiply by 100
+//     discountAmount,
+//     amountPaid,
+//     status: BookingStatus.PENDING,
+//     paymentStatus: PaymentStatus.PENDING,
+//     paymentReference,
+//     couponCode: dto.couponCode,
+//     metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
+//   });
+//   const savedBooking = await manager.save(Booking, booking);
+
+//   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
+//   if (couponId) await manager.increment(Coupon, { id: couponId }, 'usageCount', 1);
+
+//   const paymentRecord = manager.create(Payment, {
+//   bookingId: savedBooking.id,
+//   passengerId: passenger.id,
+//   tripId: trip.id,
+//   txRef: paymentReference,        // ← same reference used for Paystack
+//   status: PaymentStatus.PENDING,
+//   amount: amountPaid,
+//   customerEmail: passenger.user.email,
+//   customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+// });
+// await manager.save(Payment, paymentRecord);
+
+//   const payment = await this.paymentFactory.initiatePayment({
+//     amount: amountPaid,
+//     email: passenger.user.email,
+//     reference: paymentReference,
+//     callback_url: dto.callbackUrl,
+//     metadata: {
+//       bookingCode,
+//       bookingId: savedBooking.id,
+//       tripId: trip.id,
+//       passengerId: passenger.id,
+//       driverId: trip.driverId,
+//       seats: dto.seats,
+//       type: 'trip_booking',
+//     },
+//   });
+
+//   return {
+//     booking: savedBooking,
+//     payment,
+//     summary: {
+//       departureTime: trip.departureTime,
+//       seats: dto.seats,
+//       pricePerSeat: basePrice,
+//       extraLuggageCharge,
+//       totalAmount,
+//       discountAmount,
+//       amountPaid,
+//     },
+//   };
+// }
+
+async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
   const manager = entityManager || this.entityManager;
 
   const trip = await this.tripRepository.findOne({
@@ -671,14 +799,12 @@ async searchTrips(query: {
     relations: ['driver', 'driver.user', 'vehicle'],
   });
   if (!trip) throw new NotFoundException('Trip not found');
-  // if (trip.status !== TripStatus.ACTIVE)
-  //   throw new BadRequestException('This trip is not accepting bookings');
 
-  // ── driver manually closed bookings (mirrors Laravel closeBookings) ──
+  // ── driver manually closed bookings ──
   if (trip.bookingStatus === 'closed')
     throw new BadRequestException('Bookings for this trip have been closed by the driver');
 
-  // ── time guards (mirrors Laravel) ──
+  // ── time guards ──
   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
   if (!isNaN(departure.getTime()) && departure.getTime() <= Date.now())
     throw new BadRequestException("You can't book this trip — departure time has elapsed");
@@ -689,7 +815,7 @@ async searchTrips(query: {
       throw new BadRequestException("You can't book this trip — booking time is over");
   }
 
-  // ── seats (now respects bookedSeats) ──
+  // ── seats ──
   const available = trip.totalSeats - (trip.bookedSeats ?? 0);
   if (dto.seats > available)
     throw new BadRequestException(`Only ${available} seat(s) available`);
@@ -700,11 +826,29 @@ async searchTrips(query: {
   });
   if (!passenger) throw new NotFoundException('Passenger profile not found');
 
-  // ── duplicate pending booking (keys fixed) ──
-  const existing = await this.bookingRepo.findOne({
-    where: { tripId: trip.id, passengerId: passenger.id, status: BookingStatus.PENDING },
+  // ── duplicate live intent → resume it instead of failing ──
+  const existing = await this.bookingIntentRepo.findOne({
+    where: { tripId: trip.id, passengerId: passenger.id, status: BookingIntentStatus.PENDING },
+    relations: ['passenger', 'passenger.user'],
   });
-  if (existing) throw new BadRequestException('You already have a pending booking for this trip');
+  if (existing && (!existing.expiresAt || existing.expiresAt > new Date())) {
+    const payment = await this.paymentFactory.initiatePayment({
+      amount: Number(existing.amountPaid),
+      email: passenger.user.email,
+      reference: existing.paymentReference,
+      callback_url: dto.callbackUrl,
+      metadata: {
+        bookingCode: existing.bookingCode,
+        intentId: existing.id,
+        tripId: trip.id,
+        passengerId: passenger.id,
+        driverId: trip.driverId,
+        seats: existing.seats,
+        type: 'trip_booking',
+      },
+    });
+    return { intent: existing, payment, resumed: true };
+  }
 
   // ── pricing: base × seats + extra luggage ──
   const spec = this.parseTripSpecification(trip.tripSpecification);
@@ -720,43 +864,49 @@ async searchTrips(query: {
     totalAmount += extraLuggageCharge;
   }
 
-  // ── coupon (rejects invalid, like Laravel) ──
+  // ── coupon ──
   const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, totalAmount);
 
   const amountPaid = Math.max(0, totalAmount - discountAmount);
   const bookingCode = this.randomnessUtil.generateBookingCode(8);
   const paymentReference = this.randomnessUtil.generateReference('BKG');
 
-  const booking = manager.create(Booking, {
-    bookingCode,
-    tripId: trip.id,
-    passengerId: passenger.id,
-    seats: dto.seats,
-    totalAmount,            // NGN — do NOT multiply by 100
-    discountAmount,
-    amountPaid,
-    status: BookingStatus.PENDING,
-    paymentStatus: PaymentStatus.PENDING,
-    paymentReference,
-    couponCode: dto.couponCode,
-    metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
-  });
-  const savedBooking = await manager.save(Booking, booking);
+  // ── store a BookingIntent (NOT a booking) ──
+  const intent = await manager.save(
+    BookingIntent,
+    manager.create(BookingIntent, {
+      bookingCode,
+      tripId: trip.id,
+      passengerId: passenger.id,
+      seats: dto.seats,
+      totalAmount,
+      discountAmount,
+      amountPaid,
+      couponCode: dto.couponCode,
+      couponId,
+      paymentReference,
+      status: BookingIntentStatus.PENDING,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30-min window
+      metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
+    }),
+  );
 
+  // hold the seat during the payment window (released on expiry sweep)
   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
-  if (couponId) await manager.increment(Coupon, { id: couponId }, 'usageCount', 1);
 
-  const paymentRecord = manager.create(Payment, {
-  bookingId: savedBooking.id,
-  passengerId: passenger.id,
-  tripId: trip.id,
-  txRef: paymentReference,        // ← same reference used for Paystack
-  status: PaymentStatus.PENDING,
-  amount: amountPaid,
-  customerEmail: passenger.user.email,
-  customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
-});
-await manager.save(Payment, paymentRecord);
+  await manager.save(
+    Payment,
+    manager.create(Payment, {
+      bookingIntentId: intent.id, // no bookingId yet — set on payment success
+      passengerId: passenger.id,
+      tripId: trip.id,
+      txRef: paymentReference,
+      status: PaymentStatus.PENDING,
+      amount: amountPaid,
+      customerEmail: passenger.user.email,
+      customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+    }),
+  );
 
   const payment = await this.paymentFactory.initiatePayment({
     amount: amountPaid,
@@ -765,7 +915,7 @@ await manager.save(Payment, paymentRecord);
     callback_url: dto.callbackUrl,
     metadata: {
       bookingCode,
-      bookingId: savedBooking.id,
+      intentId: intent.id, // ← was bookingId: savedBooking.id
       tripId: trip.id,
       passengerId: passenger.id,
       driverId: trip.driverId,
@@ -775,7 +925,7 @@ await manager.save(Payment, paymentRecord);
   });
 
   return {
-    booking: savedBooking,
+    intent, // ← was booking: savedBooking
     payment,
     summary: {
       departureTime: trip.departureTime,
@@ -790,53 +940,53 @@ await manager.save(Payment, paymentRecord);
 }
 
 
-  async confirmBookingPayment(  bookingId: string,
-    paymentReference: string,
-    entityManager: EntityManager,){
+//   async confirmBookingPayment(  bookingId: string,
+//     paymentReference: string,
+//     entityManager: EntityManager,){
 
-    const manager = entityManager || this.entityManager;
+//     const manager = entityManager || this.entityManager;
 
-        const booking = await this.bookingRepo.findOne({
-      where: { id: bookingId },
-      relations: ['trip', 'passenger', 'passenger.user'],
-    });
+//         const booking = await this.bookingRepo.findOne({
+//       where: { id: bookingId },
+//       relations: ['trip', 'passenger', 'passenger.user'],
+//     });
 
-        if (!booking) throw new NotFoundException('Booking not found');
-    if (booking.status === BookingStatus.CONFIRMED) return booking; // idempotent
+//         if (!booking) throw new NotFoundException('Booking not found');
+//     if (booking.status === BookingStatus.CONFIRMED) return booking; // idempotent
 
-    booking.status = BookingStatus.CONFIRMED;
-    booking.paymentStatus = PaymentStatus.SUCCESS;
-    booking.paymentReference = paymentReference;
+//     booking.status = BookingStatus.CONFIRMED;
+//     booking.paymentStatus = PaymentStatus.SUCCESS;
+//     booking.paymentReference = paymentReference;
 
-    // ── issue boarding ticket ──
-    booking.ticketToken = this.randomnessUtil.generateSecureToken(40);
-    booking.ticketStatus = TicketStatus.ISSUED;
-    booking.ticketIssuedAt = new Date();
+//     // ── issue boarding ticket ──
+//     booking.ticketToken = this.randomnessUtil.generateSecureToken(40);
+//     booking.ticketStatus = TicketStatus.ISSUED;
+//     booking.ticketIssuedAt = new Date();
 
-    await manager.save(Booking, booking);
+//     await manager.save(Booking, booking);
 
-        // Create escrow record
-    const platformFee = (booking.amountPaid * PLATFORM_FEE_RATE) / 100;
-    const netDriverAmount = booking.amountPaid - platformFee;
-    const escrowRef = this.randomnessUtil.generateReference('ESC');
+//         // Create escrow record
+//     const platformFee = (booking.amountPaid * PLATFORM_FEE_RATE) / 100;
+//     const netDriverAmount = booking.amountPaid - platformFee;
+//     const escrowRef = this.randomnessUtil.generateReference('ESC');
 
-   const escrow = manager.create(Escrow, {
-  reference: escrowRef,
-  bookingId: booking.id,
-  amount: booking.amountPaid,
-  platformFee,
-  netDriverAmount,
-  status: EscrowStatus.HELD,
-  driverId: booking.trip.driverId,
-  passengerId: booking.passengerId,
-  paymentReference,
-} as DeepPartial<Escrow>);
+//    const escrow = manager.create(Escrow, {
+//   reference: escrowRef,
+//   bookingId: booking.id,
+//   amount: booking.amountPaid,
+//   platformFee,
+//   netDriverAmount,
+//   status: EscrowStatus.HELD,
+//   driverId: booking.trip.driverId,
+//   passengerId: booking.passengerId,
+//   paymentReference,
+// } as DeepPartial<Escrow>);
 
-await manager.save(escrow);
+// await manager.save(escrow);
 
-return booking;
+// return booking;
 
-  }
+//   }
 
   
 

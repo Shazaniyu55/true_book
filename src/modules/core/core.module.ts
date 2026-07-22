@@ -31,6 +31,7 @@ import { AppVersionHistory } from './entities/appversion.entity';
 import { AgentReferral } from './entities/agent-referral.entity';
 import { SystemSetting } from './entities/system-setting.entity';
 import { SystemRecord } from './entities/system-record.entity';
+import { BookingIntent } from './entities/booking_intent.entity';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SystemRecord } from './entities/system-record.entity';
       KillSwitch,
       Payment,
       Permission,
+      BookingIntent,
       Referral,
       ReferralConfig,
       Role,

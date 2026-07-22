@@ -16,11 +16,14 @@ import { CouponService } from '@modules/coupon-referral/service/cupon.service';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 
-import { BookingStatus, NotificationType, PaymentStatus, TicketStatus } from 'src/types/enums';
+import { BookingStatus, EscrowStatus, NotificationType, PaymentStatus, TicketStatus } from 'src/types/enums';
 import { InitiatePaymentDto } from '../dtos/passanger.dto';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
-
+import { BookingIntent, BookingIntentStatus } from '@modules/core/entities/booking_intent.entity';
+import { Escrow } from '@modules/core/entities/escro.entity';
+import { Coupon } from '@modules/core/entities/coupon.entity';
+const PLATFORM_FEE_RATE = 10;
 
 @Injectable()
 export class PaymentService {
@@ -110,6 +113,88 @@ export class PaymentService {
 
 // ─── Verify payment ───────────────────────────────────────────────────────
 
+// async verifyPayment(
+//   reference: string,
+//   channel: string,
+//   paidAt?: string,
+//   card: any[] = [],
+//   em?: EntityManager,
+// ): Promise<boolean> {
+//   const run = async (manager: EntityManager): Promise<boolean> => {
+//     const payment = await manager.findOne(Payment, {
+//       where: { txRef: reference, status: PaymentStatus.PENDING },
+//     });
+
+//     if (!payment) {
+//       this.logger.warn(`Payment not found or not pending for ref ${reference}`);
+//       return false;
+//     }
+
+//     const booking = await manager.findOne(Booking, {
+//       where: { id: payment.bookingId },
+//       relations: ['trip', 'trip.driver', 'passenger', 'passenger.user'],
+//     });
+
+//     if (!booking) {
+//       this.logger.error(`Booking ${payment.bookingId} not found for payment ${payment.id}`);
+//       return false;
+//     }
+
+//     // ── GUARD: never trust the webhook payload alone. Re-verify with Paystack
+//     //    directly, then assert the charge succeeded and the amount is sufficient.
+//     let verified;
+//     try {
+//       verified = await this.paymentFactory.verifyPayment(reference);
+//     } catch (err) {
+//       this.logger.error(`Gateway verify failed for ref ${reference}: ${err?.message}`);
+//       return false; // transient gateway error → let the webhook retry
+//     }
+
+//     if (!verified.status) {
+//       this.logger.warn(`Gateway reports ref ${reference} not successful — skipped`);
+//       return false;
+//     }
+
+//     // verified.amount is in NGN (Paystack provider already divides by 100);
+//     // our Payment.amount is also stored in NGN.
+//     if (Number(verified.amount) < Number(payment.amount)) {
+//       this.logger.error(
+//         `Amount mismatch ref ${reference}: paid ${verified.amount} < expected ${payment.amount}`,
+//       );
+//       return false;
+//     }
+
+//     // ── Past the guard: safe to confirm ──
+//     await manager.update(Payment, payment.id, {
+//       status: PaymentStatus.SUCCESS,
+//       raveReference: reference,
+//       paymentType: channel,
+//       card,
+//     });
+
+//     await manager.update(Booking, booking.id, {
+//       status: BookingStatus.CONFIRMED,
+//       paymentStatus: PaymentStatus.SUCCESS,
+//       paymentReference: reference,
+//        ticketStatus: TicketStatus.ISSUED,                         
+//      ticketToken: this.randomness.generateReference('TKT'),
+//     });
+
+//     // Notifications are best-effort and must never roll back the payment.
+//     await this.sendPaymentNotifications(booking);
+
+//     this.logger.log(`Payment ${reference} verified — booking ${booking.bookingCode} confirmed`);
+//     return true;
+//   };
+
+//   try {
+//     return em ? await run(em) : await this.dataSource.transaction(run);
+//   } catch (err) {
+//     this.logger.error(`Payment verification failed for ${reference}: ${err?.message}`);
+//     return false;
+//   }
+// }
+
 async verifyPayment(
   reference: string,
   channel: string,
@@ -121,30 +206,47 @@ async verifyPayment(
     const payment = await manager.findOne(Payment, {
       where: { txRef: reference, status: PaymentStatus.PENDING },
     });
-
     if (!payment) {
       this.logger.warn(`Payment not found or not pending for ref ${reference}`);
       return false;
     }
 
-    const booking = await manager.findOne(Booking, {
-      where: { id: payment.bookingId },
+    // idempotency: a previous webhook may already have created the booking
+    const already = await manager.findOne(Booking, {
+      where: { paymentReference: reference },
       relations: ['trip', 'trip.driver', 'passenger', 'passenger.user'],
     });
+    if (already) {
+      await manager.update(Payment, payment.id, {
+        status: PaymentStatus.SUCCESS,
+        bookingId: already.id,
+      });
+      return true;
+    }
 
-    if (!booking) {
-      this.logger.error(`Booking ${payment.bookingId} not found for payment ${payment.id}`);
+    // the staged booking lives on the intent, not on bookings yet
+    const intent = await manager.findOne(BookingIntent, {
+      where: { id: payment.bookingIntentId },
+      relations: ['trip', 'trip.driver', 'passenger', 'passenger.user'],
+    });
+    if (!intent) {
+      this.logger.error(
+        `No booking intent ${payment.bookingIntentId} for payment ${payment.id}`,
+      );
+      return false;
+    }
+    if (intent.status !== BookingIntentStatus.PENDING) {
+      this.logger.warn(`Intent ${intent.id} already ${intent.status} — skipping`);
       return false;
     }
 
-    // ── GUARD: never trust the webhook payload alone. Re-verify with Paystack
-    //    directly, then assert the charge succeeded and the amount is sufficient.
+    // ── GUARD: never trust the webhook alone. Re-verify with the gateway. ──
     let verified;
     try {
       verified = await this.paymentFactory.verifyPayment(reference);
     } catch (err) {
       this.logger.error(`Gateway verify failed for ref ${reference}: ${err?.message}`);
-      return false; // transient gateway error → let the webhook retry
+      return false; // transient → let the webhook retry
     }
 
     if (!verified.status) {
@@ -152,8 +254,6 @@ async verifyPayment(
       return false;
     }
 
-    // verified.amount is in NGN (Paystack provider already divides by 100);
-    // our Payment.amount is also stored in NGN.
     if (Number(verified.amount) < Number(payment.amount)) {
       this.logger.error(
         `Amount mismatch ref ${reference}: paid ${verified.amount} < expected ${payment.amount}`,
@@ -161,26 +261,72 @@ async verifyPayment(
       return false;
     }
 
-    // ── Past the guard: safe to confirm ──
+    // ── Past the guard: create the ONLY booking row for this intent ──
+    const booking = await manager.save(
+      Booking,
+      manager.create(Booking, {
+        bookingCode: intent.bookingCode,
+        tripId: intent.tripId,
+        passengerId: intent.passengerId,
+        seats: intent.seats,
+        totalAmount: intent.totalAmount,
+        discountAmount: intent.discountAmount,
+        amountPaid: intent.amountPaid,
+        couponCode: intent.couponCode,
+        status: BookingStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.SUCCESS,
+        paymentReference: reference,
+        ticketStatus: TicketStatus.ISSUED,
+        ticketToken: this.randomness.generateReference('TKT'),
+        ticketIssuedAt: new Date(),
+        metadata: intent.metadata,
+      }),
+    );
+
+    // consume the intent so it can never be materialized twice
+    await manager.update(BookingIntent, intent.id, {
+      status: BookingIntentStatus.CONSUMED,
+    });
+
+    // link the payment to the real booking
     await manager.update(Payment, payment.id, {
       status: PaymentStatus.SUCCESS,
+      bookingId: booking.id,
       raveReference: reference,
       paymentType: channel,
       card,
     });
 
-    await manager.update(Booking, booking.id, {
-      status: BookingStatus.CONFIRMED,
-      paymentStatus: PaymentStatus.SUCCESS,
-      paymentReference: reference,
-       ticketStatus: TicketStatus.ISSUED,                         
-     ticketToken: this.randomness.generateReference('TKT'),
-    });
+    // coupon usage counts only now that money actually arrived
+    if (intent.couponId) {
+      await manager.increment(Coupon, { id: intent.couponId }, 'usageCount', 1);
+    }
 
-    // Notifications are best-effort and must never roll back the payment.
+    // ── escrow: hold funds for the driver ──
+    const platformFee = (Number(booking.amountPaid) * PLATFORM_FEE_RATE) / 100;
+    await manager.save(
+      Escrow,
+      manager.create(Escrow, {
+        reference: this.randomness.generateReference('ESC'),
+        bookingId: booking.id,
+        amount: booking.amountPaid,
+        platformFee,
+        netDriverAmount: Number(booking.amountPaid) - platformFee,
+        status: EscrowStatus.HELD,
+        driverId: intent.trip?.driverId,
+        passengerId: booking.passengerId,
+        paymentReference: reference,
+      }),
+    );
+
+    // notifications need the relations populated — attach from the intent
+    booking.trip = intent.trip;
+    booking.passenger = intent.passenger;
     await this.sendPaymentNotifications(booking);
 
-    this.logger.log(`Payment ${reference} verified — booking ${booking.bookingCode} confirmed`);
+    this.logger.log(
+      `Payment ${reference} verified — booking ${booking.bookingCode} created & confirmed`,
+    );
     return true;
   };
 
