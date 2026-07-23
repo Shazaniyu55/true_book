@@ -135,33 +135,59 @@ export class ReferralService {
   }
 
   private async issueReferralRewardCoupon(
-    referrer: User,
-    config: ReferralConfig,
-    manager: EntityManager,
-  ): Promise<Coupon> {
-    const code = `REF-${this.randomnessUtil.generateRandomStringWithNumbers(8)}`;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + config.couponValidityDays);
+  referrer: User,
+  config: ReferralConfig,
+  manager: EntityManager,
+): Promise<Coupon> {
+  const code = `REF-${this.randomnessUtil.generateRandomStringWithNumbers(8)}`;
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + config.couponValidityDays);
 
-    const coupon = manager.create(Coupon, {
-      code,
-      type: config.rewardType === 'percentage' ? CouponType.PERCENTAGE : CouponType.REFERRAL,
-      status: CouponStatus.ACTIVE,
-      value: config.rewardValue,
-      maxDiscount: config.maxDiscount ?? null,
-      isActive: true,
-      isWelcomeCoupon: false,
-      usageLimit: 1,
-      usageCount: 0,
-      expiresAt,
-      description: `Referral reward — ${config.referralsRequired} successful referrals`,
-      // Restrict to this referrer via metadata field workaround:
-      // We store referrerId in description for now; a proper
-      // user-restricted coupon column can be added in a migration.
-    });
+  const coupon = manager.create(Coupon, {
+    code,
+    userId: referrer.id, // <-- actually link the coupon to the referrer
+    type: config.rewardType === 'percentage' ? CouponType.PERCENTAGE : CouponType.REFERRAL,
+    status: CouponStatus.ACTIVE,
+    value: config.rewardValue,
+    maxDiscount: config.maxDiscount ?? null,
+    isActive: true,
+    isWelcomeCoupon: false,
+    usageLimit: 1,
+    usageCount: 0,
+    expiresAt,
+    description: `Referral reward — ${config.referralsRequired} successful referrals`,
+  });
 
-    return manager.save(Coupon, coupon);
-  }
+  return manager.save(Coupon, coupon);
+}
+  // private async issueReferralRewardCoupon(
+  //   referrer: User,
+  //   config: ReferralConfig,
+  //   manager: EntityManager,
+  // ): Promise<Coupon> {
+  //   const code = `REF-${this.randomnessUtil.generateRandomStringWithNumbers(8)}`;
+  //   const expiresAt = new Date();
+  //   expiresAt.setDate(expiresAt.getDate() + config.couponValidityDays);
+
+  //   const coupon = manager.create(Coupon, {
+  //     code,
+  //     type: config.rewardType === 'percentage' ? CouponType.PERCENTAGE : CouponType.REFERRAL,
+  //     status: CouponStatus.ACTIVE,
+  //     value: config.rewardValue,
+  //     maxDiscount: config.maxDiscount ?? null,
+  //     isActive: true,
+  //     isWelcomeCoupon: false,
+  //     usageLimit: 1,
+  //     usageCount: 0,
+  //     expiresAt,
+  //     description: `Referral reward — ${config.referralsRequired} successful referrals`,
+  //     // Restrict to this referrer via metadata field workaround:
+  //     // We store referrerId in description for now; a proper
+  //     // user-restricted coupon column can be added in a migration.
+  //   });
+
+  //   return manager.save(Coupon, coupon);
+  // }
 
   // ─── Referral stats ───────────────────────────────────────────────────────
 
@@ -227,6 +253,46 @@ export class ReferralService {
 
     //return { data, meta: { page, limit, total, pages: Math.ceil(total / limit) } };
   }
+
+async getReferralCuponType(
+  userId: string,
+  query: { page?: number; limit?: number; type?: 'all' | 'used' | 'expired' },
+) {
+  const { page = 1, limit = 20, type = 'all' } = query;
+  const skip = (page - 1) * limit;
+
+  const qb = this.couponRepo
+    .createQueryBuilder('coupon')
+    .where('coupon.userId = :userId', { userId });
+
+  const now = new Date();
+
+  if (type === 'used') {
+    qb.andWhere('coupon.usageCount > 0');
+  } else if (type === 'expired') {
+    qb.andWhere('coupon.expiresAt < :now', { now })
+      .andWhere('coupon.usageCount = 0'); // expired but never used
+  }
+  // 'all' → no extra filter
+
+  const [data, total] = await qb
+    .orderBy('coupon.createdAt', 'DESC')
+    .skip(skip)
+    .take(limit)
+    .getManyAndCount();
+
+  return {
+    coupons: data.map((c) => ({
+      code: c.code,
+      type: c.type,
+      value: c.value,
+      status: c.usageCount > 0 ? 'used' : c.expiresAt < now ? 'expired' : 'active',
+      expires_at: c.expiresAt.toISOString(),
+      used: c.usageCount > 0,
+    })),
+    meta: { page, limit, total, pages: Math.ceil(total / limit) },
+  };
+}
 
   // ─── Config helpers ───────────────────────────────────────────────────────
 

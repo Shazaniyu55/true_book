@@ -9,6 +9,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
@@ -40,7 +41,7 @@ export class ReferralController {
       'progress toward the next reward milestone, and the reward value.',
   })
   getStats(@AuthUser() user: any) {
-    return this.referralService.getReferralStats(user.id);
+    return this.referralService.getReferralStats(user.sub);
   }
 
   /**
@@ -54,9 +55,23 @@ export class ReferralController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.referralService.getReferralList(user.id, { page, limit });
+    return this.referralService.getReferralList(user.sub, { page, limit });
   }
 
+  @PassengerOnly()
+  @Get('coupons')
+  @ApiOperation({ summary: 'List the passenger\'s referral reward coupons' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'type', required: false, enum: ['all', 'used', 'expired'] })
+  async getCoupons(
+    @AuthUser() user: any,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('type') type?: 'all' | 'used' | 'expired',
+  ) {
+    return this.referralService.getReferralCuponType(user.sub, { page, limit, type });
+  }
   // ─── Admin ────────────────────────────────────────────────────────────────
 
   /**
