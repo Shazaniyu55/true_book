@@ -1,12 +1,20 @@
-import { Column, Entity, Index } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { CouponStatus, CouponType } from '../../../types/enums';
 import { BaseEntity } from './base.entity';
+import { User } from './user.entity';
 
 @Entity('coupons')
 export class Coupon extends BaseEntity {
   @Index({ unique: true })
   @Column({ type: 'varchar' })
   code: string;
+
+  @Column({ name: 'userId', type: 'uuid', nullable: true })
+userId: string;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @Column({ type: 'varchar', enum: CouponType })
   type: CouponType;
