@@ -11,13 +11,30 @@ import { Booking } from '@modules/core/entities/booking.entity';
 import { PaystackAdapter } from '@adapters/payment/paystack/paystack.adapter';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
-import { BookingStatus, NotificationType, PaymentStatus, PayoutStatus } from 'src/types/enums';
+import { BookingStatus, EscrowStatus, NotificationType, PaymentStatus, PayoutStatus } from 'src/types/enums';
 import { InitiatePayoutDto } from '../dtos/payout.dto';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
-
+import { Escrow } from '@modules/core/entities/escro.entity';
+const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7');
 type PayoutEntity = Driver | Agent;
 type EntityKind = 'driver' | 'agent';
+export type TransactionShape = {
+  id: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  status: string;
+  narration: string;
+  platform_charge: number;
+  driver_earned: number;
+  created_at: Date | string;
+  updated_at: Date | string;
+  payment_details?: {
+    bank_name?: string | null;
+    account_number?: string | null;
+    bank_code?: string | null;
+  };
+};
 
 @Injectable()
 export class PayoutService {
@@ -36,41 +53,11 @@ export class PayoutService {
   ) {}
 
   // ─── Driver/Agent requests a withdrawal ───────────────────────────────────
-//   async initiatePayout(userId: string, dto: InitiatePayoutDto) {
-//     return this.dataSource.transaction(async (manager) => {
-//       const { entity, kind } = await this.resolveEntity(userId, manager);
-
-//       // const beneficiary = dto.beneficiaryId
-//       //   ? await manager.findOne(Beneficiary, { where: { id: dto.beneficiaryId } })
-//       //   : await this.createBeneficiary(entity, kind, dto, manager);
-//       // if (!beneficiary) throw new NotFoundException('Beneficiary not found');
-
-//       // if (Number(entity.currentBalance) < Number(dto.amount)) {
-//       //   return { message: 'Insufficient balance', status: false };
-//       // }
-      
-//       if (Number(entity.currentBalance) < Number(dto.amount)) {
-//   throw new BadRequestException('Insufficient balance');
-// }
-
-//       const payout = await this.createPayoutRecord(entity, kind, dto, manager);
-
-//       // Drivers (and refunds) dispense immediately; agents wait for admin approval.
-//       if (kind === 'driver' || dto.refund) {
-//         return this.dispenseFundFromPayout(payout.id, manager);
-//       }
-//       return { message: 'Payout initiated successfully', status: true };
-//     });
-//   }
 
 async initiatePayout(userId: string, dto: InitiatePayoutDto) {
   return this.dataSource.transaction(async (manager) => {
     const { entity, kind } = await this.resolveEntity(userId, manager);
 
-    // const beneficiary = dto.beneficiaryId
-    //   ? await manager.findOne(Beneficiary, { where: { id: dto.beneficiaryId } })
-    //   : await this.createBeneficiary(entity, kind, dto, manager);
-    // if (!beneficiary) throw new NotFoundException('Beneficiary not found');
 
     if (!dto.accountNumber || !dto.bankCode) {
       throw new BadRequestException('Account number and bank code are required');
@@ -105,73 +92,6 @@ async initiatePayout(userId: string, dto: InitiatePayoutDto) {
   });
 }
 
-  // ─── Actually push money to the bank via Paystack ─────────────────────────
-  // async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
-  //   const run = async (manager: EntityManager) => {
-  //     const payout = await manager.findOne(Payout, {
-  //       where: { id: payoutId },
-  //       relations: ['driver', 'agent', 'beneficiary'],
-  //     });
-  //     if (!payout) throw new NotFoundException('Payout not found');
-  //     const details = (payout.paymentDetails ?? {}) as Record<string, any>;
-
-  //     // 1. Gateway must have funds (amounts in Naira)
-  //     const { balance } = await this.paystackAdapter.checkBalance();
-  //     if (balance < Number(payout.amount)) {
-  //       return { message: "Can't process this request right now, try again later.", status: false };
-  //     }
-
-  //     // 2. Reuse or create a transfer recipient
-  //     let recipientCode = payout.recipientCode ?? payout.beneficiary?.recipientCode;
-  //     if (!recipientCode) {
-  //       const created = await this.paystackAdapter.createTransferRecipient({
-  //         name: details.bank_holder_name || payout.beneficiary?.bankHolderName || 'Beneficiary',
-  //         account_number: details.account_number,
-  //         bank_code: details.bank_code,
-  //       });
-  //       recipientCode = created.recipient_code;
-  //       if (payout.beneficiaryId) await manager.update(Beneficiary, payout.beneficiaryId, { recipientCode });
-  //     }
-
-  //     // 3. Initiate transfer (provider converts Naira → kobo)
-  //     let transfer: { transfer_code: string; status: string };
-  //     try {
-  //       transfer = await this.paystackAdapter.initiatePayout({
-  //         recipient_code: recipientCode,
-  //         account_number: details.account_number,
-  //         bank_code: details.bank_code,
-  //         amount: Number(payout.amount),
-  //         reason: payout.narration ?? 'Payout',
-  //       });
-  //     } catch (err) {
-  //       this.logger.error(`Payout transfer failed for ${payout.reference}: ${err?.message}`);
-  //       return { message: `Payment gateway error: ${err?.message}`, status: false };
-  //     }
-
-  //     // 4. Mark approved + debit wallet (debited HERE, so the transfer.success
-  //     //    webhook will skip it — see completePayout's pending-only claim).
-  //     await manager.update(Payout, payout.id, {
-  //       status: PayoutStatus.APPROVED,
-  //       transferCode: transfer.transfer_code,
-  //       recipientCode,
-  //       transactionDate: new Date(),
-  //     });
-  //     await this.adjustBalance(payout, Number(payout.amount), 'debit', manager);
-
-  //     const userId = payout.driver?.userId ?? payout.agent?.userId;
-  //     if (userId) {
-  //       await this.notificationService.notify({
-  //         userId,
-  //         title: 'Withdrawal Successful',
-  //         body: `Your withdrawal of N${payout.amount} has been processed.`,
-  //         type: NotificationType.PAYOUT_APPROVED,
-  //         data: { payoutId: payout.id, reference: payout.reference },
-  //       });
-  //     }
-  //     return { message: transfer.status ?? 'Transfer queued', status: true };
-  //   };
-  //   return em ? run(em) : this.dataSource.transaction(run);
-  // }
 
   // ─── Actually push money to the bank via Paystack ─────────────────────────
 async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
@@ -259,8 +179,6 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
 }
 
   // ─── Webhook: transfer.success / paymentrequest.success ───────────────────
-  // Idempotent: atomically claims a PENDING payout, so a retried webhook (or a
-  // payout already settled in dispenseFundFromPayout) is a harmless no-op.
   async completePayout(reference: string, em?: EntityManager): Promise<boolean> {
     const run = async (manager: EntityManager): Promise<boolean> => {
       const claim = await manager.update(
@@ -347,9 +265,7 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
     return [];
   }
 
-//   async getBankList() {
-//   return this.paystackAdapter.getBankList();
-// }
+
 
 async getBankList() {
   return this.cache.getOrSet(
@@ -502,120 +418,81 @@ async getWalletTransactions(
   };
 }
 
+
+async getSingleTransaction(userId: string, id: string) {
+  const { entity, kind } = await this.resolveUserEntity(userId);
+ 
+  // 1. Withdrawal (debit)
+  const payout = await this.dataSource.getRepository(Payout).findOne({
+    where: { id },
+    relations: ['beneficiary'],
+  });
+ 
+  if (payout) {
+    const owns =
+      kind === 'driver' ? payout.driverId === entity.id : payout.agentId === entity.id;
+    if (!owns) throw new ForbiddenException('This transaction does not belong to you');
+    return { transaction: this.mapPayoutToTransaction(payout) };
+  }
+ 
+  // 2. Trip earnings (credit) — only drivers have these
+  if (kind !== 'driver') throw new NotFoundException('Transaction not found');
+ 
+  const booking = await this.dataSource.getRepository(Booking).findOne({
+    where: { id },
+    relations: ['trip'],
+  });
+  if (!booking) throw new NotFoundException('Transaction not found');
+  if (booking.trip?.driverId !== entity.id) {
+    throw new ForbiddenException('This transaction does not belong to you');
+  }
+ 
+  // The escrow row is the second source of truth: bookings completed through
+  // the trip-module path never get `driverCredited` metadata, so checking
+  // metadata alone 404s a real transaction and zeroes out the amounts.
+  const escrow = await this.dataSource.getRepository(Escrow).findOne({
+    where: { bookingId: booking.id },
+  });
+ 
+  const credited =
+    booking.metadata?.driverCredited === true ||
+    booking.metadata?.driverCredited === 'true' ||
+    escrow?.status === EscrowStatus.RELEASED;
+ 
+  if (!credited) throw new NotFoundException('Transaction not found');
+ 
+  return { transaction: this.mapBookingToTransaction(booking, escrow) };
+}
+ 
+
 // async getSingleTransaction(userId: string, id: string) {
 //   const { entity, kind } = await this.resolveUserEntity(userId);
 
 //   const tx = await this.dataSource.getRepository(Payout).findOne({
 //     where: { id },
-//     relations: ['beneficiary', 'driver', 'driver.user', 'agent', 'agent.user'],
+//     relations: ['beneficiary'],
 //   });
 
-//   // Not a payout? It may be a trip-earnings credit (booking id).
-//   if (!tx) {
-//     if (kind !== 'driver') throw new NotFoundException('Transaction not found');
-
-//     const booking = await this.dataSource.getRepository(Booking).findOne({
-//       where: { id },
-//       relations: ['trip'],
-//     });
-//     if (!booking || !booking.metadata?.driverCredited)
-//       throw new NotFoundException('Transaction not found');
-//     if (booking.trip?.driverId !== entity.id)
-//       throw new ForbiddenException('This transaction does not belong to you');
-
-//     const meta = (booking.metadata ?? {}) as Record<string, any>;
-//     const gross = Number(booking.amountPaid ?? 0);
-//     const chargeFee = Number(meta.platformFee ?? 0);
-
-//     return {
-//       id: booking.id,
-//       type: 'credit' as const,
-//       reference: booking.bookingCode,
-//       payment_reference: booking.paymentReference ?? null,
-//       amount: Number(meta.netDriverAmount ?? gross - chargeFee),
-//       gross_amount: gross,
-//       charge_fee: chargeFee,
-//       total_amount: Number(booking.totalAmount ?? 0),
-//       discount_amount: Number(booking.discountAmount ?? 0),
-//       extra_luggage_charge: Number(meta.extraLuggageCharge ?? 0),
-//       seats: booking.seats,
-//       status: 'success',
-//       booking_status: booking.status,
-//       payment_status: booking.paymentStatus,
-//       payment_gateway: booking.paymentGateway ?? null,
-//       ticket_status: booking.ticketStatus ?? null,
-//       reason: 'Trip earnings',
-//       narration: `Earnings from booking ${booking.bookingCode}`,
-//       trip: booking.trip
-//         ? {
-//             id: booking.trip.id,
-//             reference: booking.trip.reference,
-//             departure_location: booking.trip.departureLocation ?? null,
-//             pick_station: booking.trip.pickStation ?? null,
-//             drop_off_station: booking.trip.dropOffStation ?? null,
-//             departure_date: booking.trip.departureDate ?? null,
-//             departure_time: booking.trip.departureTime ?? null,
-//           }
-//         : null,
-//       credited_at: meta.driverCreditedAt ?? null,
-//       created_at: meta.driverCreditedAt ? new Date(meta.driverCreditedAt) : booking.updatedAt,
-//       updated_at: booking.updatedAt,
-//     };
+//   if (tx) {
+//     const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
+//     if (!owns) throw new ForbiddenException('This transaction does not belong to you');
+//     return this.mapPayoutToDebit(tx);
 //   }
 
-//   const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
-//   if (!owns) throw new ForbiddenException('This transaction does not belong to you');
+//   // Not a payout — try trip-earnings credit (booking id)
+//   if (kind !== 'driver') throw new NotFoundException('Transaction not found');
 
-//   return {
-//     id: tx.id,
-//     type: 'debit' as const,
-//     reference: tx.reference,
-//     amount: Number(tx.amount ?? 0),
-//     status: tx.status,
-//     reason: tx.reason,
-//     narration: tx.narration,
-//     transfer_code: tx.transferCode,
-//     payment_method: tx.paymentMethod,
-//     beneficiary: tx.beneficiary
-//       ? {
-//           bank_name: tx.beneficiary.bankName,
-//           account_number: tx.beneficiary.accountNumber,
-//           account_holder: tx.beneficiary.bankHolderName,
-//         }
-//       : null,
-//     created_at: tx.createdAt,
-//     updated_at: tx.updatedAt,
-//   };
+//   const booking = await this.dataSource.getRepository(Booking).findOne({
+//     where: { id },
+//     relations: ['trip'],
+//   });
+//   if (!booking || booking.metadata?.driverCredited !== true && booking.metadata?.driverCredited !== 'true')
+//     throw new NotFoundException('Transaction not found');
+//   if (booking.trip?.driverId !== entity.id)
+//     throw new ForbiddenException('This transaction does not belong to you');
+
+//   return this.mapBookingToCredit(booking);
 // }
-
-async getSingleTransaction(userId: string, id: string) {
-  const { entity, kind } = await this.resolveUserEntity(userId);
-
-  const tx = await this.dataSource.getRepository(Payout).findOne({
-    where: { id },
-    relations: ['beneficiary'],
-  });
-
-  if (tx) {
-    const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
-    if (!owns) throw new ForbiddenException('This transaction does not belong to you');
-    return this.mapPayoutToDebit(tx);
-  }
-
-  // Not a payout — try trip-earnings credit (booking id)
-  if (kind !== 'driver') throw new NotFoundException('Transaction not found');
-
-  const booking = await this.dataSource.getRepository(Booking).findOne({
-    where: { id },
-    relations: ['trip'],
-  });
-  if (!booking || booking.metadata?.driverCredited !== true && booking.metadata?.driverCredited !== 'true')
-    throw new NotFoundException('Transaction not found');
-  if (booking.trip?.driverId !== entity.id)
-    throw new ForbiddenException('This transaction does not belong to you');
-
-  return this.mapBookingToCredit(booking);
-}
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   private async resolveEntity(userId: string, manager: EntityManager) {
@@ -634,6 +511,54 @@ async getSingleTransaction(userId: string, id: string) {
   throw new NotFoundException('No wallet account found for this user');
 }
 
+private mapBookingToTransaction(b: Booking, escrow?: Escrow | null): TransactionShape {
+  const { gross, platformCharge, driverEarned } = this.resolveEarnings(b, escrow);
+  const meta = (b.metadata ?? {}) as Record<string, any>;
+ 
+  return {
+    id: b.id,
+    type: 'credit',
+    amount: driverEarned,        // what actually hit the wallet
+    status: 'success',
+    narration: `Earnings from booking ${b.bookingCode} (fare ₦${gross})`,
+    platform_charge: platformCharge,
+    driver_earned: driverEarned,
+    created_at: meta.driverCreditedAt ?? escrow?.releasedAt ?? b.updatedAt,
+    updated_at: b.updatedAt,
+    // no bank details on a credit, but keep the key present so the client's
+    // optional field never flips between undefined and missing
+    payment_details: undefined,
+  };
+}
+
+private resolveEarnings(b: Booking, escrow?: Escrow | null) {
+  const meta = (b.metadata ?? {}) as Record<string, any>;
+  const gross = this.firstNumber(b.amountPaid, escrow?.amount, b.totalAmount);
+ 
+  const platformCharge = this.firstNumber(
+    meta.platformFee,
+    escrow?.platformFee,
+    (gross * PLATFORM_FEE_RATE) / 100,
+  );
+ 
+  const driverEarned = this.firstNumber(
+    meta.netDriverAmount,
+    escrow?.netDriverAmount,
+    gross - platformCharge,
+  );
+ 
+  return { gross, platformCharge, driverEarned };
+}
+ 
+/** First value that coerces to a real number. Decimal columns arrive as strings. */
+private firstNumber(...values: any[]): number {
+  for (const v of values) {
+    if (v === null || v === undefined || v === '') continue;
+    const n = Number(v);
+    if (!Number.isNaN(n)) return n;
+  }
+  return 0;
+}
 private async createPayoutRecord(
   entity: PayoutEntity,
   kind: EntityKind,
@@ -672,44 +597,30 @@ private async createPayoutRecord(
   return saved;
 }
 
-  // private async createPayoutRecord(
-  //   entity: PayoutEntity,
-  //   kind: EntityKind,
-  //   //beneficiary: Beneficiary,
-  //   dto: InitiatePayoutDto,
-  //   manager: EntityManager,
-  // ): Promise<Payout> {
-  //   const reference = this.randomness.generateReference('PAYOUT').toLowerCase();
-  //   const payout = manager.create(Payout, {
-  //     reference,
-  //     amount: dto.amount,
-  //     narration: dto.narration ?? 'Wallet withdrawal',
-  //     status: PayoutStatus.PENDING,
-  //     paymentMethod: 'bank_transfer',
-  //     //beneficiaryId: beneficiary.id,
-  //     driverId: kind === 'driver' ? entity.id : null,
-  //     agentId: kind === 'agent' ? entity.id : null,
-  //     payoutableType: kind,
-  //     payoutableId: entity.id,
-  //     // paymentDetails: {
-  //     //   account_number: beneficiary.accountNumber,
-  //     //   bank_name: beneficiary.bankName ?? 'Unknown Bank',
-  //     //   bank_code: beneficiary.bankCode,
-  //     //   bank_holder_name: beneficiary.bankHolderName ?? '',
-  //     //   currency: 'NGN',
-  //     //   debit_currency: 'NGN',
-  //     // } as any,
-  //   });
-  //   const saved = await manager.save(Payout, payout);
+private mapPayoutToTransaction(p: Payout): TransactionShape {
+  // createPayoutRecord() no longer sets beneficiaryId — it writes the bank
+  // details into paymentDetails. Reading only p.beneficiary is why
+  // bank_name / account_number always came back null.
+  const details = (p.paymentDetails ?? {}) as Record<string, any>;
+ 
+  return {
+    id: p.id,
+    type: 'debit',
+    amount: Number(p.amount ?? 0),
+    status: p.status,
+    narration: p.narration ?? p.reason ?? 'Wallet withdrawal',
+    platform_charge: 0,          // withdrawals carry no platform fee
+    driver_earned: 0,            // and are not earnings
+    created_at: p.createdAt,
+    updated_at: p.updatedAt,
+    payment_details: {
+      bank_name: details.bank_name ?? p.beneficiary?.bankName ?? null,
+      account_number: details.account_number ?? p.beneficiary?.accountNumber ?? null,
+      bank_code: details.bank_code ?? p.beneficiary?.bankCode ?? null,
+    },
+  };
+}
 
-  //   await this.notificationService.notifyAdmins({
-  //     title: 'Withdrawal Application',
-  //     body: `${(entity as any).user?.firstName ?? 'A user'} applied to withdraw N${dto.amount} (ref ${reference}).`,
-  //     type: NotificationType.BROADCAST,
-  //     data: { payoutId: saved.id, reference },
-  //   });
-  //   return saved;
-  // }
 
   private async createBeneficiary(
     entity: PayoutEntity,
