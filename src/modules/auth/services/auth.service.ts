@@ -191,7 +191,15 @@ export class AuthService {
     if (user.status === UserStatus.SUSPENDED)
       throw new UnauthorizedException('Your account has been suspended');
 
+      // Persist the device's push token before we try to push to it.
+  if (dto.expo_token && dto.expo_token !== user.expoToken) {
+    await this.userRepository.setExpoToken(user.id, dto.expo_token);
+    user.expoToken = dto.expo_token;
+  }
+
     const tokens = this.generateTokens(user);
+
+  
 
       await this.notificationService.notify({
     userId: user.id,

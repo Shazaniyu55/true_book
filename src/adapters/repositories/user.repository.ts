@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, Not, Repository } from 'typeorm';
 import { User } from '@modules/core/entities/user.entity';
 import { DeleteUserDto } from '@modules/auth/dtos/deleteuser.dto';
 
@@ -54,4 +54,28 @@ async findById(id: string): Promise<User | null> {
   return this.findOne({ where: { id } });
 }
 
+
+async setExpoToken(
+  id: string,
+  expoToken: string,
+  entityManager?: EntityManager,
+): Promise<void> {
+  const manager = entityManager || this.entityManager;
+
+  // A push token belongs to a device, not a person. If this phone was
+  // previously signed in as someone else, detach it from that account
+  // so the old owner stops receiving this device's notifications.
+  await manager.update(
+    User,
+    { expoToken, id: Not(id) },
+    { expoToken: null },
+  );
+
+  await manager.update(User, id, { expoToken });
+}
+
+async clearExpoToken(id: string, entityManager?: EntityManager): Promise<void> {
+  const manager = entityManager || this.entityManager;
+  await manager.update(User, id, { expoToken: null });
+}
 }

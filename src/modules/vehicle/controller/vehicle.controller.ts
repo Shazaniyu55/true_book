@@ -44,7 +44,7 @@ async registerVehicle(
     return this.broker.runUsecases([this.getMyVehicleUsecase], { id: user.sub });
   }
 
-  @DriverOnly()
+@DriverOnly()
 @Patch('update-vehicle/:id')
 @ApiOperation({ summary: 'Driver: Edit a registered vehicle' })
 @ApiParam({ name: 'id', description: 'Vehicle ID' })

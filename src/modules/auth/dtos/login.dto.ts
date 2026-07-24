@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class LoginDto {
@@ -13,4 +13,9 @@ export class LoginDto {
   @IsNotEmpty()
   @IsString()
   password: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^ExponentPushToken\[.+\]$/, { message: 'Invalid Expo push token' })
+  expo_token?: string;
 }
