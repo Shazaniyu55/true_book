@@ -8,16 +8,21 @@ import { VehicleController } from './controller/vehicle.controller';
 import { VehicleService } from './service/vehicle.service';
 import { GetMyVehicleUsecase } from './usecase/getvehicle.usecase';
 import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
+import { Trip } from '@modules/core/entities/trip.entity';
+import { UpdateVehicleUsecase } from './usecase/updatevehicle.usecase';
+import { DeleteVehicleUsecase } from './usecase/deletevehicle.usecase';
 
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Vehicle, Driver]), CloudinaryModule,],
+  imports: [TypeOrmModule.forFeature([Vehicle, Driver, Trip]), CloudinaryModule,],
   controllers: [VehicleController],
   providers: [
     Broker,
     VehicleService,
     VehicleRepository,
     GetMyVehicleUsecase,
+    UpdateVehicleUsecase,
+    DeleteVehicleUsecase
   ],
   exports: [VehicleService],
 })

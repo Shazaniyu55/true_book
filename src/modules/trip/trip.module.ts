@@ -46,6 +46,9 @@ import { GetTripChartSummaryUsecase } from './usecases/gettripchartsummary.useca
 import { GetTripActivityUsecase } from './usecases/gettripactivity.usecase';
 import { GetCancellationReasonsUsecase } from './usecases/getcancelreason.usecase';
 import { BookingIntent } from '@modules/core/entities/booking_intent.entity';
+import { Review } from '@modules/core/entities/review.entity';
+import { VehicleType } from '@modules/core/entities/vehicletype.entity';
+import { GetTripSummaryByIdUsecase } from './usecases/gettripsummarybyid.usecase';
 
 
 
@@ -61,7 +64,9 @@ import { BookingIntent } from '@modules/core/entities/booking_intent.entity';
       Coupon,
       Notification,
       Vehicle,
-      BookingIntent
+      BookingIntent,
+      Review,
+      VehicleType
     ]),
   ],
   controllers: [TripsController],
@@ -80,6 +85,7 @@ import { BookingIntent } from '@modules/core/entities/booking_intent.entity';
     CreateTripUsecase,
     SearchTripUsecase,
     GetCancellationReasonsUsecase,
+    GetTripSummaryByIdUsecase,
     GetTripUsecase,
     ActivateTripUsecase,
     ScanTicketUsecase,

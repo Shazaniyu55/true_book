@@ -124,6 +124,10 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
    return await this.tripRepository.bookTrip(id, dto, entityManager);
   }
 
+async getTripSummaryById(tripId: string, driverUserId?: string) {
+  return await this.tripRepository.getTripSummaryById(tripId, driverUserId);
+}
+
   // ─── Called by webhook: payment confirmed → create escrow ─────────────────
 
   // async confirmBookingPayment(

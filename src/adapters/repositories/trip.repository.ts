@@ -18,6 +18,8 @@ import { PagedDto } from '@shared/interface/paged.interface';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
 import { Payment } from '@modules/core/entities/payment.entity';
 import { BookingIntent, BookingIntentStatus } from '@modules/core/entities/booking_intent.entity';
+import { Review } from '@modules/core/entities/review.entity';
+import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 
 
 /** Platform fee rate (deducted from driver payout) */
@@ -40,8 +42,8 @@ export class TripRepository extends Repository<Trip> {
     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
     @InjectRepository(BookingIntent) private readonly bookingIntentRepo: Repository<BookingIntent>,
-
-    
+    @InjectRepository(Review) private readonly reviewRepo: Repository<Review>,
+    @InjectRepository(VehicleType) private readonly vehicleTypeRepo: Repository<VehicleType>,
     
     
   ) {
@@ -662,6 +664,145 @@ async searchTrips(query: {
     ...trip,
     availableSeats: trip.totalSeats - (trip.bookedSeats ?? 0),
     bookings,
+  };
+}
+
+
+async getTripSummaryById(tripId: string, driverUserId?: string) {
+  const trip = await this.tripRepository.findOne({
+    where: { id: tripId },
+    relations: ['vehicle', 'driver', 'driver.user'],
+  });
+  if (!trip) throw new NotFoundException('Trip not found');
+
+  // ownership check — only runs when a driver is calling
+  if (driverUserId) {
+    const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
+    if (!driver) throw new NotFoundException('Driver profile not found');
+    if (trip.driverId !== driver.id)
+      throw new ForbiddenException('This trip does not belong to you');
+  }
+
+  const spec = this.parseTripSpecification(trip.tripSpecification);
+
+  const dest = Array.isArray(trip.arrivalDestination)
+    ? trip.arrivalDestination[0] ?? {}
+    : (trip.arrivalDestination as any) ?? {};
+
+  // ── bookings ──
+  const bookings = await this.bookingRepo.find({
+    where: { tripId: trip.id },
+    relations: ['passenger', 'passenger.user'],
+    order: { createdAt: 'DESC' },
+  });
+  const activeBookings = bookings.filter((b) => b.status !== BookingStatus.CANCELLED);
+
+  const extraLuggage = activeBookings.reduce(
+    (sum, b) => sum + Number(b.metadata?.extraLuggageCharge ?? 0), 0,
+  );
+  const totalAmount = activeBookings.reduce(
+    (sum, b) => sum + Number(b.amountPaid ?? 0), 0,
+  );
+
+  const passengers = activeBookings
+    .map((b) =>
+      [b.passenger?.user?.firstName, b.passenger?.user?.lastName]
+        .filter(Boolean).join(' ').trim(),
+    )
+    .filter((name) => name.length > 0);
+
+  // ── reviews on this trip ──
+  const reviews = await this.reviewRepo.find({
+    where: { tripId: trip.id, isVisible: true },
+    relations: ['passenger', 'passenger.user'],
+    order: { createdAt: 'DESC' },
+  });
+
+  const usersReview = reviews.map((r) => ({
+    'passenger_name ': [r.passenger?.user?.firstName, r.passenger?.user?.lastName]
+      .filter(Boolean).join(' ').trim(),
+    passenger_email: r.passenger?.user?.email ?? '',
+    profile_image: r.passenger?.user?.profileImage ?? '',
+    rating: Number(r.rating ?? 0),
+    comment: r.comment ?? '',
+    created_at: r.createdAt ? new Date(r.createdAt).toISOString() : '',
+  }));
+
+  // ── vehicle ──
+  const v = trip.vehicle;
+
+  let vehicleTypes: any[] = [];
+  if (v?.type) {
+    vehicleTypes = await this.vehicleTypeRepo
+      .createQueryBuilder('vt')
+      .where('vt.name ILIKE :name', { name: v.type })
+      .getMany();
+  }
+
+  const regDocs = [
+    ...(v?.registrationDoc ? [v.registrationDoc] : []),
+    ...(Array.isArray(v?.documents) ? (v.documents as any[]) : []),
+  ];
+
+  const vehicle = v
+    ? {
+        id: v.id,
+        type: v.type ?? '',
+        model: v.model ?? '',
+        color: v.color ?? '',
+        capacity: String(v.capacity ?? ''),
+        description: trip.description ?? '',
+        insurance: v.insurance ?? '',
+        license_plate_number: v.licensePlateNumber ?? v.plateNumber ?? '',
+        features: v.features ?? trip.vehicleFeatures ?? [],
+        photos: v.vehiclePhoto ?? [],
+        reg_docs: regDocs,
+        vehicle_type: vehicleTypes,
+        driver: trip.driver
+          ? [{
+              id: trip.driver.id,
+              name: [trip.driver.user?.firstName, trip.driver.user?.lastName]
+                .filter(Boolean).join(' ').trim(),
+              email: trip.driver.user?.email ?? '',
+              phone: trip.driver.user?.phone ?? '',
+              profile_image: trip.driver.user?.profileImage ?? '',
+              average_rating: Number(trip.driver.averageRating ?? 0),
+              rating_count: Number(trip.driver.ratingCount ?? 0),
+            }]
+          : [],
+      }
+    : null;
+
+  return {
+    id: trip.id,
+    destination: {
+      pick_station: trip.pickStation ?? trip.departureLocation ?? '',
+      drop_off_station: trip.dropOffStation ?? '',
+    },
+    departure: {
+      date: trip.departureDate ?? '',
+      time: trip.departureTime ?? '',
+    },
+    arrival: {
+      date: trip.arrivalDate ?? '',
+      time: trip.arrivalTime ?? '',
+      destination: dest?.name ?? '',
+      address: dest?.address ?? '',
+      latitude: String(dest?.latitude ?? ''),
+      long: String(dest?.longitude ?? ''),
+      bus_stop: (trip.busStop ?? []).map((s: any) =>
+        typeof s === 'string' ? { name: s } : { name: s?.name ?? '' },
+      ),
+    },
+    luggage_size: spec.luggage_size ?? null,
+    charge_for_extra_luggage: spec.charge_for_extra_luggage ?? null,
+    earnings: {
+      extra_luggage: extraLuggage,
+      total_amount: totalAmount,
+    },
+    passengers,
+    users_review: usersReview,
+    vehicle,
   };
 }
 //case 1

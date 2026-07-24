@@ -13,8 +13,7 @@ export class AppVersionService {
   private readonly logger = new Logger(AppVersionService.name);
 
   constructor(
-    @InjectRepository(AppVersionHistory)
-    private readonly repo: Repository<AppVersionHistory>,
+    @InjectRepository(AppVersionHistory) private readonly repo: Repository<AppVersionHistory>,
      private readonly cache: RedisCacheService,
   ) {}
 

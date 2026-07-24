@@ -61,6 +61,7 @@ import { GetTripActivityUsecase } from '../usecases/gettripactivity.usecase';
 import { TripBookingsQueryDto, TripChartQueryDto, VerifyBookingDto } from '../dtos/trip.dto';
 import { GetCancellationReasonsUsecase } from '../usecases/getcancelreason.usecase';
 import { SkipThrottle } from '@nestjs/throttler';
+import { GetTripSummaryByIdUsecase } from '../usecases/gettripsummarybyid.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -92,7 +93,8 @@ export class TripsController {
     private readonly startTripUsecase:StartTripUsecase,
     private readonly getTripChartSummaryUsecase:GetTripChartSummaryUsecase,
     private readonly getTripActivityUsecase:GetTripActivityUsecase,
-      private readonly getCancellationReasonsUsecase:GetCancellationReasonsUsecase
+      private readonly getCancellationReasonsUsecase:GetCancellationReasonsUsecase,
+      private readonly getTripSummaryByIdUsecase: GetTripSummaryByIdUsecase
   
   ) {}
 
@@ -158,6 +160,17 @@ export class TripsController {
   createTrip(@AuthUser() user: any,@Body() dto: CreateTripDto) {
     return this.broker.runUsecases([this.createTripUsecase], {id:user.sub, dto:dto})
   }
+
+  @DriverOnly()
+@Get('summary/:id')
+@ApiOperation({ summary: 'Driver: Full summary for a single trip' })
+@ApiParam({ name: 'id', description: 'Trip ID' })
+getTripSummaryById(@AuthUser() user: any, @Param('id') id: string) {
+  return this.broker.runUsecases([this.getTripSummaryByIdUsecase], {
+    tripId: id,
+    driverUserId: user.sub,
+  });
+}
 
   @DriverOnly()
   @Patch(':tripId/drivers/activate-trip')
