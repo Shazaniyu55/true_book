@@ -45,7 +45,7 @@ async registerVehicle(
   }
 
   @DriverOnly()
-@Patch(':id')
+@Patch('update-vehicle/:id')
 @ApiOperation({ summary: 'Driver: Edit a registered vehicle' })
 @ApiParam({ name: 'id', description: 'Vehicle ID' })
 updateVehicle(
@@ -61,7 +61,7 @@ updateVehicle(
 }
 
 @DriverOnly()
-@Delete(':id')
+@Delete('delete-vehicle/:id')
 @ApiOperation({ summary: 'Driver: Delete a registered vehicle' })
 @ApiParam({ name: 'id', description: 'Vehicle ID' })
 deleteVehicle(@AuthUser() user: any, @Param('id') id: string) {
