@@ -23,7 +23,7 @@ import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 
 
 /** Platform fee rate (deducted from driver payout) */
-const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '5'); // 5%
+const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7'); // 5%
 
 @Injectable()
 export class TripRepository extends Repository<Trip> {

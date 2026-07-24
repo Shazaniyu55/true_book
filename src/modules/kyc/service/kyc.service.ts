@@ -96,44 +96,89 @@ export class KycService {
   /**
    * Verify driver's license via Dojah.
    */
-  async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
+//   async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
+//   const driver = await this.getDriverOrThrow(userId);
+//   if (driver.licenseVerified) {
+//     throw new ConflictException("Driver's license is already verified");
+//   }
+
+//   const { driversLicense, regDocs, vehicleInsurance } = dto;
+  
+
+//   if (!driversLicense) throw new BadRequestException('Drivers license image is required');
+//   if (!regDocs) throw new BadRequestException('Registration documents are required');
+
+//   // Mark processing so GET /kyc/status reflects it immediately.
+//   await this.driverRepo.update(driver.id, {
+//     licenseData: {
+//       ...(driver.licenseData ?? {}),
+//       driverLicense: driversLicense,
+//       regDocs: regDocs,
+//       vehicleInsurance: vehicleInsurance ?? null,
+//       verificationState: 'processing',
+//       submittedAt: new Date().toISOString(),
+//     } as Record<string, any>,
+//   });
+//   await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
+
+//   // Persist the vehicle-related docs to the vehicle record.
+//   await this.attachDocsToVehicle(driver.id, {
+//     driversLicense,
+//     regDocs,
+//     vehicleInsurance: vehicleInsurance ?? null,
+//   });
+
+//   await this.licenseQueue.add(
+//     'verify',
+//     {
+//       driverId: driver.id,
+//       driversLicense,
+//       regDocs,
+//     },
+//     {
+//       attempts: 5,
+//       backoff: { type: 'exponential', delay: 60_000 },
+//       removeOnComplete: true,
+//       removeOnFail: 100,
+//     },
+//   );
+
+//   return {
+//     success: true,
+//     status: 'processing',
+//     message: "Your licence is being verified. We'll notify you shortly.",
+//   };
+// }
+
+async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
   const driver = await this.getDriverOrThrow(userId);
   if (driver.licenseVerified) {
     throw new ConflictException("Driver's license is already verified");
   }
 
-  const { driversLicense, regDocs, vehicleInsurance } = dto;
-  
+  const { driversLicense } = dto;
 
   if (!driversLicense) throw new BadRequestException('Drivers license image is required');
-  if (!regDocs) throw new BadRequestException('Registration documents are required');
 
   // Mark processing so GET /kyc/status reflects it immediately.
   await this.driverRepo.update(driver.id, {
     licenseData: {
       ...(driver.licenseData ?? {}),
       driverLicense: driversLicense,
-      regDocs: regDocs,
-      vehicleInsurance: vehicleInsurance ?? null,
       verificationState: 'processing',
       submittedAt: new Date().toISOString(),
     } as Record<string, any>,
   });
   await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
 
-  // Persist the vehicle-related docs to the vehicle record.
-  await this.attachDocsToVehicle(driver.id, {
-    driversLicense,
-    regDocs,
-    vehicleInsurance: vehicleInsurance ?? null,
-  });
+  // Persist the licence URL to the vehicle record.
+  await this.attachDocsToVehicle(driver.id, { driversLicense });
 
   await this.licenseQueue.add(
     'verify',
     {
       driverId: driver.id,
       driversLicense,
-      regDocs,
     },
     {
       attempts: 5,
@@ -195,9 +240,40 @@ async uploadDriverDocument(
    * Picks the most recent vehicle for the driver. No-op (with a warning) if the
    * driver has no vehicle yet.
    */
+  // private async attachDocsToVehicle(
+  //   driverId: string,
+  //   docs: { driversLicense: string; regDocs: string; vehicleInsurance: string | null },
+  // ): Promise<void> {
+  //   const vehicle = await this.vehicleRepo.findOne({
+  //     where: { driverId },
+  //     order: { createdAt: 'DESC' }, // most recent vehicle if they have more than one
+  //   });
+
+  //   if (!vehicle) {
+  //     this.logger.warn(
+  //       `No vehicle found for driver ${driverId}; skipped vehicle document update`,
+  //     );
+  //     return;
+  //   }
+
+  // await this.vehicleRepo.update(vehicle.id, {
+  //     registrationDoc: docs.regDocs,
+  //     insurance: docs.vehicleInsurance ?? vehicle.insurance, // keep old if none uploaded
+  //     documents: {
+  //       ...(vehicle.documents ?? {}),
+  //       driversLicense: docs.driversLicense,
+  //       regDocs: docs.regDocs,
+  //       vehicleInsurance: docs.vehicleInsurance ?? null,
+  //       submittedAt: new Date().toISOString(),
+  //     } as Record<string, any>,
+  //   });
+
+  //   this.logger.log(`Vehicle ${vehicle.id} updated with KYC documents for driver ${driverId}`);
+  // }
+
   private async attachDocsToVehicle(
     driverId: string,
-    docs: { driversLicense: string; regDocs: string; vehicleInsurance: string | null },
+    docs: { driversLicense: string },
   ): Promise<void> {
     const vehicle = await this.vehicleRepo.findOne({
       where: { driverId },
@@ -211,19 +287,15 @@ async uploadDriverDocument(
       return;
     }
 
-  await this.vehicleRepo.update(vehicle.id, {
-      registrationDoc: docs.regDocs,
-      insurance: docs.vehicleInsurance ?? vehicle.insurance, // keep old if none uploaded
+    await this.vehicleRepo.update(vehicle.id, {
       documents: {
         ...(vehicle.documents ?? {}),
         driversLicense: docs.driversLicense,
-        regDocs: docs.regDocs,
-        vehicleInsurance: docs.vehicleInsurance ?? null,
         submittedAt: new Date().toISOString(),
       } as Record<string, any>,
     });
 
-    this.logger.log(`Vehicle ${vehicle.id} updated with KYC documents for driver ${driverId}`);
+    this.logger.log(`Vehicle ${vehicle.id} updated with driver licence for driver ${driverId}`);
   }
 
   async finalizeLicenseVerified(driverId: string, entity: Record<string, any>): Promise<void> {

@@ -59,13 +59,23 @@ export class VerifyDriverLicenseDto {
 
   @ApiProperty({ description: 'URL of the driver license front image' })
   @IsOptional() @IsUrl() driversLicense: string;
-
-  @ApiProperty({ description: 'URL of the registration documents' })
-  @IsOptional() @IsUrl() regDocs: string;
-
-  @ApiPropertyOptional({ description: 'URL of the vehicle insurance' })
-  @IsOptional() @IsUrl() vehicleInsurance?: string;
 }
+
+// export class VerifyDriverLicenseDto {
+//   @ApiProperty({ example: 'ABC123456789', description: "Driver's license number" })
+//   @IsOptional()
+//   @IsString()
+//   licenseNumber: string;
+
+//   @ApiProperty({ description: 'URL of the driver license front image' })
+//   @IsOptional() @IsUrl() driversLicense: string;
+
+//   @ApiProperty({ description: 'URL of the registration documents' })
+//   @IsOptional() @IsUrl() regDocs: string;
+
+//   @ApiPropertyOptional({ description: 'URL of the vehicle insurance' })
+//   @IsOptional() @IsUrl() vehicleInsurance?: string;
+// }
 
 // ─── Passenger KYC DTOs ───────────────────────────────────────────────────────
 

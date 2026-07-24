@@ -17,11 +17,11 @@ export class LicenseProcessor extends WorkerHost {
   }
 
   async process(job: Job<LicenseJobData>): Promise<void> {
-    const { driverId, driversLicense, regDocs } = job.data;
+    const { driverId, driversLicense } = job.data;
 
     let result;
     try {
-      result = await this.dojah.verifyDriversLicenseViaImage({ driversLicense, regDocs });
+      result = await this.dojah.verifyDriversLicenseViaImage({ driversLicense });
     } catch (e: any) {
       if (e.retryable) {
         // Throw → BullMQ retries this job with exponential backoff.
