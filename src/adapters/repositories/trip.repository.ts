@@ -541,6 +541,110 @@ async searchTripState(query: {
 }
 
 
+// async searchTrips(query: {
+//   page?: number;
+//   limit?: number;
+//   origin?: string;
+//   destination?: string;
+//   date?: string;
+//   seats?: number;
+//   maxPrice?: number;
+//   sortBy?: string;
+//   status?: string;
+//   state?: string;
+//   location?: string;
+// }): Promise<PagedDto<any>> {
+//   const {
+//     page = 1, limit = 20,
+//     origin, destination, date, seats, maxPrice, sortBy, status,
+//     state, location,
+//   } = query;
+
+//   const skip = (page - 1) * limit;
+
+//   const qb = this.tripRepository
+//     .createQueryBuilder('trip')
+//     .leftJoinAndSelect('trip.driver', 'driver')
+//     .leftJoinAndSelect('driver.user', 'user')
+//     .leftJoinAndSelect('trip.vehicle', 'vehicle');
+
+//   // Passengers should never see trips whose bookings the driver closed,
+//   // or whose booking window has already passed
+//   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+//   qb.andWhere(
+//     `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+//       OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+//   );
+
+//   // Only filter by status if explicitly provided
+//   if (status) {
+//     qb.andWhere('trip.status = :status', { status });
+//   }
+
+//   if (origin) {
+//     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
+//   }
+
+//   if (destination) {
+//     qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
+//       destination: `%${destination}%`,
+//     });
+//   }
+
+//   // if (state) {
+//   //   qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
+//   // }
+
+//   if (location) {
+//     qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
+//   }
+
+//   if (date) {
+//     qb.andWhere('trip.departureDate = :date', { date });
+//   }
+
+//   if (seats) {
+//     qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
+//   }
+
+//   if (maxPrice) {
+//     qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
+//   }
+
+//   switch (sortBy) {
+//     case 'price':
+//       qb.addSelect('trip.price::numeric', 'price_numeric')
+//         .orderBy('price_numeric', 'ASC');
+//       break;
+//     case 'seats':
+//       qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
+//         .orderBy('available_seats', 'DESC');
+//       break;
+//     default:
+//       qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
+//   }
+
+//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+//   const pagedDto = new PagedDto();
+//   pagedDto.data = data.map((t) => ({
+//     ...t,
+//     availableSeats: t.totalSeats - t.bookedSeats,
+//   }));
+
+//   pagedDto.meta = {
+//     page,
+//     limit,
+//     count: data.length,
+//     previousPage: page > 1 ? page - 1 : false,
+//     nextPage: skip + limit < total ? page + 1 : false,
+//     pageCount: Math.ceil(total / limit),
+//     totalRecords: total,
+//   };
+
+//   return pagedDto;
+// }
+
 async searchTrips(query: {
   page?: number;
   limit?: number;
@@ -553,85 +657,125 @@ async searchTrips(query: {
   status?: string;
   state?: string;
   location?: string;
+  /** Pass true to include trips whose booking window has already closed. */
+  includePast?: boolean | string;
 }): Promise<PagedDto<any>> {
   const {
-    page = 1, limit = 20,
-    origin, destination, date, seats, maxPrice, sortBy, status,
-    state, location,
+    origin,
+    destination,
+    date,
+    seats,
+    maxPrice,
+    sortBy,
+    status,
+    location,
   } = query;
-
+ 
+  // Query-string values arrive as strings — coerce and clamp.
+  const page = Math.max(1, Number(query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
   const skip = (page - 1) * limit;
-
+ 
+  const includePast = query.includePast === true || query.includePast === 'true';
+ 
   const qb = this.tripRepository
     .createQueryBuilder('trip')
     .leftJoinAndSelect('trip.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle');
-
-  // Passengers should never see trips whose bookings the driver closed,
-  // or whose booking window has already passed
+ 
+  // Never show trips the driver explicitly closed.
   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
-  qb.andWhere(
-    `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
-      OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
-  );
-
-  // Only filter by status if explicitly provided
+ 
+  // Booking window. Skipped when the caller asks for a specific date or opts
+  // into past trips — otherwise searching a past date can never return a row.
+  if (!includePast && !date) {
+    qb.andWhere(
+      `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+        OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+    );
+  }
+ 
   if (status) {
     qb.andWhere('trip.status = :status', { status });
   }
-
+ 
+  // ── Location matching ────────────────────────────────────────────────
+  // Each comma-separated token must appear somewhere in the stored value.
+  // Tolerates "Benin City, Edo, Nigeria" vs "Benin city,Edo,Nigeria" and
+  // works on the text form of a jsonb column regardless of key order.
+ 
   if (origin) {
-    qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
-  }
-
-  if (destination) {
-    qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
-      destination: `%${destination}%`,
+    this.tokenizeLocation(origin).forEach((token, i) => {
+      qb.andWhere(`trip.departureLocation ILIKE :originTok${i}`, {
+        [`originTok${i}`]: `%${token}%`,
+      });
     });
   }
-
-  // if (state) {
-  //   qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
-  // }
-
+ 
+  if (destination) {
+    this.tokenizeLocation(destination).forEach((token, i) => {
+      qb.andWhere(`CAST(trip.arrivalDestination AS TEXT) ILIKE :destTok${i}`, {
+        [`destTok${i}`]: `%${token}%`,
+      });
+    });
+  }
+ 
   if (location) {
-    qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
+    this.tokenizeLocation(location).forEach((token, i) => {
+      qb.andWhere(`trip.departureLocation ILIKE :locTok${i}`, {
+        [`locTok${i}`]: `%${token}%`,
+      });
+    });
   }
-
+ 
+  // ── Date ─────────────────────────────────────────────────────────────
   if (date) {
-    qb.andWhere('trip.departureDate = :date', { date });
+    const iso = this.normalizeDate(date);
+    if (!iso) {
+      throw new BadRequestException(
+        'Invalid date format. Use DD-MM-YYYY or YYYY-MM-DD.',
+      );
+    }
+    // ::date guards against departureDate being stored as a timestamp.
+    qb.andWhere('trip.departureDate::date = :date', { date: iso });
   }
-
+ 
   if (seats) {
-    qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
+    qb.andWhere('(trip.totalSeats - COALESCE(trip.bookedSeats, 0)) >= :seats', {
+      seats: Number(seats),
+    });
   }
-
+ 
   if (maxPrice) {
-    qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
+    qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice: Number(maxPrice) });
   }
-
+ 
+  // ── Sorting ──────────────────────────────────────────────────────────
+  // Order by the expression itself, not a SELECT alias: skip/take makes
+  // TypeORM wrap the query in a DISTINCT subquery where addSelect aliases
+  // aren't visible to the outer ORDER BY.
   switch (sortBy) {
     case 'price':
-      qb.addSelect('trip.price::numeric', 'price_numeric')
-        .orderBy('price_numeric', 'ASC');
+      qb.orderBy('trip.price::numeric', 'ASC');
       break;
     case 'seats':
-      qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
-        .orderBy('available_seats', 'DESC');
+      qb.orderBy('(trip.totalSeats - COALESCE(trip.bookedSeats, 0))', 'DESC');
       break;
     default:
-      qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
+      qb.orderBy('trip.departureDate', 'ASC')
+        .addOrderBy('trip.departureTime', 'ASC');
   }
-
+  qb.addOrderBy('trip.id', 'ASC'); // stable tiebreak so pages don't shuffle
+ 
   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-
+ 
   const pagedDto = new PagedDto();
   pagedDto.data = data.map((t) => ({
     ...t,
-    availableSeats: t.totalSeats - t.bookedSeats,
+    availableSeats: t.totalSeats - (t.bookedSeats ?? 0),
   }));
-
+ 
   pagedDto.meta = {
     page,
     limit,
@@ -641,10 +785,9 @@ async searchTrips(query: {
     pageCount: Math.ceil(total / limit),
     totalRecords: total,
   };
-
+ 
   return pagedDto;
 }
-
 
 
   async getTripById(tripId: string) {
@@ -1827,6 +1970,37 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
   escrow.refundedAt = new Date();
   await manager.save(Escrow, escrow);
 }
+
+
+private tokenizeLocation(value: string): string[] {
+  return value
+    .split(/[,/|]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
+ 
+/**
+ * Accepts DD-MM-YYYY, DD/MM/YYYY or YYYY-MM-DD; returns YYYY-MM-DD.
+ * Returns null when the input can't be understood.
+ */
+private normalizeDate(input: string): string | null {
+  const trimmed = input.trim();
+ 
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+ 
+  const m = trimmed.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  if (m) {
+    const [, dd, mm, yyyy] = m;
+    const month = Number(mm);
+    const day = Number(dd);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return `${yyyy}-${mm}-${dd}`;
+  }
+ 
+  return null;
+}
+
+
 }
 
 
