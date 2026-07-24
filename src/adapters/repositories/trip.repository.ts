@@ -738,7 +738,10 @@ async searchTrips(query: {
       );
     }
     // ::date guards against departureDate being stored as a timestamp.
-    qb.andWhere('trip.departureDate::date = :date', { date: iso });
+    //qb.andWhere('trip.departureDate::date = :date', { date: iso });
+    qb.andWhere('CAST(trip.departureDate AS DATE) = :departureDateParam', {
+      departureDateParam: iso,
+    });
   }
  
   if (seats) {
@@ -747,8 +750,14 @@ async searchTrips(query: {
     });
   }
  
+  // if (maxPrice) {
+  //   qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice: Number(maxPrice) });
+  // }
+
   if (maxPrice) {
-    qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice: Number(maxPrice) });
+    qb.andWhere('CAST(trip.price AS NUMERIC) <= :maxPriceParam', {
+      maxPriceParam: Number(maxPrice),
+    });
   }
  
   // ── Sorting ──────────────────────────────────────────────────────────
@@ -757,7 +766,7 @@ async searchTrips(query: {
   // aren't visible to the outer ORDER BY.
   switch (sortBy) {
     case 'price':
-      qb.orderBy('trip.price::numeric', 'ASC');
+      qb.orderBy('CAST(trip.price AS NUMERIC)', 'ASC');
       break;
     case 'seats':
       qb.orderBy('(trip.totalSeats - COALESCE(trip.bookedSeats, 0))', 'DESC');
