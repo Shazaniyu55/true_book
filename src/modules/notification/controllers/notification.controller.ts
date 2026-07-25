@@ -87,7 +87,7 @@ export class NotificationController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('clear:id')                    
+  @Post('clear/:id')                    
   @ApiOperation({ summary: 'delete one notifications as read' })
   @ApiResponse({ status: 200, description: 'All notifications marked as read' })
   async deleteOne(@AuthUser() user: any, @Param('id') notifyId: string) {

@@ -133,7 +133,7 @@ export class AgentService {
 
   // ─── Refer a Driver ─────────────────────────────────────────────────────────
 
-  async referDriver(agentId: string, driverId: string, referralCode: string) {
+  async referDriver(userId: string, driverId: string, referralCode: string) {
     // Check if driver is already referred
     const existingReferral = await this.referralRepo.findOne({
       where: { driverId },
@@ -144,7 +144,7 @@ export class AgentService {
     }
 
     const agent = await this.agentRepo.findOne({
-      where: { id: agentId },
+      where: { userId },
       relations: ['user'],
     });
     if (!agent) throw new NotFoundException('Agent not found');
@@ -156,7 +156,7 @@ export class AgentService {
     if (!driver) throw new NotFoundException('Driver not found');
 
     const referral = this.referralRepo.create({
-      agentId,
+      agentId: agent.id,
       driverId,
       referralCode,
       referredAt: new Date(),
@@ -166,22 +166,22 @@ export class AgentService {
     const saved = await this.referralRepo.save(referral);
 
     // Increment agent's total referrals count
-    await this.agentRepo.increment({ id: agentId }, 'totalReferrals', 1);
+    await this.agentRepo.increment({ id: agent.id }, 'totalReferrals', 1);
 
     return saved;
   }
 
   // ─── Agent Dashboard ─────────────────────────────────────────────────────────
 
-  async getDashboard(agentId: string) {
-    const agent = await this.agentRepo.findOne({ where: { id: agentId } });
+  async getDashboard(userId: string) {
+    const agent = await this.agentRepo.findOne({ where: { userId } });
     if (!agent) throw new NotFoundException('Agent not found');
 
     // Sum earned amount from all referrals
     const earningsResult = await this.referralRepo
       .createQueryBuilder('r')
       .select('SUM(r.earnedAmount)', 'total')
-      .where('r.agentId = :agentId', { agentId })
+      .where('r.agentId = :agentId', { agentId: agent.id })
       .getRawOne();
 
     const totalEarnings = parseFloat(earningsResult?.total ?? '0');
@@ -190,7 +190,7 @@ export class AgentService {
     const withdrawnResult = await this.payoutRepo
       .createQueryBuilder('p')
       .select('SUM(p.amount)', 'total')
-      .where('p.agentId = :agentId', { agentId })
+      .where('p.agentId = :agentId', { agentId: agent.id })
       .andWhere('p.status = :status', { status: 'approved' })
       .getRawOne();
 
@@ -207,15 +207,15 @@ export class AgentService {
 
   // ─── Fetch Referred Drivers ──────────────────────────────────────────────────
 
-  async getDriversReferred(agentId: string, query: { page?: number; limit?: number }) {
+  async getDriversReferred(userId: string, query: { page?: number; limit?: number }) {
     const { page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
-    const agent = await this.agentRepo.findOne({ where: { id: agentId } });
+    const agent = await this.agentRepo.findOne({ where: { userId } });
     if (!agent) throw new NotFoundException('Agent not found');
 
     const [referrals, total] = await this.referralRepo.findAndCount({
-      where: { agentId },
+      where: { agentId: agent.id },
       relations: ['driver.user'],
       skip,
       take: limit,
