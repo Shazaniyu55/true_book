@@ -29,6 +29,9 @@ import { Vehicle } from '@modules/core/entities/vehicle.entity';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
 import { Between } from 'typeorm';
 import { Review } from '@modules/core/entities/review.entity';
+import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
+import { Referral } from '@modules/core/entities/referal.entity';
+import { AgentCommission } from '@modules/core/entities/agent-commission.entity';
 
 @Injectable()
 export class AdminRepository extends Repository<Admin> {
@@ -47,6 +50,11 @@ export class AdminRepository extends Repository<Admin> {
     @InjectRepository(Beneficiary) private readonly beneficiaryRepo: Repository<Beneficiary>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
     @InjectRepository(Review) private readonly reviewRepo: Repository<Review>,
+    
+
+  @InjectRepository(AgentReferral) private readonly agentReferralRepo: Repository<AgentReferral>,
+  @InjectRepository(Referral) private readonly referralRepo: Repository<Referral>,
+  @InjectRepository(AgentCommission) private readonly agentCommissionRepo: Repository<AgentCommission>,
     private readonly entityManager: EntityManager,
     private readonly paystackAdapter: PaystackAdapter,
 
@@ -359,12 +367,72 @@ async getPassengerById(id: string){
   return passenger;
 }
 
-async getAgentById(id: string) {
-  const agent = await this.agentRepo.findOne({ where: { id }, relations: { user: true },
- });
-  if (!agent) throw new NotFoundException('Agent not found');
+// async getAgentById(id: string) {
+//   const agent = await this.agentRepo.findOne({ where: { id }, relations: { user: true },
+//  });
+//   if (!agent) throw new NotFoundException('Agent not found');
  
-  return agent;
+//   return agent;
+// }
+
+async getAgentById(id: string) {
+  // 1. The agent + its user
+  const agent = await this.agentRepo.findOne({
+    where: { id },
+    relations: { user: true },
+  });
+  if (!agent) throw new NotFoundException('Agent not found');
+
+  // 2. Fetch the related collections in parallel
+  const [agent_referrals, withdrawal_request, refferals, commissions] =
+    await Promise.all([
+      // agent_referrals — direct on agentId
+      this.agentReferralRepo.find({
+        where: { agentId: id },
+        relations: { driver: true },
+        order: { createdAt: 'DESC' },
+      }),
+
+      // withdrawal_request — payouts on agentId
+      this.payoutRepo.find({
+        where: { agentId: id },
+        order: { createdAt: 'DESC' },
+      }),
+
+      // refferals — these belong to the agent's USER, not the agent
+      this.referralRepo.find({
+        where: { referrerId: agent.userId },
+        relations: { referredUser: true },
+        order: { createdAt: 'DESC' },
+      }),
+
+      // commissions — used to build earning_overview
+      this.agentCommissionRepo.find({ where: { agentId: id } }),
+    ]);
+
+  // 3. Build earning_overview (object) from commission rows
+  const toNum = (v: any) => Number(v) || 0;
+  const earning_overview = {
+    totalCommission: commissions.reduce((s, c) => s + toNum(c.commissionAmount), 0),
+    releasedCommission: commissions
+      .filter((c) => c.status === 'released')
+      .reduce((s, c) => s + toNum(c.commissionAmount), 0),
+    pendingCommission: commissions
+      .filter((c) => c.status === 'pending')
+      .reduce((s, c) => s + toNum(c.commissionAmount), 0),
+    currentBalance: toNum(agent.currentBalance),
+    totalReferrals: agent.totalReferrals,
+    totalWithdrawals: withdrawal_request.reduce((s, p) => s + toNum(p.amount), 0),
+  };
+
+  // 4. Assemble the exact shape the frontend reads
+  return {
+    ...agent,
+    agent_referrals,
+    refferals,          // note: matches the frontend's spelling exactly
+    earning_overview,
+    withdrawal_request,
+  };
 }
 
 async getAgentWithDetails(id: string) {

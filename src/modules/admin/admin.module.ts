@@ -99,6 +99,9 @@ import { CreateSubAdminUsecase } from './usecases/createsubadmin.usecase';
 import { Permission } from '@modules/core/entities/permission.entity';
 import { RolesController } from './controllers/roles.controller';
 import { RolesService } from './services/roles.service';
+import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
+import { Referral } from '@modules/core/entities/referal.entity';
+import { AgentCommission } from '@modules/core/entities/agent-commission.entity';
 
 
 
@@ -170,7 +173,10 @@ const USECASES = [
       Trip,
       Booking,
       Payout,
+      AgentReferral,
       DocumentVerification,
+      Referral,
+      AgentCommission,
       Coupon,
       Passenger,
       Agent,
