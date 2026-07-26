@@ -111,6 +111,13 @@ import { NotificationService } from '@modules/notification/services/notification
 import { CreateAnnouncementDto } from '@modules/notification/dtos/announcement.dto';
 import { CreateSubAdminUsecase } from '../usecases/createsubadmin.usecase';
 import { CreateSubAdminDto } from '../dtos/create-subadmin.dto';
+import { GetFinacialReportUsecase } from '../usecases/getfinacialreport.usecase';
+import {
+  GetDriversEarningsUsecase,
+  GetAgentsEarningsUsecase,
+  GetRefundRequestsUsecase,
+} from '../usecases/finance.usecase';
+
 
 
 @ServiceName('admin') // For kill switch targeting
@@ -134,6 +141,11 @@ export class AdminController {
     private readonly getPassegerByIdUsecase:GetPassengerByIdUsecase,
     private readonly getDriverVehicleByIdUsecase:GetDriverVehicleByIdUsecase,
     private readonly createSubAdminUsecase: CreateSubAdminUsecase,
+
+    private readonly getFinancialReportUsecase: GetFinacialReportUsecase,
+private readonly getDriversEarningsUsecase: GetDriversEarningsUsecase,
+private readonly getAgentsEarningsUsecase: GetAgentsEarningsUsecase,
+private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
 
     // Dashboard
     private readonly getDashboardUsecase: GetDashboardUsecase,
@@ -701,4 +713,65 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
   deactivateCoupon(@Param('id') id: string) {
     return this.broker.runUsecases([this.deactivateCouponUsecase], { id });
   }
+
+  // ─── Finance / Transactions ──────────────────────────────────────────────
+
+@ApiBearerAuth()
+@AdminOnly()
+@Get('transactions/report')
+@ApiOperation({ summary: 'Financial report' })
+getFinancialReport(@Query() query: AdminListQueryDto) {
+  return this.broker.runUsecases([this.getFinancialReportUsecase], { query });
+}
+
+@ApiBearerAuth()
+@AdminOnly()
+@Get('finance/drivers-earnings')
+@ApiOperation({ summary: 'List drivers earnings' })
+getDriversEarnings(@Query() query: AdminListQueryDto) {
+  return this.broker.runUsecases([this.getDriversEarningsUsecase], { query });
+}
+
+@ApiBearerAuth()
+@AdminOnly()
+@Get('finance/agents-earnings')
+@ApiOperation({ summary: 'List agents earnings' })
+getAgentsEarnings(@Query() query: AdminListQueryDto) {
+  return this.broker.runUsecases([this.getAgentsEarningsUsecase], { query });
+}
+
+@ApiBearerAuth()
+@AdminOnly()
+@Get('transactions/refund-requests')
+@ApiOperation({ summary: 'List refund requests' })
+getRefundRequests(@Query() query: AdminListQueryDto) {
+  return this.broker.runUsecases([this.getRefundRequestsUsecase], { query });
+}
+
+@ApiBearerAuth()
+@AdminOnly()
+@RequirePermissions(Permission.PAYOUT_APPROVE)
+@Patch('transactions/approve-withdrawal/:payout')
+@ApiOperation({ summary: 'Approve a withdrawal request' })
+@ApiParam({ name: 'payout', type: String })
+approveWithdrawal(@Param('payout') payout: string, @AuthUser() user: any) {
+  return this.broker.runUsecases([this.approvePayoutUsecase], {
+    id: payout,
+    adminEmail: user.email,
+  });
+}
+
+@ApiBearerAuth()
+@AdminOnly()
+@RequirePermissions(Permission.PAYOUT_DECLINE)
+@Patch('transactions/decline-withdrawal/:payout')
+@ApiOperation({ summary: 'Decline a withdrawal request' })
+@ApiParam({ name: 'payout', type: String })
+declineWithdrawal(@Param('payout') payout: string, @AuthUser() user: any) {
+  return this.broker.runUsecases([this.declinePayoutUsecase], {
+    id: payout,
+    reason: 'Declined by admin',
+    adminEmail: user.email,
+  });
+}
 }

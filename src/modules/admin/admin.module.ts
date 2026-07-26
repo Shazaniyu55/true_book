@@ -102,6 +102,11 @@ import { RolesService } from './services/roles.service';
 import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
 import { Referral } from '@modules/core/entities/referal.entity';
 import { AgentCommission } from '@modules/core/entities/agent-commission.entity';
+import {
+  GetDriversEarningsUsecase,
+  GetAgentsEarningsUsecase,
+  GetRefundRequestsUsecase,
+} from './usecases/finance.usecase';
 
 
 
@@ -205,6 +210,9 @@ const USECASES = [
     UserRepository,
     PaystackAdapter,
     PaystackProvider,
+      GetDriversEarningsUsecase,
+  GetAgentsEarningsUsecase,
+  GetRefundRequestsUsecase,
     { provide: HashingUtil, useClass: BcryptHashingUtil },
     RandomnessUtil,
     ...USECASES,
