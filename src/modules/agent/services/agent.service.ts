@@ -16,6 +16,7 @@ import {
   CreateTransactionPinDto,
   UpdateAgentProfileDto,
 } from '../dtos/agent.dto';
+import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 
 
 @Injectable()
@@ -30,6 +31,8 @@ export class AgentService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly settingService: SystemSettingService,
     private readonly hashingUtil: HashingUtil,
+    private readonly cloudinaryService: CloudinaryService,
+    
   ) {}
 
   // ─── Get current agent profile ──────────────────────────────────────────────
@@ -64,6 +67,12 @@ export class AgentService {
     if (dto.lastName !== undefined) user.lastName = dto.lastName;
     if (dto.phone !== undefined) user.phone = dto.phone;
     if (dto.profileImage !== undefined) user.profileImage = dto.profileImage;
+    if (dto.address !== undefined) user.address = dto.address;
+    if (dto.city !== undefined) user.city = dto.city;
+    if (dto.state !== undefined) user.state = dto.state;
+    if (dto.dob !== undefined) user.dob = dto.dob;
+    if (dto.gender !== undefined) user.gender = dto.gender;
+    if (dto.country !== undefined) user.country = dto.country;
     await this.userRepo.save(user);
 
     // Agent-level fields

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsDateString,
   IsEmail,
   IsNotEmpty,
   IsNumber,
@@ -70,6 +71,28 @@ export class UpdateAgentProfileDto {
 
   @ApiPropertyOptional({ example: 'Lagos' })
   @IsOptional() @IsString() stateOfResidence?: string;
+
+
+  @ApiPropertyOptional({ example: 'Lagos' })
+    @IsOptional() @IsString() state?: string;
+  
+  
+  
+      @ApiProperty({ example: '1999-06-05' })
+  @IsOptional()
+  @IsDateString()
+  dob?: string;
+  
+  
+    @ApiProperty({ example: 'male' })
+    @IsString()
+    @IsOptional()
+    gender: string;
+  
+    @ApiProperty({ example: 'Nigeria' })
+    @IsString()
+    @IsOptional()
+    country: string;
 }
 
 export class CreateTransactionPinDto {

@@ -36,9 +36,11 @@ import { DriverModule } from '@modules/driver/driver.module';
 import { AgentPayoutController } from './controllers/agent-payout.controller';
 import { BanksController } from './controllers/banks.controller';
 import { InitiateAgentPayoutUsecase } from './usecases/initiateagentpayout.usecase';
+import { CloudinaryModule } from '@modules/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
+    CloudinaryModule,
     SystemSettingModule,
     // DriverModule exports PayoutService, which already resolves both drivers
     // and agents — so we reuse it instead of re-implementing the payout flow.

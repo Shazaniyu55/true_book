@@ -80,32 +80,28 @@ export class AdminRepository extends Repository<Admin> {
   }
 
   async getOverviews() {
-  const todayStart = startOfDay(new Date());
-  const todayEnd = endOfDay(new Date());
+  // const todayStart = startOfDay(new Date());
+  // const todayEnd = endOfDay(new Date());
 
   const [activeTrips, upcomingTrips, completedTrips, cancelledTrips] = await Promise.all([
     this.tripRepo.count({
       where: {
         status: TripStatus.ACTIVE as any,
-        departureDate: Between(todayStart as any, todayEnd as any),
       },
     }),
     this.tripRepo.count({
       where: {
         status: TripStatus.PENDING as any,
-        departureDate: Between(todayStart as any, todayEnd as any),
       },
     }),
     this.tripRepo.count({
       where: {
         status: TripStatus.COMPLETED as any,
-        departureDate: Between(todayStart as any, todayEnd as any),
       },
     }),
     this.tripRepo.count({
       where: {
         status: TripStatus.CANCELLED as any,
-        departureDate: Between(todayStart as any, todayEnd as any),
       },
     }),
   ]);
