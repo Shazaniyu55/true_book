@@ -172,12 +172,13 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
     return this.adminRepo.getAgentReferrals(id, query)
   }
 
+  
   async getAgentWithDetails(id: string){
     return this.adminRepo.getAgentWithDetails(id)
   }
 
   async getAgentById(id: string){
-    this.adminRepo.getAgentById(id)
+    return this.adminRepo.getAgentById(id)
   }
 
   async getAgents(query: { page?: number; limit?: number }){

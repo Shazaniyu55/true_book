@@ -360,8 +360,10 @@ async getPassengerById(id: string){
 }
 
 async getAgentById(id: string) {
-  const agent = await this.agentRepo.findOne({ where: { id } });
+  const agent = await this.agentRepo.findOne({ where: { id }, relations: { user: true },
+ });
   if (!agent) throw new NotFoundException('Agent not found');
+ 
   return agent;
 }
 
