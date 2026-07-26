@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { AdminService } from '../services/admin.service';
+import { AdminListQueryDto } from '../dtos/admin.dto';
 
 @Injectable()
 export class GetAgentsUsecase extends Usecase {
@@ -9,7 +10,7 @@ export class GetAgentsUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager, _args: any, query: { page?: number; limit?: number }) {
-    return this.adminService.getAgents(query);
+  async execute(_entityManager: EntityManager, _args: any, args: { query?: AdminListQueryDto }) {
+    return this.adminService.getAgents(args?.query ?? {});
   }
 }

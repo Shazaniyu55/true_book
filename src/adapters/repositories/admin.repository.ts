@@ -263,16 +263,54 @@ async getDriverById(id: string) {
   }
 }
 
+// async getAgents(query: {
+//   page?: number;
+//   limit?: number;
+//   search?: string;
+// }): Promise<PagedDto<any>> {
+//   const { page = 1, limit = 10, search } = query;
+//   const skip = (page - 1) * limit;
+
+//   const qb = this.agentRepo
+//     .createQueryBuilder('agent')
+//     .where('agent.deletedAt IS NULL')
+//     .orderBy('agent.createdAt', 'DESC')
+//     .skip(skip)
+//     .take(limit);
+
+//   if (search) {
+//     qb.andWhere(
+//       '(agent.user.firstName ILIKE :search OR agent.user.lastName ILIKE :search OR agent.user.email ILIKE :search)',
+//       { search: `%${search}%` },
+//     );
+//   }
+
+//   const [data, total] = await qb.getManyAndCount();
+
+//   const pagedDto = new PagedDto();
+//   pagedDto.data = data;
+//   pagedDto.meta = {
+//     page,
+//     limit,
+//     count: data.length,
+//     previousPage: page > 1 ? page - 1 : false,
+//     nextPage: skip + limit < total ? page + 1 : false,
+//     pageCount: Math.ceil(total / limit),
+//     totalRecords: total,
+//   };
+//   return pagedDto;
+// }
 async getAgents(query: {
   page?: number;
   limit?: number;
   search?: string;
-}): Promise<PagedDto<any>> {
-  const { page = 1, limit = 10, search } = query;
+} = {}): Promise<PagedDto<any>> {
+  const { page = 1, limit = 10, search } = query ?? {};
   const skip = (page - 1) * limit;
 
   const qb = this.agentRepo
     .createQueryBuilder('agent')
+    .leftJoinAndSelect('agent.user', 'user')   // 👈 join + hydrate the user relation
     .where('agent.deletedAt IS NULL')
     .orderBy('agent.createdAt', 'DESC')
     .skip(skip)
@@ -280,7 +318,7 @@ async getAgents(query: {
 
   if (search) {
     qb.andWhere(
-      '(agent.user.firstName ILIKE :search OR agent.user.lastName ILIKE :search OR agent.user.email ILIKE :search)',
+      '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
       { search: `%${search}%` },
     );
   }
@@ -300,7 +338,6 @@ async getAgents(query: {
   };
   return pagedDto;
 }
-
 async getDriverVehicle(driverId: string) {
   try {
     const vehicle = await this.vehicleRepo.findOne({
