@@ -358,9 +358,86 @@ async getWalletTransactions(
     created_at: p.createdAt,
   }));
 
-  // ── Credits: trip earnings recorded on completed, paid bookings ────────
+  // ── Credits: trip earnings ─────────────────────────────────────────────
+  // Payment happens at ticket scan, which RELEASES the booking's escrow and
+  // credits the wallet — so released escrows are the source of truth for
+  // credits. We also include legacy bookings stamped with `driverCredited`
+  // metadata by the old completion flow; those escrows are marked "bypassed"
+  // and excluded from the escrow query, so there is no double-counting.
   let credits: any[] = [];
   if (kind === 'driver') {
+    // 1) Scan / verify credits — released (non-bypassed) escrows.
+    const escrowQb = this.dataSource
+      .getRepository(Escrow)
+      .createQueryBuilder('e')
+      .innerJoinAndSelect('e.booking', 'b')
+      .leftJoinAndSelect('b.trip', 'trip')
+      .where('e.driverId = :id', { id: entity.id })
+      .andWhere('e.status = :status', { status: EscrowStatus.RELEASED })
+      .andWhere("(e.releaseReason IS NULL OR e.releaseReason NOT ILIKE '%bypassed%')")
+      .orderBy('e.releasedAt', 'DESC');
+
+    if (params.search) {
+      escrowQb.andWhere(
+        '(b.bookingCode ILIKE :s OR b.paymentReference ILIKE :s OR e.reference ILIKE :s)',
+        { s: `%${params.search}%` },
+      );
+    }
+    if (params.start_date) {
+      escrowQb.andWhere('e.releasedAt >= :start', { start: new Date(params.start_date) });
+    }
+    if (params.end_date) {
+      const end = new Date(params.end_date);
+      end.setHours(23, 59, 59, 999);
+      escrowQb.andWhere('e.releasedAt <= :end', { end });
+    }
+
+    const releasedEscrows = await escrowQb.getMany();
+
+    const escrowCredits = releasedEscrows.map((e) => {
+      const b = e.booking;
+      const meta = (b?.metadata ?? {}) as Record<string, any>;
+      const gross = Number(e.amount ?? b?.amountPaid ?? 0);
+      const chargeFee = Number(e.platformFee ?? 0);
+      const net = Number(e.netDriverAmount ?? gross - chargeFee);
+      return {
+        id: b?.id ?? e.id,
+        type: 'credit' as const,
+        reference: b?.bookingCode ?? e.reference,
+        payment_reference: e.paymentReference ?? b?.paymentReference ?? null,
+        amount: net,                       // what actually entered the wallet
+        gross_amount: gross,               // what the passenger paid
+        charge_fee: chargeFee,             // platform charge deducted
+        total_amount: Number(b?.totalAmount ?? 0),
+        discount_amount: Number(b?.discountAmount ?? 0),
+        extra_luggage_charge: Number(meta.extraLuggageCharge ?? 0),
+        seats: b?.seats,
+        status: 'success',
+        booking_status: b?.status,
+        payment_status: b?.paymentStatus,
+        payment_gateway: b?.paymentGateway ?? null,
+        ticket_status: b?.ticketStatus ?? null,
+        reason: 'Trip earnings',
+        narration: `Earnings from booking ${b?.bookingCode ?? e.reference}`,
+        trip: b?.trip
+          ? {
+              id: b.trip.id,
+              reference: b.trip.reference,
+              departure_location: b.trip.departureLocation ?? null,
+              pick_station: b.trip.pickStation ?? null,
+              drop_off_station: b.trip.dropOffStation ?? null,
+              departure_date: b.trip.departureDate ?? null,
+              departure_time: b.trip.departureTime ?? null,
+            }
+          : null,
+        bank: null,
+        account_number: null,
+        credited_at: e.releasedAt ?? null,
+        created_at: e.releasedAt ?? b?.updatedAt,
+      };
+    });
+
+    // 2) Legacy credits — old completion flow stamped driverCredited metadata.
     const bookingQb = this.dataSource
       .getRepository(Booking)
       .createQueryBuilder('b')
@@ -385,7 +462,7 @@ async getWalletTransactions(
 
     const creditedBookings = await bookingQb.getMany();
 
-    credits = creditedBookings.map((b) => {
+    const legacyCredits = creditedBookings.map((b) => {
       const meta = (b.metadata ?? {}) as Record<string, any>;
       const gross = Number(b.amountPaid ?? 0);
       const chargeFee = Number(meta.platformFee ?? 0);
@@ -426,6 +503,8 @@ async getWalletTransactions(
         created_at: meta.driverCreditedAt ? new Date(meta.driverCreditedAt) : b.updatedAt,
       };
     });
+
+    credits = [...escrowCredits, ...legacyCredits];
   }
 
   // ── Merge, sort, paginate ──────────────────────────────────────────────
@@ -813,6 +892,8 @@ private mapBookingToCredit(b: Booking) {
 }
 
 
+
+
 // import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 // import { InjectRepository } from '@nestjs/typeorm';
 // import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -900,7 +981,10 @@ private mapBookingToCredit(b: Booking) {
 //      let beneficiary: Beneficiary | null = null;
 //     try {
 //       if (!dto.bankHolderName) dto.bankHolderName = resolved.account_name;
-//       beneficiary = await this.createBeneficiary(entity, kind, dto, manager);
+//       // Only persist a beneficiary when the client asked us to (default: yes).
+//       if (dto.saveBeneficiary !== false) {
+//         beneficiary = await this.createBeneficiary(entity, kind, dto, manager);
+//       }
 //     } catch (err) {
 //       this.logger.warn(
 //         `Could not save beneficiary for user ${userId} (${dto.accountNumber}/${dto.bankCode}): ${err?.message}`,
@@ -1098,6 +1182,28 @@ private mapBookingToCredit(b: Booking) {
 //     () => this.paystackAdapter.getBankList(),
 //     CACHE_TTL.DAY,
 //   );
+// }
+
+// // ─── Resolve a bank account name (name enquiry) ────────────────────
+// async resolveAccount(accountNumber: string, bankCode: string) {
+//   if (!accountNumber || !bankCode) {
+//     throw new BadRequestException('Account number and bank code are required');
+//   }
+
+//   let resolved: { account_number: string; account_name: string; bank_code: string };
+//   try {
+//     resolved = await this.paystackAdapter.nameEnquiry(accountNumber, bankCode);
+//   } catch (err) {
+//     this.logger.error(
+//       `resolveAccount failed for ${accountNumber}/${bankCode}: ${err?.message}`,
+//     );
+//     throw new BadRequestException('Could not verify this account number with the bank');
+//   }
+
+//   if (!resolved?.account_name) {
+//     throw new BadRequestException('Could not resolve this account number');
+//   }
+//   return resolved; // { account_name, account_number, bank_code }
 // }
 
 // async getWalletTransactions(
@@ -1601,4 +1707,6 @@ private mapBookingToCredit(b: Booking) {
 // }
   
 // }
+
+
 
