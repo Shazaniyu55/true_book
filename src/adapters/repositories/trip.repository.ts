@@ -117,8 +117,11 @@ if (vehicleCount === 0) {
     if (dto.notes) trip.metadata = { ...(trip.metadata ?? {}), completionNotes: dto.notes };
     await manager.save(Trip, trip);
 
-      // Release all held escrows for confirmed bookings on this trip
-    await this.releaseEscrowsForTrip(trip.id, manager);
+    // NOTE: the driver is paid at boarding time (ticket scan), NOT on completion.
+    // Escrow for each booking is released inside scanTicket()/verifyBookingByCode()
+    // via releaseEscrowForBooking(). We intentionally do NOT release escrow here.
+    // Any escrow still HELD at completion belongs to passengers who paid but were
+    // never scanned/boarded, and must not be credited to the driver.
 
     // Grab confirmed bookings (with passengers) BEFORE flipping them,
     // so we know who to notify afterwards
@@ -541,109 +544,6 @@ async searchTripState(query: {
 }
 
 
-// async searchTrips(query: {
-//   page?: number;
-//   limit?: number;
-//   origin?: string;
-//   destination?: string;
-//   date?: string;
-//   seats?: number;
-//   maxPrice?: number;
-//   sortBy?: string;
-//   status?: string;
-//   state?: string;
-//   location?: string;
-// }): Promise<PagedDto<any>> {
-//   const {
-//     page = 1, limit = 20,
-//     origin, destination, date, seats, maxPrice, sortBy, status,
-//     state, location,
-//   } = query;
-
-//   const skip = (page - 1) * limit;
-
-//   const qb = this.tripRepository
-//     .createQueryBuilder('trip')
-//     .leftJoinAndSelect('trip.driver', 'driver')
-//     .leftJoinAndSelect('driver.user', 'user')
-//     .leftJoinAndSelect('trip.vehicle', 'vehicle');
-
-//   // Passengers should never see trips whose bookings the driver closed,
-//   // or whose booking window has already passed
-//   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
-//   qb.andWhere(
-//     `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
-//       OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
-//   );
-
-//   // Only filter by status if explicitly provided
-//   if (status) {
-//     qb.andWhere('trip.status = :status', { status });
-//   }
-
-//   if (origin) {
-//     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
-//   }
-
-//   if (destination) {
-//     qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
-//       destination: `%${destination}%`,
-//     });
-//   }
-
-//   // if (state) {
-//   //   qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
-//   // }
-
-//   if (location) {
-//     qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
-//   }
-
-//   if (date) {
-//     qb.andWhere('trip.departureDate = :date', { date });
-//   }
-
-//   if (seats) {
-//     qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
-//   }
-
-//   if (maxPrice) {
-//     qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
-//   }
-
-//   switch (sortBy) {
-//     case 'price':
-//       qb.addSelect('trip.price::numeric', 'price_numeric')
-//         .orderBy('price_numeric', 'ASC');
-//       break;
-//     case 'seats':
-//       qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
-//         .orderBy('available_seats', 'DESC');
-//       break;
-//     default:
-//       qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
-//   }
-
-//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-
-//   const pagedDto = new PagedDto();
-//   pagedDto.data = data.map((t) => ({
-//     ...t,
-//     availableSeats: t.totalSeats - t.bookedSeats,
-//   }));
-
-//   pagedDto.meta = {
-//     page,
-//     limit,
-//     count: data.length,
-//     previousPage: page > 1 ? page - 1 : false,
-//     nextPage: skip + limit < total ? page + 1 : false,
-//     pageCount: Math.ceil(total / limit),
-//     totalRecords: total,
-//   };
-
-//   return pagedDto;
-// }
 
 async searchTrips(query: {
   page?: number;
@@ -957,284 +857,7 @@ async getTripSummaryById(tripId: string, driverUserId?: string) {
     vehicle,
   };
 }
-//case 1
-//   async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
-//   const manager = entityManager || this.entityManager;
 
-//   const trip = await this.tripRepository.findOne({
-//     where: { id: dto.tripId },
-//     relations: ['driver', 'driver.user', 'vehicle'],
-//   });
-//   if (!trip) throw new NotFoundException('Trip not found');
-//   // if (trip.status !== TripStatus.ACTIVE)
-//   //   throw new BadRequestException('This trip is not accepting bookings');
-
-//   // ── driver manually closed bookings (mirrors Laravel closeBookings) ──
-//   if (trip.bookingStatus === 'closed')
-//     throw new BadRequestException('Bookings for this trip have been closed by the driver');
-
-//   // ── time guards (mirrors Laravel) ──
-//   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
-//   if (!isNaN(departure.getTime()) && departure.getTime() <= Date.now())
-//     throw new BadRequestException("You can't book this trip — departure time has elapsed");
-
-//   if (trip.bookingClosingDate && trip.bookingClosingTime) {
-//     const closing = new Date(`${trip.bookingClosingDate}T${trip.bookingClosingTime}`);
-//     if (!isNaN(closing.getTime()) && closing.getTime() <= Date.now())
-//       throw new BadRequestException("You can't book this trip — booking time is over");
-//   }
-
-//   // ── seats (now respects bookedSeats) ──
-//   const available = trip.totalSeats - (trip.bookedSeats ?? 0);
-//   if (dto.seats > available)
-//     throw new BadRequestException(`Only ${available} seat(s) available`);
-
-//   const passenger = await this.passengerRepo.findOne({
-//     where: { userId },
-//     relations: ['user'],
-//   });
-//   if (!passenger) throw new NotFoundException('Passenger profile not found');
-
-//   // ── duplicate pending booking (keys fixed) ──
-//   const existing = await this.bookingRepo.findOne({
-//     where: { tripId: trip.id, passengerId: passenger.id, status: BookingStatus.PENDING },
-//   });
-//   if (existing) throw new BadRequestException('You already have a pending booking for this trip');
-
-//   // ── pricing: base × seats + extra luggage ──
-//   const spec = this.parseTripSpecification(trip.tripSpecification);
-//   const basePrice = Number(spec.price ?? trip.price ?? 0);
-//   let totalAmount = basePrice * dto.seats;
-
-//   const luggageSize = Number(spec.luggage_size ?? 0);
-//   const luggageCharge = Number(spec.charge_for_extra_luggage ?? 0);
-//   const totalWeight = (dto.extraLuggage ?? []).reduce((s, l) => s + Number(l.weight ?? 0), 0);
-//   let extraLuggageCharge = 0;
-//   if (luggageSize > 0 && totalWeight > 0) {
-//     extraLuggageCharge = Math.ceil(totalWeight / luggageSize) * luggageCharge;
-//     totalAmount += extraLuggageCharge;
-//   }
-
-//   // ── coupon (rejects invalid, like Laravel) ──
-//   const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, totalAmount);
-
-//   const amountPaid = Math.max(0, totalAmount - discountAmount);
-//   const bookingCode = this.randomnessUtil.generateBookingCode(8);
-//   const paymentReference = this.randomnessUtil.generateReference('BKG');
-
-//   const booking = manager.create(Booking, {
-//     bookingCode,
-//     tripId: trip.id,
-//     passengerId: passenger.id,
-//     seats: dto.seats,
-//     totalAmount,            // NGN — do NOT multiply by 100
-//     discountAmount,
-//     amountPaid,
-//     status: BookingStatus.PENDING,
-//     paymentStatus: PaymentStatus.PENDING,
-//     paymentReference,
-//     couponCode: dto.couponCode,
-//     metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
-//   });
-//   const savedBooking = await manager.save(Booking, booking);
-
-//   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
-//   if (couponId) await manager.increment(Coupon, { id: couponId }, 'usageCount', 1);
-
-//   const paymentRecord = manager.create(Payment, {
-//   bookingId: savedBooking.id,
-//   passengerId: passenger.id,
-//   tripId: trip.id,
-//   txRef: paymentReference,        // ← same reference used for Paystack
-//   status: PaymentStatus.PENDING,
-//   amount: amountPaid,
-//   customerEmail: passenger.user.email,
-//   customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
-// });
-// await manager.save(Payment, paymentRecord);
-
-//   const payment = await this.paymentFactory.initiatePayment({
-//     amount: amountPaid,
-//     email: passenger.user.email,
-//     reference: paymentReference,
-//     callback_url: dto.callbackUrl,
-//     metadata: {
-//       bookingCode,
-//       bookingId: savedBooking.id,
-//       tripId: trip.id,
-//       passengerId: passenger.id,
-//       driverId: trip.driverId,
-//       seats: dto.seats,
-//       type: 'trip_booking',
-//     },
-//   });
-
-//   return {
-//     booking: savedBooking,
-//     payment,
-//     summary: {
-//       departureTime: trip.departureTime,
-//       seats: dto.seats,
-//       pricePerSeat: basePrice,
-//       extraLuggageCharge,
-//       totalAmount,
-//       discountAmount,
-//       amountPaid,
-//     },
-//   };
-// }
-
-//case 2
-// async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
-//   const manager = entityManager || this.entityManager;
-
-//   const trip = await this.tripRepository.findOne({
-//     where: { id: dto.tripId },
-//     relations: ['driver', 'driver.user', 'vehicle'],
-//   });
-//   if (!trip) throw new NotFoundException('Trip not found');
-
-//   // ── driver manually closed bookings ──
-//   if (trip.bookingStatus === 'closed')
-//     throw new BadRequestException('Bookings for this trip have been closed by the driver');
-
-//   // ── time guards ──
-//   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
-//   if (!isNaN(departure.getTime()) && departure.getTime() <= Date.now())
-//     throw new BadRequestException("You can't book this trip — departure time has elapsed");
-
-//   if (trip.bookingClosingDate && trip.bookingClosingTime) {
-//     const closing = new Date(`${trip.bookingClosingDate}T${trip.bookingClosingTime}`);
-//     if (!isNaN(closing.getTime()) && closing.getTime() <= Date.now())
-//       throw new BadRequestException("You can't book this trip — booking time is over");
-//   }
-
-//   // ── seats ──
-//   const available = trip.totalSeats - (trip.bookedSeats ?? 0);
-//   if (dto.seats > available)
-//     throw new BadRequestException(`Only ${available} seat(s) available`);
-
-//   const passenger = await this.passengerRepo.findOne({
-//     where: { userId },
-//     relations: ['user'],
-//   });
-//   if (!passenger) throw new NotFoundException('Passenger profile not found');
-
-  
-//   const existing = await this.bookingIntentRepo.findOne({
-//     where: { tripId: trip.id, passengerId: passenger.id, status: BookingIntentStatus.PENDING },
-//     relations: ['passenger', 'passenger.user'],
-//   });
-//   if (existing && (!existing.expiresAt || existing.expiresAt > new Date())) {
-//     //await this.bookingIntentRepo.delete();
-//     const payment = await this.paymentFactory.initiatePayment({
-//       amount: Number(existing.amountPaid),
-//       email: passenger.user.email,
-//       reference: existing.paymentReference,
-//       callback_url: dto.callbackUrl,
-//       metadata: {
-//         bookingCode: existing.bookingCode,
-//         intentId: existing.id,
-//         tripId: trip.id,
-//         passengerId: passenger.id,
-//         driverId: trip.driverId,
-//         seats: existing.seats,
-//         type: 'trip_booking',
-//       },
-//     });
-//     return { intent: existing, payment, resumed: true };
-//   }
-
-//   // ── pricing: base × seats + extra luggage ──
-//   const spec = this.parseTripSpecification(trip.tripSpecification);
-//   const basePrice = Number(spec.price ?? trip.price ?? 0);
-//   let totalAmount = basePrice * dto.seats;
-
-//   const luggageSize = Number(spec.luggage_size ?? 0);
-//   const luggageCharge = Number(spec.charge_for_extra_luggage ?? 0);
-//   const totalWeight = (dto.extraLuggage ?? []).reduce((s, l) => s + Number(l.weight ?? 0), 0);
-//   let extraLuggageCharge = 0;
-//   if (luggageSize > 0 && totalWeight > 0) {
-//     extraLuggageCharge = Math.ceil(totalWeight / luggageSize) * luggageCharge;
-//     totalAmount += extraLuggageCharge;
-//   }
-
-//   // ── coupon ──
-//   const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, totalAmount);
-
-//   const amountPaid = Math.max(0, totalAmount - discountAmount);
-//   const bookingCode = this.randomnessUtil.generateBookingCode(8);
-//   const paymentReference = this.randomnessUtil.generateReference('BKG');
-
-//   // ── store a BookingIntent (NOT a booking) ──
-//   const intent = await manager.save(
-//     BookingIntent,
-//     manager.create(BookingIntent, {
-//       bookingCode,
-//       tripId: trip.id,
-//       passengerId: passenger.id,
-//       seats: dto.seats,
-//       totalAmount,
-//       discountAmount,
-//       amountPaid,
-//       couponCode: dto.couponCode,
-//       couponId,
-//       paymentReference,
-//       status: BookingIntentStatus.PENDING,
-//       expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30-min window
-//       metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
-//     }),
-//   );
-
-//   // hold the seat during the payment window (released on expiry sweep)
-//   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
-
-//   await manager.save(
-//     Payment,
-//     manager.create(Payment, {
-//       bookingIntentId: intent.id, // no bookingId yet — set on payment success
-//       passengerId: passenger.id,
-//       tripId: trip.id,
-//       txRef: paymentReference,
-//       status: PaymentStatus.PENDING,
-//       amount: amountPaid,
-//       customerEmail: passenger.user.email,
-//       customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
-//     }),
-//   );
-
-//   const payment = await this.paymentFactory.initiatePayment({
-//     amount: amountPaid,
-//     email: passenger.user.email,
-//     reference: paymentReference,
-//     callback_url: dto.callbackUrl,
-//     metadata: {
-//       bookingCode,
-//       intentId: intent.id, // ← was bookingId: savedBooking.id
-//       tripId: trip.id,
-//       passengerId: passenger.id,
-//       driverId: trip.driverId,
-//       seats: dto.seats,
-//       type: 'trip_booking',
-//     },
-//   });
-
-//   return {
-//     intent, // ← was booking: savedBooking
-//     payment,
-//     summary: {
-//       departureTime: trip.departureTime,
-//       seats: dto.seats,
-//       pricePerSeat: basePrice,
-//       extraLuggageCharge,
-//       totalAmount,
-//       discountAmount,
-//       amountPaid,
-//     },
-//   };
-// }
-
-//case 3
 async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
   const manager = entityManager || this.entityManager;
 
@@ -2013,8 +1636,6 @@ private normalizeDate(input: string): string | null {
 }
 
 
-
-
 // import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 // import { InjectRepository } from '@nestjs/typeorm';
 // import { Brackets, DeepPartial, EntityManager, FindManyOptions, Repository } from 'typeorm';
@@ -2034,10 +1655,13 @@ private normalizeDate(input: string): string | null {
 // import { PagedDto } from '@shared/interface/paged.interface';
 // import { Vehicle } from '@modules/core/entities/vehicle.entity';
 // import { Payment } from '@modules/core/entities/payment.entity';
+// import { BookingIntent, BookingIntentStatus } from '@modules/core/entities/booking_intent.entity';
+// import { Review } from '@modules/core/entities/review.entity';
+// import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 
 
 // /** Platform fee rate (deducted from driver payout) */
-// const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '5'); // 5%
+// const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7'); // 5%
 
 // @Injectable()
 // export class TripRepository extends Repository<Trip> {
@@ -2055,8 +1679,9 @@ private normalizeDate(input: string): string | null {
 //     @InjectRepository(Passenger) private readonly passengerRepo: Repository<Passenger>,
 //     @InjectRepository(Coupon) private readonly couponRepo: Repository<Coupon>,
 //     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
-
-    
+//     @InjectRepository(BookingIntent) private readonly bookingIntentRepo: Repository<BookingIntent>,
+//     @InjectRepository(Review) private readonly reviewRepo: Repository<Review>,
+//     @InjectRepository(VehicleType) private readonly vehicleTypeRepo: Repository<VehicleType>,
     
     
 //   ) {
@@ -2514,6 +2139,14 @@ private normalizeDate(input: string): string | null {
 //     .leftJoinAndSelect('driver.user', 'user')
 //     .leftJoinAndSelect('trip.vehicle', 'vehicle');
 
+//   // Passengers should never see trips whose bookings the driver closed,
+//   // or whose booking window has already passed
+//   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+//   qb.andWhere(
+//     `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+//       OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+//   );
+
 //   if (status) {
 //     qb.andWhere('trip.status = :status', { status });
 //   }
@@ -2546,6 +2179,110 @@ private normalizeDate(input: string): string | null {
 // }
 
 
+// // async searchTrips(query: {
+// //   page?: number;
+// //   limit?: number;
+// //   origin?: string;
+// //   destination?: string;
+// //   date?: string;
+// //   seats?: number;
+// //   maxPrice?: number;
+// //   sortBy?: string;
+// //   status?: string;
+// //   state?: string;
+// //   location?: string;
+// // }): Promise<PagedDto<any>> {
+// //   const {
+// //     page = 1, limit = 20,
+// //     origin, destination, date, seats, maxPrice, sortBy, status,
+// //     state, location,
+// //   } = query;
+
+// //   const skip = (page - 1) * limit;
+
+// //   const qb = this.tripRepository
+// //     .createQueryBuilder('trip')
+// //     .leftJoinAndSelect('trip.driver', 'driver')
+// //     .leftJoinAndSelect('driver.user', 'user')
+// //     .leftJoinAndSelect('trip.vehicle', 'vehicle');
+
+// //   // Passengers should never see trips whose bookings the driver closed,
+// //   // or whose booking window has already passed
+// //   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+// //   qb.andWhere(
+// //     `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+// //       OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+// //   );
+
+// //   // Only filter by status if explicitly provided
+// //   if (status) {
+// //     qb.andWhere('trip.status = :status', { status });
+// //   }
+
+// //   if (origin) {
+// //     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
+// //   }
+
+// //   if (destination) {
+// //     qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
+// //       destination: `%${destination}%`,
+// //     });
+// //   }
+
+// //   // if (state) {
+// //   //   qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
+// //   // }
+
+// //   if (location) {
+// //     qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
+// //   }
+
+// //   if (date) {
+// //     qb.andWhere('trip.departureDate = :date', { date });
+// //   }
+
+// //   if (seats) {
+// //     qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
+// //   }
+
+// //   if (maxPrice) {
+// //     qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
+// //   }
+
+// //   switch (sortBy) {
+// //     case 'price':
+// //       qb.addSelect('trip.price::numeric', 'price_numeric')
+// //         .orderBy('price_numeric', 'ASC');
+// //       break;
+// //     case 'seats':
+// //       qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
+// //         .orderBy('available_seats', 'DESC');
+// //       break;
+// //     default:
+// //       qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
+// //   }
+
+// //   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+
+// //   const pagedDto = new PagedDto();
+// //   pagedDto.data = data.map((t) => ({
+// //     ...t,
+// //     availableSeats: t.totalSeats - t.bookedSeats,
+// //   }));
+
+// //   pagedDto.meta = {
+// //     page,
+// //     limit,
+// //     count: data.length,
+// //     previousPage: page > 1 ? page - 1 : false,
+// //     nextPage: skip + limit < total ? page + 1 : false,
+// //     pageCount: Math.ceil(total / limit),
+// //     totalRecords: total,
+// //   };
+
+// //   return pagedDto;
+// // }
+
 // async searchTrips(query: {
 //   page?: number;
 //   limit?: number;
@@ -2558,77 +2295,134 @@ private normalizeDate(input: string): string | null {
 //   status?: string;
 //   state?: string;
 //   location?: string;
+//   /** Pass true to include trips whose booking window has already closed. */
+//   includePast?: boolean | string;
 // }): Promise<PagedDto<any>> {
 //   const {
-//     page = 1, limit = 20,
-//     origin, destination, date, seats, maxPrice, sortBy, status,
-//     state, location,
+//     origin,
+//     destination,
+//     date,
+//     seats,
+//     maxPrice,
+//     sortBy,
+//     status,
+//     location,
 //   } = query;
-
+ 
+//   // Query-string values arrive as strings — coerce and clamp.
+//   const page = Math.max(1, Number(query.page) || 1);
+//   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
 //   const skip = (page - 1) * limit;
-
+ 
+//   const includePast = query.includePast === true || query.includePast === 'true';
+ 
 //   const qb = this.tripRepository
 //     .createQueryBuilder('trip')
 //     .leftJoinAndSelect('trip.driver', 'driver')
 //     .leftJoinAndSelect('driver.user', 'user')
 //     .leftJoinAndSelect('trip.vehicle', 'vehicle');
-
-//   // Only filter by status if explicitly provided
+ 
+//   // Never show trips the driver explicitly closed.
+//   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+ 
+//   // Booking window. Skipped when the caller asks for a specific date or opts
+//   // into past trips — otherwise searching a past date can never return a row.
+//   if (!includePast && !date) {
+//     qb.andWhere(
+//       `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+//         OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+//     );
+//   }
+ 
 //   if (status) {
 //     qb.andWhere('trip.status = :status', { status });
 //   }
-
+ 
+//   // ── Location matching ────────────────────────────────────────────────
+//   // Each comma-separated token must appear somewhere in the stored value.
+//   // Tolerates "Benin City, Edo, Nigeria" vs "Benin city,Edo,Nigeria" and
+//   // works on the text form of a jsonb column regardless of key order.
+ 
 //   if (origin) {
-//     qb.andWhere('trip.departureLocation ILIKE :origin', { origin: `%${origin}%` });
-//   }
-
-//   if (destination) {
-//     qb.andWhere('CAST(trip.arrivalDestination AS TEXT) ILIKE :destination', {
-//       destination: `%${destination}%`,
+//     this.tokenizeLocation(origin).forEach((token, i) => {
+//       qb.andWhere(`trip.departureLocation ILIKE :originTok${i}`, {
+//         [`originTok${i}`]: `%${token}%`,
+//       });
 //     });
 //   }
-
-//   // if (state) {
-//   //   qb.andWhere('trip.state ILIKE :state', { state: `%${state}%` });
+ 
+//   if (destination) {
+//     this.tokenizeLocation(destination).forEach((token, i) => {
+//       qb.andWhere(`CAST(trip.arrivalDestination AS TEXT) ILIKE :destTok${i}`, {
+//         [`destTok${i}`]: `%${token}%`,
+//       });
+//     });
+//   }
+ 
+//   if (location) {
+//     this.tokenizeLocation(location).forEach((token, i) => {
+//       qb.andWhere(`trip.departureLocation ILIKE :locTok${i}`, {
+//         [`locTok${i}`]: `%${token}%`,
+//       });
+//     });
+//   }
+ 
+//   // ── Date ─────────────────────────────────────────────────────────────
+//   if (date) {
+//     const iso = this.normalizeDate(date);
+//     if (!iso) {
+//       throw new BadRequestException(
+//         'Invalid date format. Use DD-MM-YYYY or YYYY-MM-DD.',
+//       );
+//     }
+//     // ::date guards against departureDate being stored as a timestamp.
+//     //qb.andWhere('trip.departureDate::date = :date', { date: iso });
+//     qb.andWhere('CAST(trip.departureDate AS DATE) = :departureDateParam', {
+//       departureDateParam: iso,
+//     });
+//   }
+ 
+//   if (seats) {
+//     qb.andWhere('(trip.totalSeats - COALESCE(trip.bookedSeats, 0)) >= :seats', {
+//       seats: Number(seats),
+//     });
+//   }
+ 
+//   // if (maxPrice) {
+//   //   qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice: Number(maxPrice) });
 //   // }
 
-//   if (location) {
-//     qb.andWhere('trip.departureLocation ILIKE :location', { location: `%${location}%` });
-//   }
-
-//   if (date) {
-//     qb.andWhere('trip.departureDate = :date', { date });
-//   }
-
-//   if (seats) {
-//     qb.andWhere('(trip.totalSeats - trip.bookedSeats) >= :seats', { seats });
-//   }
-
 //   if (maxPrice) {
-//     qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice });
+//     qb.andWhere('CAST(trip.price AS NUMERIC) <= :maxPriceParam', {
+//       maxPriceParam: Number(maxPrice),
+//     });
 //   }
-
+ 
+//   // ── Sorting ──────────────────────────────────────────────────────────
+//   // Order by the expression itself, not a SELECT alias: skip/take makes
+//   // TypeORM wrap the query in a DISTINCT subquery where addSelect aliases
+//   // aren't visible to the outer ORDER BY.
 //   switch (sortBy) {
 //     case 'price':
-//       qb.addSelect('trip.price::numeric', 'price_numeric')
-//         .orderBy('price_numeric', 'ASC');
+//       qb.orderBy('CAST(trip.price AS NUMERIC)', 'ASC');
 //       break;
 //     case 'seats':
-//       qb.addSelect('(trip.totalSeats - trip.bookedSeats)', 'available_seats')
-//         .orderBy('available_seats', 'DESC');
+//       qb.orderBy('(trip.totalSeats - COALESCE(trip.bookedSeats, 0))', 'DESC');
 //       break;
 //     default:
-//       qb.orderBy('trip.departureDate', 'ASC').addOrderBy('trip.departureTime', 'ASC');
+//       qb.orderBy('trip.departureDate', 'ASC')
+//         .addOrderBy('trip.departureTime', 'ASC');
 //   }
-
+//   qb.addOrderBy('trip.id', 'ASC'); // stable tiebreak so pages don't shuffle
+ 
 //   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-
+ 
 //   const pagedDto = new PagedDto();
 //   pagedDto.data = data.map((t) => ({
 //     ...t,
-//     availableSeats: t.totalSeats - t.bookedSeats,
+//     availableSeats: t.totalSeats - (t.bookedSeats ?? 0),
 //   }));
-
+ 
 //   pagedDto.meta = {
 //     page,
 //     limit,
@@ -2638,10 +2432,9 @@ private normalizeDate(input: string): string | null {
 //     pageCount: Math.ceil(total / limit),
 //     totalRecords: total,
 //   };
-
+ 
 //   return pagedDto;
 // }
-
 
 
 //   async getTripById(tripId: string) {
@@ -2664,7 +2457,423 @@ private normalizeDate(input: string): string | null {
 //   };
 // }
 
-//   async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
+
+// async getTripSummaryById(tripId: string, driverUserId?: string) {
+//   const trip = await this.tripRepository.findOne({
+//     where: { id: tripId },
+//     relations: ['vehicle', 'driver', 'driver.user'],
+//   });
+//   if (!trip) throw new NotFoundException('Trip not found');
+
+//   // ownership check — only runs when a driver is calling
+//   if (driverUserId) {
+//     const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
+//     if (!driver) throw new NotFoundException('Driver profile not found');
+//     if (trip.driverId !== driver.id)
+//       throw new ForbiddenException('This trip does not belong to you');
+//   }
+
+//   const spec = this.parseTripSpecification(trip.tripSpecification);
+
+//   const dest = Array.isArray(trip.arrivalDestination)
+//     ? trip.arrivalDestination[0] ?? {}
+//     : (trip.arrivalDestination as any) ?? {};
+
+//   // ── bookings ──
+//   const bookings = await this.bookingRepo.find({
+//     where: { tripId: trip.id },
+//     relations: ['passenger', 'passenger.user'],
+//     order: { createdAt: 'DESC' },
+//   });
+//   const activeBookings = bookings.filter((b) => b.status !== BookingStatus.CANCELLED);
+
+//   const extraLuggage = activeBookings.reduce(
+//     (sum, b) => sum + Number(b.metadata?.extraLuggageCharge ?? 0), 0,
+//   );
+//   const totalAmount = activeBookings.reduce(
+//     (sum, b) => sum + Number(b.amountPaid ?? 0), 0,
+//   );
+
+//   const passengers = activeBookings
+//     .map((b) =>
+//       [b.passenger?.user?.firstName, b.passenger?.user?.lastName]
+//         .filter(Boolean).join(' ').trim(),
+//     )
+//     .filter((name) => name.length > 0);
+
+//   // ── reviews on this trip ──
+//   const reviews = await this.reviewRepo.find({
+//     where: { tripId: trip.id, isVisible: true },
+//     relations: ['passenger', 'passenger.user'],
+//     order: { createdAt: 'DESC' },
+//   });
+
+//   const usersReview = reviews.map((r) => ({
+//     'passenger_name ': [r.passenger?.user?.firstName, r.passenger?.user?.lastName]
+//       .filter(Boolean).join(' ').trim(),
+//     passenger_email: r.passenger?.user?.email ?? '',
+//     profile_image: r.passenger?.user?.profileImage ?? '',
+//     rating: Number(r.rating ?? 0),
+//     comment: r.comment ?? '',
+//     created_at: r.createdAt ? new Date(r.createdAt).toISOString() : '',
+//   }));
+
+//   // ── vehicle ──
+//   const v = trip.vehicle;
+
+//   let vehicleTypes: any[] = [];
+//   if (v?.type) {
+//     vehicleTypes = await this.vehicleTypeRepo
+//       .createQueryBuilder('vt')
+//       .where('vt.name ILIKE :name', { name: v.type })
+//       .getMany();
+//   }
+
+//   const regDocs = [
+//     ...(v?.registrationDoc ? [v.registrationDoc] : []),
+//     ...(Array.isArray(v?.documents) ? (v.documents as any[]) : []),
+//   ];
+
+//   const vehicle = v
+//     ? {
+//         id: v.id,
+//         type: v.type ?? '',
+//         model: v.model ?? '',
+//         color: v.color ?? '',
+//         capacity: String(v.capacity ?? ''),
+//         description: trip.description ?? '',
+//         insurance: v.insurance ?? '',
+//         license_plate_number: v.licensePlateNumber ?? v.plateNumber ?? '',
+//         features: v.features ?? trip.vehicleFeatures ?? [],
+//         photos: v.vehiclePhoto ?? [],
+//         reg_docs: regDocs,
+//         vehicle_type: vehicleTypes,
+//         driver: trip.driver
+//           ? [{
+//               id: trip.driver.id,
+//               name: [trip.driver.user?.firstName, trip.driver.user?.lastName]
+//                 .filter(Boolean).join(' ').trim(),
+//               email: trip.driver.user?.email ?? '',
+//               phone: trip.driver.user?.phone ?? '',
+//               profile_image: trip.driver.user?.profileImage ?? '',
+//               average_rating: Number(trip.driver.averageRating ?? 0),
+//               rating_count: Number(trip.driver.ratingCount ?? 0),
+//             }]
+//           : [],
+//       }
+//     : null;
+
+//   return {
+//     id: trip.id,
+//     destination: {
+//       pick_station: trip.pickStation ?? trip.departureLocation ?? '',
+//       drop_off_station: trip.dropOffStation ?? '',
+//     },
+//     departure: {
+//       date: trip.departureDate ?? '',
+//       time: trip.departureTime ?? '',
+//     },
+//     arrival: {
+//       date: trip.arrivalDate ?? '',
+//       time: trip.arrivalTime ?? '',
+//       destination: dest?.name ?? '',
+//       address: dest?.address ?? '',
+//       latitude: String(dest?.latitude ?? ''),
+//       long: String(dest?.longitude ?? ''),
+//       bus_stop: (trip.busStop ?? []).map((s: any) =>
+//         typeof s === 'string' ? { name: s } : { name: s?.name ?? '' },
+//       ),
+//     },
+//     luggage_size: spec.luggage_size ?? null,
+//     charge_for_extra_luggage: spec.charge_for_extra_luggage ?? null,
+//     earnings: {
+//       extra_luggage: extraLuggage,
+//       total_amount: totalAmount,
+//     },
+//     passengers,
+//     users_review: usersReview,
+//     vehicle,
+//   };
+// }
+// //case 1
+// //   async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
+// //   const manager = entityManager || this.entityManager;
+
+// //   const trip = await this.tripRepository.findOne({
+// //     where: { id: dto.tripId },
+// //     relations: ['driver', 'driver.user', 'vehicle'],
+// //   });
+// //   if (!trip) throw new NotFoundException('Trip not found');
+// //   // if (trip.status !== TripStatus.ACTIVE)
+// //   //   throw new BadRequestException('This trip is not accepting bookings');
+
+// //   // ── driver manually closed bookings (mirrors Laravel closeBookings) ──
+// //   if (trip.bookingStatus === 'closed')
+// //     throw new BadRequestException('Bookings for this trip have been closed by the driver');
+
+// //   // ── time guards (mirrors Laravel) ──
+// //   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
+// //   if (!isNaN(departure.getTime()) && departure.getTime() <= Date.now())
+// //     throw new BadRequestException("You can't book this trip — departure time has elapsed");
+
+// //   if (trip.bookingClosingDate && trip.bookingClosingTime) {
+// //     const closing = new Date(`${trip.bookingClosingDate}T${trip.bookingClosingTime}`);
+// //     if (!isNaN(closing.getTime()) && closing.getTime() <= Date.now())
+// //       throw new BadRequestException("You can't book this trip — booking time is over");
+// //   }
+
+// //   // ── seats (now respects bookedSeats) ──
+// //   const available = trip.totalSeats - (trip.bookedSeats ?? 0);
+// //   if (dto.seats > available)
+// //     throw new BadRequestException(`Only ${available} seat(s) available`);
+
+// //   const passenger = await this.passengerRepo.findOne({
+// //     where: { userId },
+// //     relations: ['user'],
+// //   });
+// //   if (!passenger) throw new NotFoundException('Passenger profile not found');
+
+// //   // ── duplicate pending booking (keys fixed) ──
+// //   const existing = await this.bookingRepo.findOne({
+// //     where: { tripId: trip.id, passengerId: passenger.id, status: BookingStatus.PENDING },
+// //   });
+// //   if (existing) throw new BadRequestException('You already have a pending booking for this trip');
+
+// //   // ── pricing: base × seats + extra luggage ──
+// //   const spec = this.parseTripSpecification(trip.tripSpecification);
+// //   const basePrice = Number(spec.price ?? trip.price ?? 0);
+// //   let totalAmount = basePrice * dto.seats;
+
+// //   const luggageSize = Number(spec.luggage_size ?? 0);
+// //   const luggageCharge = Number(spec.charge_for_extra_luggage ?? 0);
+// //   const totalWeight = (dto.extraLuggage ?? []).reduce((s, l) => s + Number(l.weight ?? 0), 0);
+// //   let extraLuggageCharge = 0;
+// //   if (luggageSize > 0 && totalWeight > 0) {
+// //     extraLuggageCharge = Math.ceil(totalWeight / luggageSize) * luggageCharge;
+// //     totalAmount += extraLuggageCharge;
+// //   }
+
+// //   // ── coupon (rejects invalid, like Laravel) ──
+// //   const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, totalAmount);
+
+// //   const amountPaid = Math.max(0, totalAmount - discountAmount);
+// //   const bookingCode = this.randomnessUtil.generateBookingCode(8);
+// //   const paymentReference = this.randomnessUtil.generateReference('BKG');
+
+// //   const booking = manager.create(Booking, {
+// //     bookingCode,
+// //     tripId: trip.id,
+// //     passengerId: passenger.id,
+// //     seats: dto.seats,
+// //     totalAmount,            // NGN — do NOT multiply by 100
+// //     discountAmount,
+// //     amountPaid,
+// //     status: BookingStatus.PENDING,
+// //     paymentStatus: PaymentStatus.PENDING,
+// //     paymentReference,
+// //     couponCode: dto.couponCode,
+// //     metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
+// //   });
+// //   const savedBooking = await manager.save(Booking, booking);
+
+// //   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
+// //   if (couponId) await manager.increment(Coupon, { id: couponId }, 'usageCount', 1);
+
+// //   const paymentRecord = manager.create(Payment, {
+// //   bookingId: savedBooking.id,
+// //   passengerId: passenger.id,
+// //   tripId: trip.id,
+// //   txRef: paymentReference,        // ← same reference used for Paystack
+// //   status: PaymentStatus.PENDING,
+// //   amount: amountPaid,
+// //   customerEmail: passenger.user.email,
+// //   customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+// // });
+// // await manager.save(Payment, paymentRecord);
+
+// //   const payment = await this.paymentFactory.initiatePayment({
+// //     amount: amountPaid,
+// //     email: passenger.user.email,
+// //     reference: paymentReference,
+// //     callback_url: dto.callbackUrl,
+// //     metadata: {
+// //       bookingCode,
+// //       bookingId: savedBooking.id,
+// //       tripId: trip.id,
+// //       passengerId: passenger.id,
+// //       driverId: trip.driverId,
+// //       seats: dto.seats,
+// //       type: 'trip_booking',
+// //     },
+// //   });
+
+// //   return {
+// //     booking: savedBooking,
+// //     payment,
+// //     summary: {
+// //       departureTime: trip.departureTime,
+// //       seats: dto.seats,
+// //       pricePerSeat: basePrice,
+// //       extraLuggageCharge,
+// //       totalAmount,
+// //       discountAmount,
+// //       amountPaid,
+// //     },
+// //   };
+// // }
+
+// //case 2
+// // async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
+// //   const manager = entityManager || this.entityManager;
+
+// //   const trip = await this.tripRepository.findOne({
+// //     where: { id: dto.tripId },
+// //     relations: ['driver', 'driver.user', 'vehicle'],
+// //   });
+// //   if (!trip) throw new NotFoundException('Trip not found');
+
+// //   // ── driver manually closed bookings ──
+// //   if (trip.bookingStatus === 'closed')
+// //     throw new BadRequestException('Bookings for this trip have been closed by the driver');
+
+// //   // ── time guards ──
+// //   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
+// //   if (!isNaN(departure.getTime()) && departure.getTime() <= Date.now())
+// //     throw new BadRequestException("You can't book this trip — departure time has elapsed");
+
+// //   if (trip.bookingClosingDate && trip.bookingClosingTime) {
+// //     const closing = new Date(`${trip.bookingClosingDate}T${trip.bookingClosingTime}`);
+// //     if (!isNaN(closing.getTime()) && closing.getTime() <= Date.now())
+// //       throw new BadRequestException("You can't book this trip — booking time is over");
+// //   }
+
+// //   // ── seats ──
+// //   const available = trip.totalSeats - (trip.bookedSeats ?? 0);
+// //   if (dto.seats > available)
+// //     throw new BadRequestException(`Only ${available} seat(s) available`);
+
+// //   const passenger = await this.passengerRepo.findOne({
+// //     where: { userId },
+// //     relations: ['user'],
+// //   });
+// //   if (!passenger) throw new NotFoundException('Passenger profile not found');
+
+  
+// //   const existing = await this.bookingIntentRepo.findOne({
+// //     where: { tripId: trip.id, passengerId: passenger.id, status: BookingIntentStatus.PENDING },
+// //     relations: ['passenger', 'passenger.user'],
+// //   });
+// //   if (existing && (!existing.expiresAt || existing.expiresAt > new Date())) {
+// //     //await this.bookingIntentRepo.delete();
+// //     const payment = await this.paymentFactory.initiatePayment({
+// //       amount: Number(existing.amountPaid),
+// //       email: passenger.user.email,
+// //       reference: existing.paymentReference,
+// //       callback_url: dto.callbackUrl,
+// //       metadata: {
+// //         bookingCode: existing.bookingCode,
+// //         intentId: existing.id,
+// //         tripId: trip.id,
+// //         passengerId: passenger.id,
+// //         driverId: trip.driverId,
+// //         seats: existing.seats,
+// //         type: 'trip_booking',
+// //       },
+// //     });
+// //     return { intent: existing, payment, resumed: true };
+// //   }
+
+// //   // ── pricing: base × seats + extra luggage ──
+// //   const spec = this.parseTripSpecification(trip.tripSpecification);
+// //   const basePrice = Number(spec.price ?? trip.price ?? 0);
+// //   let totalAmount = basePrice * dto.seats;
+
+// //   const luggageSize = Number(spec.luggage_size ?? 0);
+// //   const luggageCharge = Number(spec.charge_for_extra_luggage ?? 0);
+// //   const totalWeight = (dto.extraLuggage ?? []).reduce((s, l) => s + Number(l.weight ?? 0), 0);
+// //   let extraLuggageCharge = 0;
+// //   if (luggageSize > 0 && totalWeight > 0) {
+// //     extraLuggageCharge = Math.ceil(totalWeight / luggageSize) * luggageCharge;
+// //     totalAmount += extraLuggageCharge;
+// //   }
+
+// //   // ── coupon ──
+// //   const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, totalAmount);
+
+// //   const amountPaid = Math.max(0, totalAmount - discountAmount);
+// //   const bookingCode = this.randomnessUtil.generateBookingCode(8);
+// //   const paymentReference = this.randomnessUtil.generateReference('BKG');
+
+// //   // ── store a BookingIntent (NOT a booking) ──
+// //   const intent = await manager.save(
+// //     BookingIntent,
+// //     manager.create(BookingIntent, {
+// //       bookingCode,
+// //       tripId: trip.id,
+// //       passengerId: passenger.id,
+// //       seats: dto.seats,
+// //       totalAmount,
+// //       discountAmount,
+// //       amountPaid,
+// //       couponCode: dto.couponCode,
+// //       couponId,
+// //       paymentReference,
+// //       status: BookingIntentStatus.PENDING,
+// //       expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30-min window
+// //       metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
+// //     }),
+// //   );
+
+// //   // hold the seat during the payment window (released on expiry sweep)
+// //   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
+
+// //   await manager.save(
+// //     Payment,
+// //     manager.create(Payment, {
+// //       bookingIntentId: intent.id, // no bookingId yet — set on payment success
+// //       passengerId: passenger.id,
+// //       tripId: trip.id,
+// //       txRef: paymentReference,
+// //       status: PaymentStatus.PENDING,
+// //       amount: amountPaid,
+// //       customerEmail: passenger.user.email,
+// //       customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+// //     }),
+// //   );
+
+// //   const payment = await this.paymentFactory.initiatePayment({
+// //     amount: amountPaid,
+// //     email: passenger.user.email,
+// //     reference: paymentReference,
+// //     callback_url: dto.callbackUrl,
+// //     metadata: {
+// //       bookingCode,
+// //       intentId: intent.id, // ← was bookingId: savedBooking.id
+// //       tripId: trip.id,
+// //       passengerId: passenger.id,
+// //       driverId: trip.driverId,
+// //       seats: dto.seats,
+// //       type: 'trip_booking',
+// //     },
+// //   });
+
+// //   return {
+// //     intent, // ← was booking: savedBooking
+// //     payment,
+// //     summary: {
+// //       departureTime: trip.departureTime,
+// //       seats: dto.seats,
+// //       pricePerSeat: basePrice,
+// //       extraLuggageCharge,
+// //       totalAmount,
+// //       discountAmount,
+// //       amountPaid,
+// //     },
+// //   };
+// // }
+
+// //case 3
+// async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
 //   const manager = entityManager || this.entityManager;
 
 //   const trip = await this.tripRepository.findOne({
@@ -2672,14 +2881,12 @@ private normalizeDate(input: string): string | null {
 //     relations: ['driver', 'driver.user', 'vehicle'],
 //   });
 //   if (!trip) throw new NotFoundException('Trip not found');
-//   // if (trip.status !== TripStatus.ACTIVE)
-//   //   throw new BadRequestException('This trip is not accepting bookings');
 
-//   // ── driver manually closed bookings (mirrors Laravel closeBookings) ──
+//   // ── driver manually closed bookings ──
 //   if (trip.bookingStatus === 'closed')
 //     throw new BadRequestException('Bookings for this trip have been closed by the driver');
 
-//   // ── time guards (mirrors Laravel) ──
+//   // ── time guards ──
 //   const departure = new Date(`${trip.departureDate}T${trip.departureTime}`);
 //   if (!isNaN(departure.getTime()) && departure.getTime() <= Date.now())
 //     throw new BadRequestException("You can't book this trip — departure time has elapsed");
@@ -2690,22 +2897,30 @@ private normalizeDate(input: string): string | null {
 //       throw new BadRequestException("You can't book this trip — booking time is over");
 //   }
 
-//   // ── seats (now respects bookedSeats) ──
-//   const available = trip.totalSeats - (trip.bookedSeats ?? 0);
-//   if (dto.seats > available)
-//     throw new BadRequestException(`Only ${available} seat(s) available`);
-
 //   const passenger = await this.passengerRepo.findOne({
 //     where: { userId },
 //     relations: ['user'],
 //   });
 //   if (!passenger) throw new NotFoundException('Passenger profile not found');
 
-//   // ── duplicate pending booking (keys fixed) ──
-//   const existing = await this.bookingRepo.findOne({
-//     where: { tripId: trip.id, passengerId: passenger.id, status: BookingStatus.PENDING },
+//   // ── existing pending intent → delete it and start fresh ──
+//   const existing = await this.bookingIntentRepo.findOne({
+//     where: { tripId: trip.id, passengerId: passenger.id, status: BookingIntentStatus.PENDING },
 //   });
-//   if (existing) throw new BadRequestException('You already have a pending booking for this trip');
+//   if (existing) {
+//     // remove the stale pending payment tied to it (avoids orphan rows)
+//     await manager.delete(Payment, { bookingIntentId: existing.id });
+//     // release the seat the old intent was holding
+//     await manager.decrement(Trip, { id: trip.id }, 'bookedSeats', existing.seats);
+//     // delete the old intent itself
+//     await manager.delete(BookingIntent, { id: existing.id });
+//   }
+
+//   // ── seats (re-read AFTER releasing any old hold above) ──
+//   const freshTrip = await this.tripRepository.findOne({ where: { id: trip.id } });
+//   const available = freshTrip.totalSeats - (freshTrip.bookedSeats ?? 0);
+//   if (dto.seats > available)
+//     throw new BadRequestException(`Only ${available} seat(s) available`);
 
 //   // ── pricing: base × seats + extra luggage ──
 //   const spec = this.parseTripSpecification(trip.tripSpecification);
@@ -2721,43 +2936,49 @@ private normalizeDate(input: string): string | null {
 //     totalAmount += extraLuggageCharge;
 //   }
 
-//   // ── coupon (rejects invalid, like Laravel) ──
+//   // ── coupon ──
 //   const { discountAmount, couponId } = await this.applyCoupon(dto.couponCode, totalAmount);
 
 //   const amountPaid = Math.max(0, totalAmount - discountAmount);
 //   const bookingCode = this.randomnessUtil.generateBookingCode(8);
 //   const paymentReference = this.randomnessUtil.generateReference('BKG');
 
-//   const booking = manager.create(Booking, {
-//     bookingCode,
-//     tripId: trip.id,
-//     passengerId: passenger.id,
-//     seats: dto.seats,
-//     totalAmount,            // NGN — do NOT multiply by 100
-//     discountAmount,
-//     amountPaid,
-//     status: BookingStatus.PENDING,
-//     paymentStatus: PaymentStatus.PENDING,
-//     paymentReference,
-//     couponCode: dto.couponCode,
-//     metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
-//   });
-//   const savedBooking = await manager.save(Booking, booking);
+//   // ── store a fresh BookingIntent (NOT a booking) ──
+//   const intent = await manager.save(
+//     BookingIntent,
+//     manager.create(BookingIntent, {
+//       bookingCode,
+//       tripId: trip.id,
+//       passengerId: passenger.id,
+//       seats: dto.seats,
+//       totalAmount,
+//       discountAmount,
+//       amountPaid,
+//       couponCode: dto.couponCode,
+//       couponId,
+//       paymentReference,
+//       status: BookingIntentStatus.PENDING,
+//       expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30-min window
+//       metadata: { extraLuggageCharge, totalBeforeDiscount: totalAmount },
+//     }),
+//   );
 
+//   // hold the seat during the payment window
 //   await manager.increment(Trip, { id: trip.id }, 'bookedSeats', dto.seats);
-//   if (couponId) await manager.increment(Coupon, { id: couponId }, 'usageCount', 1);
 
-//   const paymentRecord = manager.create(Payment, {
-//   bookingId: savedBooking.id,
-//   passengerId: passenger.id,
-//   tripId: trip.id,
-//   txRef: paymentReference,        // ← same reference used for Paystack
-//   status: PaymentStatus.PENDING,
-//   amount: amountPaid,
-//   customerEmail: passenger.user.email,
-//   customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
-// });
-// await manager.save(Payment, paymentRecord);
+//   await manager.save(
+//     Payment,
+//     manager.create(Payment, {
+//       bookingIntentId: intent.id, // no bookingId yet — set on payment success
+//       passengerId: passenger.id,
+//       tripId: trip.id,
+//       txRef: paymentReference,
+//       status: PaymentStatus.PENDING,
+//       amount: amountPaid,
+//       customerEmail: passenger.user.email,
+//       customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+//     }),
+//   );
 
 //   const payment = await this.paymentFactory.initiatePayment({
 //     amount: amountPaid,
@@ -2766,7 +2987,7 @@ private normalizeDate(input: string): string | null {
 //     callback_url: dto.callbackUrl,
 //     metadata: {
 //       bookingCode,
-//       bookingId: savedBooking.id,
+//       intentId: intent.id,
 //       tripId: trip.id,
 //       passengerId: passenger.id,
 //       driverId: trip.driverId,
@@ -2776,7 +2997,7 @@ private normalizeDate(input: string): string | null {
 //   });
 
 //   return {
-//     booking: savedBooking,
+//     intent,
 //     payment,
 //     summary: {
 //       departureTime: trip.departureTime,
@@ -2790,54 +3011,53 @@ private normalizeDate(input: string): string | null {
 //   };
 // }
 
+// //   async confirmBookingPayment(  bookingId: string,
+// //     paymentReference: string,
+// //     entityManager: EntityManager,){
 
-//   async confirmBookingPayment(  bookingId: string,
-//     paymentReference: string,
-//     entityManager: EntityManager,){
+// //     const manager = entityManager || this.entityManager;
 
-//     const manager = entityManager || this.entityManager;
+// //         const booking = await this.bookingRepo.findOne({
+// //       where: { id: bookingId },
+// //       relations: ['trip', 'passenger', 'passenger.user'],
+// //     });
 
-//         const booking = await this.bookingRepo.findOne({
-//       where: { id: bookingId },
-//       relations: ['trip', 'passenger', 'passenger.user'],
-//     });
+// //         if (!booking) throw new NotFoundException('Booking not found');
+// //     if (booking.status === BookingStatus.CONFIRMED) return booking; // idempotent
 
-//         if (!booking) throw new NotFoundException('Booking not found');
-//     if (booking.status === BookingStatus.CONFIRMED) return booking; // idempotent
+// //     booking.status = BookingStatus.CONFIRMED;
+// //     booking.paymentStatus = PaymentStatus.SUCCESS;
+// //     booking.paymentReference = paymentReference;
 
-//     booking.status = BookingStatus.CONFIRMED;
-//     booking.paymentStatus = PaymentStatus.SUCCESS;
-//     booking.paymentReference = paymentReference;
+// //     // ── issue boarding ticket ──
+// //     booking.ticketToken = this.randomnessUtil.generateSecureToken(40);
+// //     booking.ticketStatus = TicketStatus.ISSUED;
+// //     booking.ticketIssuedAt = new Date();
 
-//     // ── issue boarding ticket ──
-//     booking.ticketToken = this.randomnessUtil.generateSecureToken(40);
-//     booking.ticketStatus = TicketStatus.ISSUED;
-//     booking.ticketIssuedAt = new Date();
+// //     await manager.save(Booking, booking);
 
-//     await manager.save(Booking, booking);
+// //         // Create escrow record
+// //     const platformFee = (booking.amountPaid * PLATFORM_FEE_RATE) / 100;
+// //     const netDriverAmount = booking.amountPaid - platformFee;
+// //     const escrowRef = this.randomnessUtil.generateReference('ESC');
 
-//         // Create escrow record
-//     const platformFee = (booking.amountPaid * PLATFORM_FEE_RATE) / 100;
-//     const netDriverAmount = booking.amountPaid - platformFee;
-//     const escrowRef = this.randomnessUtil.generateReference('ESC');
+// //    const escrow = manager.create(Escrow, {
+// //   reference: escrowRef,
+// //   bookingId: booking.id,
+// //   amount: booking.amountPaid,
+// //   platformFee,
+// //   netDriverAmount,
+// //   status: EscrowStatus.HELD,
+// //   driverId: booking.trip.driverId,
+// //   passengerId: booking.passengerId,
+// //   paymentReference,
+// // } as DeepPartial<Escrow>);
 
-//    const escrow = manager.create(Escrow, {
-//   reference: escrowRef,
-//   bookingId: booking.id,
-//   amount: booking.amountPaid,
-//   platformFee,
-//   netDriverAmount,
-//   status: EscrowStatus.HELD,
-//   driverId: booking.trip.driverId,
-//   passengerId: booking.passengerId,
-//   paymentReference,
-// } as DeepPartial<Escrow>);
+// // await manager.save(escrow);
 
-// await manager.save(escrow);
+// // return booking;
 
-// return booking;
-
-//   }
+// //   }
 
   
 
@@ -3397,6 +3617,40 @@ private normalizeDate(input: string): string | null {
 //   escrow.refundedAt = new Date();
 //   await manager.save(Escrow, escrow);
 // }
+
+
+// private tokenizeLocation(value: string): string[] {
+//   return value
+//     .split(/[,/|]+/)
+//     .map((t) => t.trim())
+//     .filter((t) => t.length > 0);
 // }
+ 
+// /**
+//  * Accepts DD-MM-YYYY, DD/MM/YYYY or YYYY-MM-DD; returns YYYY-MM-DD.
+//  * Returns null when the input can't be understood.
+//  */
+// private normalizeDate(input: string): string | null {
+//   const trimmed = input.trim();
+ 
+//   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+ 
+//   const m = trimmed.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+//   if (m) {
+//     const [, dd, mm, yyyy] = m;
+//     const month = Number(mm);
+//     const day = Number(dd);
+//     if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+//     return `${yyyy}-${mm}-${dd}`;
+//   }
+ 
+//   return null;
+// }
+
+
+// }
+
+
+
 
 

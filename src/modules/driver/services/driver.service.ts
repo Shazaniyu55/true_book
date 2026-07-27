@@ -482,23 +482,25 @@ await this.notifiyService.notify({
  
     await manager.save(Trip, trip);
  
-    // Pay the driver directly from paid bookings (escrow is not in use)
-    const { completedCount, totalEarnings, platformFeeTotal } = await this.creditDriverForTrip(
+    // The driver is paid at boarding time (ticket scan), NOT on completion.
+    // Here we only finalise the bookings and report what was already earned
+    // via scans for this trip — no wallet credit happens on completion.
+    const { completedCount, totalEarnings, platformFeeTotal } = await this.settleTripBookings(
       trip,
       manager,
     );
  
     const netEarnings = totalEarnings - platformFeeTotal;
  
-    // Notify the driver of their earnings (best-effort)
+    // Notify the driver that the trip is complete (best-effort)
     try {
       const driver = await this.driverRepo.findOne({ where: { id: trip.driverId } });
       if (driver?.userId) {
         await this.notifiyService.notify({
           userId: driver.userId,
-          title: 'Trip Completed — Payment Received',
-          body: `You earned ₦${netEarnings.toFixed(2)} from ${completedCount} booking(s) on this trip.`,
-          type: NotificationType.PAYMENT_SUCCESS,
+          title: 'Trip Completed',
+          body: `Your trip is complete. You earned ₦${netEarnings.toFixed(2)} from ${completedCount} boarded passenger(s) on this trip.`,
+          type: NotificationType.TRIP_COMPLETED,
           data: { tripId: trip.id, netEarnings, completedBookings: completedCount },
         });
       }
@@ -666,13 +668,20 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
       }
  
     /**
-     * Pay the driver directly from paid bookings — no escrow involved.
-     * For every CONFIRMED booking with a successful payment:
-     *   net = amountPaid - platformFee, credited to driver.currentBalance.
-     * Idempotent: bookings are flipped to COMPLETED and stamped with
-     * metadata.driverCredited, so re-running never double-pays.
+     * Finalise a trip's bookings on completion WITHOUT paying the driver.
+     *
+     * The driver is paid at boarding time when the passenger's ticket is
+     * scanned (see TripRepository.scanTicket -> releaseEscrowForBooking), so
+     * completion must never credit the wallet again. Here we simply:
+     *   - flip CONFIRMED + paid bookings to COMPLETED, and
+     *   - report the amount already earned for this trip (from escrows that
+     *     were released at scan time) so the response/notification is accurate.
+     *
+     * Escrows still HELD at completion belong to passengers who paid but were
+     * never scanned/boarded; we deliberately leave them untouched so the driver
+     * is not credited for no-shows.
      */
-    private async creditDriverForTrip(
+    private async settleTripBookings(
       trip: Trip,
       manager: EntityManager,
     ): Promise<{ completedCount: number; totalEarnings: number; platformFeeTotal: number }> {
@@ -685,60 +694,28 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
       });
  
       let completedCount = 0;
+      for (const booking of bookings) {
+        booking.status = BookingStatus.COMPLETED;
+        await manager.save(Booking, booking);
+        completedCount++;
+      }
+ 
+      // Earnings for this trip were already credited at scan time. Sum the
+      // escrows that were released on boarding so we can report an accurate
+      // figure — this does NOT touch the wallet.
+      const releasedEscrows = await this.escrowRepo
+        .createQueryBuilder('e')
+        .innerJoin('e.booking', 'b')
+        .where('b.tripId = :tripId', { tripId: trip.id })
+        .andWhere('e.status = :status', { status: EscrowStatus.RELEASED })
+        .andWhere("(e.releaseReason IS NULL OR e.releaseReason NOT ILIKE '%bypassed%')")
+        .getMany();
+ 
       let totalEarnings = 0;
       let platformFeeTotal = 0;
-      let totalNet = 0;
- 
-      for (const booking of bookings) {
-        // Guard against double-crediting
-        if (booking.metadata?.driverCredited) {
-          booking.status = BookingStatus.COMPLETED;
-          await manager.save(Booking, booking);
-          continue;
-        }
- 
-        const amountPaid = Number(booking.amountPaid) || 0;
-        const platformFee = (amountPaid * PLATFORM_FEE_RATE) / 100;
-        const netDriverAmount = amountPaid - platformFee;
- 
-        booking.status = BookingStatus.COMPLETED;
-        booking.metadata = {
-          ...(booking.metadata ?? {}),
-          driverCredited: true,
-          driverCreditedAt: new Date().toISOString(),
-          platformFee,
-          netDriverAmount,
-        };
-        await manager.save(Booking, booking);
- 
-        totalNet += netDriverAmount;
-        totalEarnings += amountPaid;
-        platformFeeTotal += platformFee;
-        completedCount++;
- 
-        this.logger.log(
-          `Booking ${booking.bookingCode} paid out → driver ${trip.driverId} +${netDriverAmount}`,
-        );
-      }
- 
-      // Single wallet credit for the whole trip
-      if (totalNet > 0) {
-        await manager.increment(Driver, { id: trip.driverId }, 'currentBalance', totalNet);
-      }
- 
-      // If any legacy HELD escrows exist for this trip, mark them released so
-      // they can never be paid out a second time through another path.
-      const heldEscrows = await this.escrowRepo
-        .createQueryBuilder('e')
-        .innerJoinAndSelect('e.booking', 'b')
-        .where('e.status = :status', { status: EscrowStatus.HELD })
-        .andWhere('b.tripId = :tripId', { tripId: trip.id })
-        .getMany();
-      for (const escrow of heldEscrows) {
-        escrow.status = EscrowStatus.RELEASED;
-        escrow.releasedAt = new Date();
-        escrow.releaseReason = 'Trip completed (direct payout, escrow bypassed)';
-        await manager.save(Escrow, escrow);
+      for (const escrow of releasedEscrows) {
+        totalEarnings += Number(escrow.amount) || 0;
+        platformFeeTotal += Number(escrow.platformFee) || 0;
       }
  
       return { completedCount, totalEarnings, platformFeeTotal };
@@ -786,6 +763,8 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
   }
 }
 
+
+
 // import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 // import { EntityManager, Repository } from 'typeorm';
 // import { Trip } from '@modules/core/entities/trip.entity';
@@ -804,7 +783,7 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 // import { RedisCacheService } from '@modules/cache/redis-cache.service';
 // import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
  
-// const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '5'); // 5%
+// const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7'); // 5%
  
 // /**
 //  * ═══════════════════════════════════════════════════════════════════════════
@@ -984,12 +963,18 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //       // Normalize "17:08" -> "17:08:00" so Postgres `time` always gets HH:mm:ss
 //       dto.departureTime =
 //         dto.departureTime.length === 5 ? `${dto.departureTime}:00` : dto.departureTime;
-
-//       // Validate against the trip's departure DATE + the new time
-//       this.validateDepartureDateTime(trip.departureDate, dto.departureTime);
 //     }
 
-//     if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
+//     // Validate departure date+time whenever either is being changed
+//     if (dto.departureDate || dto.departureTime) {
+//       this.validateDepartureDateTime(
+//         dto.departureDate ?? trip.departureDate,
+//         dto.departureTime ?? trip.departureTime,
+//       );
+//     }
+
+//     const newPrice = dto.price ?? dto.pricePerSeat;
+//     if (newPrice !== undefined && (newPrice < 100 || newPrice > 50000)) {
 //       throw new BadRequestException('Price per seat must be between 100 and 50000');
 //     }
 
@@ -997,12 +982,35 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     // IMPORTANT: departureTime stays a STRING ("HH:mm:ss"). Never wrap it in
 //     // new Date() — new Date("17:08:00") is an Invalid Date, and TypeORM
 //     // formats it as "aN:aN:aN" when saving a `time` column.
+//     if (dto.departureDate) trip.departureDate = dto.departureDate;
 //     if (dto.departureTime) trip.departureTime = dto.departureTime;
-//     if (dto.origin) trip.departureLocation = dto.origin;
-//     if (dto.destination) trip.dropOffStation = dto.destination;
+//     if (dto.departureLocation ?? dto.origin) trip.departureLocation = dto.departureLocation ?? dto.origin;
+//     if (dto.departureLatlong) trip.departureLatlong = dto.departureLatlong;
+//     if (dto.arrivalDate) trip.arrivalDate = dto.arrivalDate;
+//     if (dto.arrivalTime) {
+//       trip.arrivalTime = dto.arrivalTime.length === 5 ? `${dto.arrivalTime}:00` : dto.arrivalTime;
+//     }
+//     if (dto.arrivalDestination) {
+//       trip.arrivalDestination = dto.arrivalDestination;
+//       trip.state = dto.arrivalDestination?.[0]?.state ?? trip.state;
+//     }
+//     if (dto.pickStation) trip.pickStation = dto.pickStation;
+//     if (dto.dropOffStation ?? dto.destination) trip.dropOffStation = dto.dropOffStation ?? dto.destination;
+//     if (dto.busStop) trip.busStop = dto.busStop;
+//     if (dto.busstopLatlong) trip.busstopLatlong = dto.busstopLatlong;
+//     if (dto.tripSpecification) trip.tripSpecification = dto.tripSpecification;
+//     if (dto.waypoints) trip.waypoints = dto.waypoints;
+//     if (dto.state) trip.state = dto.state;
 //     if (dto.description !== undefined) trip.description = dto.description;
-//     if (dto.pricePerSeat !== undefined) trip.price = dto.pricePerSeat;
-//     if (dto.features) trip.vehicleFeatures = this.parseAmenities(dto.features);
+//     if (dto.vehicleFeatures) trip.vehicleFeatures = dto.vehicleFeatures;
+//     else if (dto.features) trip.vehicleFeatures = this.parseAmenities(dto.features);
+//     if (dto.bookingClosingDate) trip.bookingClosingDate = dto.bookingClosingDate;
+//     if (dto.bookingClosingTime) {
+//       trip.bookingClosingTime =
+//         dto.bookingClosingTime.length === 5 ? `${dto.bookingClosingTime}:00` : dto.bookingClosingTime;
+//     }
+//     if (newPrice !== undefined) trip.price = newPrice;
+//     if (dto.vehicleId) trip.vehicleId = dto.vehicleId;
 //     if (dto.metadata) trip.metadata = { ...trip.metadata, ...dto.metadata };
 
 //     if (dto.totalSeats !== undefined) {
@@ -1021,7 +1029,52 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     this.logger.log(`Trip ${tripId} updated by driver ${userId}`);
 //     return updated;
 //   }
-
+//   // async updateTrip(userId: string, tripId: string, dto: UpdateDriverTripDto, em?: EntityManager): Promise<Trip> {
+//   //   this.logger.debug(`Updating trip ${tripId} for driver ${userId}`);
+//   //     const manager = em ?? this.tripRepo.manager;
+//   //         // Validate driver and ownership
+//   //   const trip = await this.getTripOwnedByDriver(userId, tripId);
+//   //       // Only allow updates on PENDING trips
+//   //   if (trip.status !== TripStatus.PENDING) {
+//   //     throw new BadRequestException('Can only update trips in PENDING status');
+//   //   }
+ 
+//   //       // Check for confirmed bookings
+//   //       const confirmedCount = await this.bookingRepo.count({
+//   //         where: { tripId, status: BookingStatus.CONFIRMED },
+//   //       });
+ 
+//   //          if (confirmedCount > 0) {
+//   //     throw new BadRequestException('Cannot edit a trip that already has confirmed bookings');
+//   //   }
+ 
+//   //   // Validate update data
+//   //   if (dto.departureTime) {
+//   //     this.validateDepartureTime(dto.departureTime);
+//   //   }
+ 
+//   //   if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
+//   //     throw new BadRequestException('Price per seat must be between 100 and 50000');
+//   //   }
+ 
+//   //    if (dto.pricePerSeat && (dto.pricePerSeat < 100 || dto.pricePerSeat > 50000)) {
+//   //     throw new BadRequestException('Price per seat must be between 100 and 50000');
+//   //   }
+ 
+//   //   // Apply updates
+//   //   const updates = {
+//   //     ...dto,
+//   //     departureTime: dto.departureTime ? new Date(dto.departureTime) : trip.departureTime,
+//   //     amenities: dto.features ? this.parseAmenities(dto.features) : trip.vehicleFeatures,
+//   //   };
+ 
+//   //   Object.assign(trip, updates);
+//   //   const updated = await manager.save(Trip, trip);
+ 
+//   //   this.logger.log(`Trip ${tripId} updated by driver ${userId}`);
+//   //   return updated;
+ 
+//   // }
  
 //   async getVehicleType(): Promise<VehicleType[]>{
 //       return this.driverRepository.getVehicleType()
@@ -1499,6 +1552,8 @@ async getDriverDashboard(userId: string, query: { page?: number; limit?: number 
 //     return { completedCount, totalEarnings, platformFeeTotal };
 //   }
 // }
+
+
 
 
 
