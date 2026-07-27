@@ -20,6 +20,7 @@ import { Payment } from '@modules/core/entities/payment.entity';
 import { BookingIntent, BookingIntentStatus } from '@modules/core/entities/booking_intent.entity';
 import { Review } from '@modules/core/entities/review.entity';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
+import { title } from 'process';
 
 
 /** Platform fee rate (deducted from driver payout) */
@@ -91,6 +92,7 @@ if (vehicleCount === 0) {
           //bookedSeats: 0,
         });
 
+         this.expoService.sendPushNotification(driver.user.expoToken, "Trip Created", `You Just created a Trip :${reference}`, { userId: driver.id })
         return await manager.save(Trip, trip);
       }
 
@@ -236,6 +238,8 @@ if (vehicleCount === 0) {
           type: NotificationType.TRIP_CANCELLED,
           data: { tripId: trip.id, bookingCode: booking.bookingCode, reason: dto.reason },
         });
+          this.expoService.sendPushNotification(booking.passenger.user.expoToken, "Trip Cancelled", `You Just Cancelled a Trip`, { userId: booking.passenger.userId })
+
       } catch (err) {
         this.logger.warn(`Failed to notify passenger for booking ${booking.bookingCode}: ${err?.message}`);
       }
