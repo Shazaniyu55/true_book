@@ -191,6 +191,12 @@ export class AuthService {
     if (user.status === UserStatus.SUSPENDED)
       throw new UnauthorizedException('Your account has been suspended');
 
+    const agent = await this.agentRepo.findByUserId(user.id);
+
+
+    if(agent.status === UserStatus.PENDING)
+      throw new UnauthorizedException('Your account must be aprrove before login')
+
       // Persist the device's push token before we try to push to it.
   if (dto.expo_token && dto.expo_token !== user.expoToken) {
     await this.userRepository.setExpoToken(user.id, dto.expo_token);
