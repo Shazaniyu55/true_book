@@ -28,6 +28,7 @@ import { CreateAdminDto } from '@modules/admin/dtos/create-admin.dto';
 import { AgentRepository } from '@adapters/repositories/agent.repository';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { UpdatePasswordDto } from '../dtos/updatepassword.dto';
+import { Agent } from '@modules/core/entities/agent.entity';
 
 @Injectable()
 export class AuthService {
@@ -191,11 +192,7 @@ export class AuthService {
     if (user.status === UserStatus.SUSPENDED)
       throw new UnauthorizedException('Your account has been suspended');
 
-    const agent = await this.agentRepo.findByUserId(user.id);
-
-
-    if(agent.status === UserStatus.PENDING)
-      throw new UnauthorizedException('Your account must be aprrove before login')
+ 
 
       // Persist the device's push token before we try to push to it.
   if (dto.expo_token && dto.expo_token !== user.expoToken) {
@@ -241,6 +238,8 @@ export class AuthService {
       const tokens = this.generateAdminTokens(user);
       return { user, ...tokens };
     }
+
+      
 
   async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
         const existingUser = await this.adminRepo.findByEmail(dto.email);

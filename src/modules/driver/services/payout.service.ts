@@ -310,6 +310,8 @@ async resolveAccount(accountNumber: string, bankCode: string) {
   return resolved; // { account_name, account_number, bank_code }
 }
 
+
+
 async getWalletTransactions(
   userId: string,
   params: { page?: number; limit?: number; search?: string; start_date?: string; end_date?: string },
@@ -578,35 +580,6 @@ async getSingleTransaction(userId: string, id: string) {
   return { transaction: this.mapBookingToTransaction(booking, escrow) };
 }
  
-
-// async getSingleTransaction(userId: string, id: string) {
-//   const { entity, kind } = await this.resolveUserEntity(userId);
-
-//   const tx = await this.dataSource.getRepository(Payout).findOne({
-//     where: { id },
-//     relations: ['beneficiary'],
-//   });
-
-//   if (tx) {
-//     const owns = kind === 'driver' ? tx.driverId === entity.id : tx.agentId === entity.id;
-//     if (!owns) throw new ForbiddenException('This transaction does not belong to you');
-//     return this.mapPayoutToDebit(tx);
-//   }
-
-//   // Not a payout — try trip-earnings credit (booking id)
-//   if (kind !== 'driver') throw new NotFoundException('Transaction not found');
-
-//   const booking = await this.dataSource.getRepository(Booking).findOne({
-//     where: { id },
-//     relations: ['trip'],
-//   });
-//   if (!booking || booking.metadata?.driverCredited !== true && booking.metadata?.driverCredited !== 'true')
-//     throw new NotFoundException('Transaction not found');
-//   if (booking.trip?.driverId !== entity.id)
-//     throw new ForbiddenException('This transaction does not belong to you');
-
-//   return this.mapBookingToCredit(booking);
-// }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   private async resolveEntity(userId: string, manager: EntityManager) {
