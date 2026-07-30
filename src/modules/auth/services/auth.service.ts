@@ -239,6 +239,9 @@ export class AuthService {
       return { user, ...tokens };
     }
 
+
+    
+
       
 
   async createAdmin(dto: CreateAdminDto, entityManager?: EntityManager): Promise<Admin> {
@@ -335,6 +338,58 @@ export class AuthService {
     refreshToken: tokens.refreshToken,
   };
 }
+
+async loginAgent(dto: LoginDto): Promise<{ user: User; accessToken: string; refreshToken: string }> {
+    const user = await this.userRepository.findByEmail(dto.email);
+    if (!user) throw new UnauthorizedException('Invalid credentials');
+
+    if (user.role !== UserRole.AGENT)
+      throw new UnauthorizedException('This account is not registered as an agent');
+
+    const isPasswordValid = await this.hashingUtil.compare(dto.password, user.password);
+    if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+
+    if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
+
+    if (user.status === UserStatus.SUSPENDED)
+      throw new UnauthorizedException('Your account has been suspended');
+
+    // ── Agent-table gate: admin must approve before an agent can log in ──
+    const agent = await this.agentRepo.findByUserId(user.id);
+    if (!agent) throw new UnauthorizedException('Agent profile not found');
+
+    if (agent.status === UserStatus.PENDING)
+      throw new UnauthorizedException('Your agent account is pending admin approval');
+
+    if (agent.status === UserStatus.SUSPENDED)
+      throw new UnauthorizedException('Your agent account has been suspended');
+
+    if (agent.status === UserStatus.INACTIVE)
+      throw new UnauthorizedException('Your agent account is inactive. Please contact support');
+
+    if (dto.expo_token && dto.expo_token !== user.expoToken) {
+      await this.userRepository.setExpoToken(user.id, dto.expo_token);
+      user.expoToken = dto.expo_token;
+    }
+
+    const tokens = this.generateTokens(user);
+
+    await this.notificationService.notify({
+      userId: user.id,
+      title: 'New Login',
+      body: `You signed in to your Tru Booker agent account on ${new Date().toLocaleString()}.`,
+      type: NotificationType.BROADCAST,
+      data: { userId: user.id, at: new Date().toISOString() },
+    });
+
+    if (user.expoToken) {
+      this.expoService
+        .sendPushNotification(user.expoToken, 'New Login', 'You signed in to your agent account', { userId: user.id })
+        .catch(err => console.error('Expo push failed', err));
+    }
+
+    return { user, ...tokens };
+  }
 
   async verifyPhoneOtp(phone: string, otp:string, entityManager?: EntityManager): Promise<User>{
      const user = await this.userRepository.findByPhone(phone);

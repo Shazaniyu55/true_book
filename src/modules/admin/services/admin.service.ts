@@ -221,6 +221,14 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
     return await this.adminRepo.getDriverDocumentHistory(id);
   }
 
+    async approveAgent(id: string){
+    return this.adminRepo.approveAgent(id);
+  }
+
+  async rejectAgent(id: string, reason?: string){
+    return this.adminRepo.rejectAgent(id, reason);
+  }
+
   async fetchDriversDocuments(id: string) {
   return await this.adminRepo.fetchDriversDocuments(id);
 }
