@@ -349,7 +349,7 @@ async loginAgent(dto: LoginDto): Promise<{ user: User; accessToken: string; refr
     const isPasswordValid = await this.hashingUtil.compare(dto.password, user.password);
     if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
-    if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
+    //if (!user.isEmailVerified) throw new UnauthorizedException('Please verify your email first');
 
     if (user.status === UserStatus.SUSPENDED)
       throw new UnauthorizedException('Your account has been suspended');
