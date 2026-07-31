@@ -40,7 +40,7 @@ export class PaymentService {
     private readonly couponService: CouponService,
     private readonly notificationService: NotificationService,
     private readonly randomness: RandomnessUtil,
-     private readonly cache: RedisCacheService,
+    private readonly cache: RedisCacheService,
 
   ) {}
 

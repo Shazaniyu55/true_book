@@ -30,7 +30,7 @@ export class PassengerService {
     entityManager?: EntityManager,
   ) {
   
-    return this.passangerRepository.updatePassenger(id, dto, entityManager);
+    return await this.passangerRepository.updatePassenger(id, dto, entityManager);
   }
 
 
