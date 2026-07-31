@@ -119,6 +119,8 @@ import {
   GetAgentsEarningsUsecase,
   GetRefundRequestsUsecase,
 } from '../usecases/finance.usecase';
+import { AdminNotificationActivityQueryDto } from '../dtos/admin-notification-query.dto';
+import { GetAdminNotificationActivityUseCase } from '../usecases/getadminnotify.usecase';
 
 
 
@@ -193,7 +195,8 @@ private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
     private readonly toggleDriverStatusUsecase:ToggledriverStatusUsecase,
     private readonly togglePassengerStatusUsecase:TogglePassengerStatusUsecase,
     private readonly fetchDriverDocUsecase:FetchDriverDocUsecase,
-    private readonly notificationService: NotificationService
+    private readonly notificationService: NotificationService,
+    private readonly getAdminNotificationActivityUsecase: GetAdminNotificationActivityUseCase
   ) {}
 
 
@@ -265,6 +268,16 @@ async getAllAnnouncements() {
   getAgentReferral(@Param('id') id: string, @Query() query: AdminListQueryDto) {
     return this.broker.runUsecases([this.getAgentReferralUsecase], {id: id, query: query});
   }
+
+
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@AdminOnly()
+@Get('notify/activity')
+async getAdminNotificationActivity(@Query() query: AdminNotificationActivityQueryDto) {
+  return this.broker.runUsecases([this.getAdminNotificationActivityUsecase], query);
+}
+
 
 @ApiBearerAuth()
 @AdminOnly()

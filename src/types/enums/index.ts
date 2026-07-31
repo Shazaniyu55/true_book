@@ -116,6 +116,17 @@ export enum CouponStatus {
   EXPIRED = 'expired',
 }
 
+export interface AdminNotificationActivityQuery {
+  page?: number;
+  limit?: number;
+  role?: UserRole; // driver | passenger | agent
+  type?: NotificationType;
+  search?: string;
+  isRead?: boolean;
+  startDate?: string;
+  endDate?: string;
+}
+
 export enum TransactionType {
   CREDIT = 'credit',
   DEBIT = 'debit',

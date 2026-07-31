@@ -16,7 +16,7 @@ import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
 import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
-import { UserStatus } from 'src/types/enums';
+import { AdminNotificationActivityQuery, UserStatus } from 'src/types/enums';
 import { CreateSubAdminDto } from '../dtos/create-subadmin.dto';
 
 @Injectable()
@@ -222,11 +222,15 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
   }
 
     async approveAgent(id: string){
-    return this.adminRepo.approveAgent(id);
+    return await this.adminRepo.approveAgent(id);
+  }
+
+  async getAdminNotificationActivity(query: AdminNotificationActivityQuery){
+    return await this.adminRepo.getNotificationActivityForAdmin(query);
   }
 
   async rejectAgent(id: string, reason?: string){
-    return this.adminRepo.rejectAgent(id, reason);
+    return await this.adminRepo.rejectAgent(id, reason);
   }
 
   async fetchDriversDocuments(id: string) {

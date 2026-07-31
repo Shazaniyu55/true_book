@@ -12,12 +12,14 @@ import { Coupon } from '@modules/core/entities/coupon.entity';
 import { Passenger } from '@modules/core/entities/passenger.entity';
 import { PaystackAdapter } from '@adapters/payment/paystack/paystack.adapter';
 import {
+  AdminNotificationActivityQuery,
   CouponStatus,
   CouponType,
   DocumentStatus,
   KycStatus,
   PayoutStatus,
   TripStatus,
+  UserRole,
   UserStatus,
 } from 'src/types/enums';
 import { Role } from '@modules/core/entities/role.entity';
@@ -27,13 +29,13 @@ import { AddDriverDocumentsDto } from '@modules/admin/dtos/adddoc.dto';
 import { Beneficiary } from '@modules/core/entities/beneficiary.entity';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
-import { Between } from 'typeorm';
 import { Review } from '@modules/core/entities/review.entity';
 import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
 import { Referral } from '@modules/core/entities/referal.entity';
 import { AgentCommission } from '@modules/core/entities/agent-commission.entity';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { NotificationType } from 'src/types/enums';
+import { Notification } from '@modules/core/entities/notification.entity';
 
 @Injectable()
 export class AdminRepository extends Repository<Admin> {
@@ -52,7 +54,7 @@ export class AdminRepository extends Repository<Admin> {
     @InjectRepository(Beneficiary) private readonly beneficiaryRepo: Repository<Beneficiary>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
     @InjectRepository(Review) private readonly reviewRepo: Repository<Review>,
-    
+    @InjectRepository(Notification) private readonly notificationRepository: Repository<Notification>,    
 
   @InjectRepository(AgentReferral) private readonly agentReferralRepo: Repository<AgentReferral>,
   @InjectRepository(Referral) private readonly referralRepo: Repository<Referral>,
@@ -1508,6 +1510,97 @@ async getRevenueGraph(filter: 'daily' | 'monthly' | 'yearly' = 'monthly') {
   };
 }
 
+async getNotificationActivityForAdmin(
+  query: AdminNotificationActivityQuery,
+): Promise<PagedDto<any>> {
+  const { page = 1, limit = 20, role, type, search, isRead, startDate, endDate } = query;
+  const skip = (page - 1) * limit;
+
+  const qb = this.notificationRepository.createQueryBuilder('notification')
+    .leftJoin('notification.user', 'user')
+    .leftJoin('notification.admin', 'admin')
+    .select('notification.id', 'id')
+    .addSelect('notification.title', 'title')
+    .addSelect('notification.body', 'body')
+    .addSelect('notification.type', 'type')
+    .addSelect('notification.isRead', 'isRead')
+    .addSelect('notification.createdAt', 'createdAt')
+    .addSelect('user.id', 'userId')
+    .addSelect('user.firstName', 'userFirstName')
+    .addSelect('user.lastName', 'userLastName')
+    .addSelect('user.email', 'userEmail')
+    .addSelect('user.role', 'userRole')
+    .addSelect('admin.id', 'adminId')
+    .addSelect('admin.firstName', 'adminFirstName')
+    .addSelect('admin.lastName', 'adminLastName')
+    .orderBy('notification.createdAt', 'DESC');
+
+  if (role) {
+    qb.andWhere('user.role = :role', { role });
+  }
+  if (type) {
+    qb.andWhere('notification.type = :type', { type });
+  }
+  if (typeof isRead === 'boolean') {
+    qb.andWhere('notification.isRead = :isRead', { isRead });
+  }
+  if (search) {
+    qb.andWhere(
+      '(notification.title ILIKE :search OR notification.body ILIKE :search)',
+      { search: `%${search}%` },
+    );
+  }
+  if (startDate && endDate) {
+    qb.andWhere('notification.createdAt BETWEEN :startDate AND :endDate', {
+      startDate,
+      endDate,
+    });
+  }
+
+  const total = await qb.getCount();
+  const raw = await qb.offset(skip).limit(limit).getRawMany();
+
+  const data = raw.map((row) => ({
+    id: row.id,
+    title: row.title,
+    body: row.body,
+    type: row.type,
+    isRead: row.isRead,
+    createdAt: row.createdAt,
+    recipient: row.userId
+      ? {
+          id: row.userId,
+          name: `${row.userFirstName ?? ''} ${row.userLastName ?? ''}`.trim(),
+          email: row.userEmail,
+          role: row.userRole,
+        }
+      : row.adminId
+        ? {
+            id: row.adminId,
+            name: `${row.adminFirstName ?? ''} ${row.adminLastName ?? ''}`.trim(),
+            role: UserRole.ADMIN,
+          }
+        : null,
+  }));
+
+const pageCount = Math.ceil(total / limit);
+const previousPage = page > 1 ? page - 1 : null;
+const nextPage = page < pageCount ? page + 1 : null;
+
+return {
+  data,
+  meta: {
+    page,
+    limit,
+    count: data.length,
+    totalRecords: total,
+    pageCount,
+    previousPage,
+    nextPage,
+  },
+};
+}
+
 // ─── Transaction History ──────────────────────────────────────────────────────
 
 async getTransactionHistory(query: {
@@ -1733,6 +1826,8 @@ async getAgentsEarnings(query: { page?: number; limit?: number }) {
 
   return pagedDto;
 }
+
+
 
 
 

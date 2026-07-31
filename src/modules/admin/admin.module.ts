@@ -109,6 +109,8 @@ import {
   GetAgentsEarningsUsecase,
   GetRefundRequestsUsecase,
 } from './usecases/finance.usecase';
+import { GetAdminNotificationActivityUseCase } from './usecases/getadminnotify.usecase';
+import { Notification } from '@modules/core/entities/notification.entity';
 
 
 
@@ -157,6 +159,8 @@ const USECASES = [
   GetBookingUsecase,
   RefundBookingUsecase,
   GetAdminProfileUsecase,
+
+  GetAdminNotificationActivityUseCase,
   // Payouts
   ListPayoutsUsecase,
   ApprovePayoutUsecase,
@@ -193,6 +197,7 @@ const USECASES = [
       Vehicle,
       Permission,
       Review,
+      Notification
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
