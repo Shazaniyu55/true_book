@@ -17,6 +17,7 @@ import { InitiatePayoutDto } from '../dtos/payout.dto';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 import { Escrow } from '@modules/core/entities/escro.entity';
+import { ExpoService } from '@modules/notification/services/expo.service';
 const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7');
 type PayoutEntity = Driver | Agent;
 type EntityKind = 'driver' | 'agent';
@@ -50,6 +51,7 @@ export class PayoutService {
     private readonly notificationService: NotificationService,
     private readonly randomness: RandomnessUtil,
     private readonly cache: RedisCacheService,
+    private readonly expoService:ExpoService
     
   ) {}
 
@@ -186,6 +188,8 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
         type: NotificationType.PAYOUT_APPROVED,
         data: { payoutId: payout.id, reference: payout.reference },
       });
+
+      await this.expoService.sendPushNotification(payout.driver.user.expoToken, 'Withdrawal Successful', `Your withdrawal of N${payout.amount} has been processed.`)
     }
     return { message: transfer.status ?? 'Transfer queued', status: true };
   };
@@ -231,6 +235,7 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
           type: NotificationType.PAYOUT_APPROVED,
           data: { payoutId: payout.id, reference: payout.reference },
         });
+        await this.expoService.sendPushNotification(payout.driver.user.expoToken, 'Withdrawal Successful', `Your withdrawal of N${payout.amount} has been processed.`)
       }
       return true;
     };
@@ -266,6 +271,7 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
           type: NotificationType.PAYOUT_DECLINED,
           data: { payoutId: payout.id, reference: payout.reference },
         });
+        await this.expoService.sendPushNotification(payout.driver.user.expoToken, 'Withdrawal Failed',`Your withdrawal of N${payout.amount} could not be completed and was reversed.`)
       }
       return true;
     });

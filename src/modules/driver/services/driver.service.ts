@@ -15,6 +15,7 @@ import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
+import { ExpoService } from '@modules/notification/services/expo.service';
  
 const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7'); // 5%
  
@@ -45,6 +46,7 @@ export class DriverTripService {
     private readonly notifiyService:NotificationService,
     private readonly driverRepository: DriverRepository,
     private readonly cache: RedisCacheService,
+    private readonly expoService:ExpoService
     
     
     
@@ -147,6 +149,8 @@ await this.notifiyService.notify({
     status: savedTrip.status,
   },
 });
+//send push
+await this.expoService.sendPushNotification(driver.user.expoToken, "Trip Created Successfully", `Your trip (${reference}) from ${dto.departureLocation} to ${dto.dropOffStation} has been created and is pending approval.`);
      
         return savedTrip;
  
@@ -256,7 +260,7 @@ await this.notifiyService.notify({
       trip.totalSeats = dto.totalSeats;
       trip.availableSeats = dto.totalSeats - booked;
     }
-
+    
     const updated = await manager.save(Trip, trip);
 
     this.logger.log(`Trip ${tripId} updated by driver ${userId}`);
@@ -503,6 +507,7 @@ await this.notifiyService.notify({
           type: NotificationType.TRIP_COMPLETED,
           data: { tripId: trip.id, netEarnings, completedBookings: completedCount },
         });
+        await this.expoService.sendPushNotification(driver.user.expoToken, 'Trip Completed', `Your trip is complete. You earned ₦${netEarnings.toFixed(2)} from ${completedCount} boarded passenger(s) on this trip.`)
       }
     } catch (err) {
       this.logger.warn(`Failed to send earnings notification for trip ${trip.id}: ${err?.message}`);
