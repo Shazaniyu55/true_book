@@ -36,6 +36,7 @@ import { AgentCommission } from '@modules/core/entities/agent-commission.entity'
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { NotificationType } from 'src/types/enums';
 import { Notification } from '@modules/core/entities/notification.entity';
+import { Escrow } from '@modules/core/entities/escro.entity';
 
 @Injectable()
 export class AdminRepository extends Repository<Admin> {
@@ -55,6 +56,7 @@ export class AdminRepository extends Repository<Admin> {
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
     @InjectRepository(Review) private readonly reviewRepo: Repository<Review>,
     @InjectRepository(Notification) private readonly notificationRepository: Repository<Notification>,    
+    @InjectRepository(Escrow) private readonly escroRepository: Repository<Escrow>,    
 
   @InjectRepository(AgentReferral) private readonly agentReferralRepo: Repository<AgentReferral>,
   @InjectRepository(Referral) private readonly referralRepo: Repository<Referral>,
@@ -1379,32 +1381,32 @@ async getFinancialReport(query: { page?: number; limit?: number } = {}) {
   ]);
 
   // Pending withdrawal amounts by type
-  const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Promise.all([
-    this.payoutRepo
-      .createQueryBuilder('p')
-      .select('SUM(p.amount)', 'total')
-      .where('p.status = :status', { status: PayoutStatus.PENDING })
-      .andWhere('p.payoutType = :type', { type: 'agent' })
-      .getRawOne(),
-    this.payoutRepo
-      .createQueryBuilder('p')
-      .select('SUM(p.amount)', 'total')
-      .where('p.status = :status', { status: PayoutStatus.PENDING })
-      .andWhere('p.payoutType = :type', { type: 'driver' })
-      .getRawOne(),
-    this.payoutRepo
-      .createQueryBuilder('p')
-      .select('SUM(p.amount)', 'total')
-      .where('p.status = :status', { status: PayoutStatus.PENDING })
-      .andWhere('p.payoutType = :type', { type: 'passenger' })
-      .getRawOne(),
-  ]);
+const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Promise.all([
+  this.payoutRepo
+    .createQueryBuilder('p')
+    .select('SUM(p.amount)', 'total')
+    .where('p.status = :status', { status: PayoutStatus.PENDING })
+    .andWhere('p.payoutableType = :type', { type: 'agent' })
+    .getRawOne(),
+  this.payoutRepo
+    .createQueryBuilder('p')
+    .select('SUM(p.amount)', 'total')
+    .where('p.status = :status', { status: PayoutStatus.PENDING })
+    .andWhere('p.payoutableType = :type', { type: 'driver' })
+    .getRawOne(),
+  this.payoutRepo
+    .createQueryBuilder('p')
+    .select('SUM(p.amount)', 'total')
+    .where('p.status = :status', { status: PayoutStatus.PENDING })
+    .andWhere('p.payoutableType = :type', { type: 'passenger' })
+    .getRawOne(),
+]);
 
   // Platform earnings (sum of all successful booking platform fees)
-  const platformEarningResult = await this.bookingRepo
+  const platformEarningResult = await this.escroRepository
     .createQueryBuilder('b')
     .select('SUM(b.platformFee)', 'total')
-    .where('b.paymentStatus = :s', { s: 'success' })
+    .where('b.status = :s', { s: 'released' })
     .getRawOne();
 
   // Recent payouts (last 50)
@@ -1662,19 +1664,21 @@ async getRefundRequests(query: {
     .leftJoinAndSelect('p.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'driverUser')
     .leftJoinAndSelect('p.beneficiary', 'beneficiary')
-    .where('p.payoutType != :agentType', { agentType: 'agent' }) // exclude agents
-    .orderBy(
-      `CASE WHEN p.status = '${PayoutStatus.PENDING}' THEN 0 ELSE 1 END`,
-      'ASC',
+    .addSelect(
+      'CASE WHEN p.status = :pendingStatus THEN 0 ELSE 1 END',
+      'status_order',
     )
+    .where('p.payoutableType != :agentType', { agentType: 'agent' }) // exclude agents
+    .setParameter('pendingStatus', PayoutStatus.PENDING)
+    .orderBy('status_order', 'ASC')
     .addOrderBy('p.createdAt', 'DESC')
     .skip(skip)
     .take(limit);
 
   if (type === 'passenger') {
-    qb.andWhere('p.payoutType = :type', { type: 'passenger' });
+    qb.andWhere('p.payoutableType = :type', { type: 'passenger' });
   } else if (type === 'driver') {
-    qb.andWhere('p.payoutType = :type', { type: 'driver' });
+    qb.andWhere('p.payoutableType = :type', { type: 'driver' });
   }
 
   if (search) {
@@ -1716,7 +1720,7 @@ async getDriversEarnings(query: {
     .leftJoinAndSelect('trip.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle')
-    .where('trip.status = :status', { status: TripStatus.COMPLETED })
+    .where('trip.status = :status', { status: TripStatus.PENDING })
     .orderBy('trip.createdAt', 'DESC')
     .skip(skip)
     .take(limit);

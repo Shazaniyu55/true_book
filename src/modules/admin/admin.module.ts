@@ -111,6 +111,7 @@ import {
 } from './usecases/finance.usecase';
 import { GetAdminNotificationActivityUseCase } from './usecases/getadminnotify.usecase';
 import { Notification } from '@modules/core/entities/notification.entity';
+import { Escrow } from '@modules/core/entities/escro.entity';
 
 
 
@@ -193,6 +194,7 @@ const USECASES = [
       Coupon,
       Passenger,
       Agent,
+      Escrow,
       Beneficiary,
       Vehicle,
       Permission,
