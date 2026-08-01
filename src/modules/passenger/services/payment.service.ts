@@ -45,7 +45,8 @@ export class PaymentService {
   ) {}
 
   // ─── Initiate payment ─────────────────────────────────────────────────────
-  async initiatePayment(userId: string, dto: InitiatePaymentDto) {
+  
+async initiatePayment(userId: string, dto: InitiatePaymentDto) {
   const passenger = await this.passengerRepo.findOne({
     where: { userId },
     relations: ['user'],
@@ -70,14 +71,27 @@ export class PaymentService {
 
   // fresh reference each time (gateways reject reused references once charged)
   const reference = this.randomness.generateReference('TRIP');
-  const amount = Number(intent.amountPaid ?? intent.totalAmount ?? 0);
+
+  let amount = Number(intent.amountPaid ?? intent.totalAmount ?? 0);
+
+  // apply coupon once — only recompute if a discount hasn't already been locked in
+  if (intent.couponCode && !Number(intent.discountAmount)) {
+    const { discountAmount } = await this.couponService.applyCoupon(
+      intent.couponCode,
+      Number(intent.totalAmount),
+    );
+    if (discountAmount > 0) {
+      amount = Math.max(Number(intent.totalAmount) - discountAmount, 0);
+      await this.bookingIntentRepo.update(intent.id, { discountAmount, amountPaid: amount });
+    }
+  }
 
   // keep the intent pointing at the reference the webhook will confirm
   await this.bookingIntentRepo.update(intent.id, { paymentReference: reference });
 
   const payment = await this.paymentRepo.save(
     this.paymentRepo.create({
-      bookingIntentId: intent.id,        // ← was bookingId
+      bookingIntentId: intent.id,
       passengerId: passenger.id,
       tripId: trip.id,
       currency: 'NGN',
@@ -97,12 +111,13 @@ export class PaymentService {
     callback_url: dto.callbackUrl,
     metadata: {
       paymentId: payment.id,
-      intentId: intent.id,               // ← was bookingId / bookingCode from booking
+      intentId: intent.id,
       bookingCode: intent.bookingCode,
       tripId: trip.id,
       passengerId: passenger.id,
       driverId: trip.driverId,
       type: 'trip_booking',
+      billingDetails: dto.billingDetails ?? {},
     },
   });
 
@@ -110,6 +125,76 @@ export class PaymentService {
   return { payment, ...gateway };
 }
 
+  //case2
+//   async initiatePayment(userId: string, dto: InitiatePaymentDto) {
+//   const passenger = await this.passengerRepo.findOne({
+//     where: { userId },
+//     relations: ['user'],
+//   });
+//   if (!passenger) throw new NotFoundException('Passenger profile not found');
+
+//   // dto.bookTripId now carries the INTENT id, not a booking id
+//   const intent = await this.bookingIntentRepo.findOne({
+//     where: { id: dto.bookTripId },
+//     relations: ['trip', 'passenger', 'passenger.user'],
+//   });
+//   if (!intent) throw new NotFoundException('Booking intent not found');
+//   if (intent.passengerId !== passenger.id)
+//     throw new ForbiddenException('This booking does not belong to you');
+//   if (intent.status !== BookingIntentStatus.PENDING)
+//     throw new BadRequestException('This booking can no longer be paid for');
+//   if (intent.expiresAt && intent.expiresAt <= new Date())
+//     throw new BadRequestException('This booking has expired — please book again');
+
+//   const trip = intent.trip;
+//   if (!trip) throw new NotFoundException('Trip not found for this booking');
+
+//   // fresh reference each time (gateways reject reused references once charged)
+//   const reference = this.randomness.generateReference('TRIP');
+
+//   const amount = Number(intent.amountPaid ?? intent.totalAmount ?? 0);
+
+//   // keep the intent pointing at the reference the webhook will confirm
+//   await this.bookingIntentRepo.update(intent.id, { paymentReference: reference });
+
+//   const payment = await this.paymentRepo.save(
+//     this.paymentRepo.create({
+//       bookingIntentId: intent.id,        // ← was bookingId
+//       passengerId: passenger.id,
+//       tripId: trip.id,
+//       currency: 'NGN',
+//       billingDetails: dto.billingDetails ?? {},
+//       status: PaymentStatus.PENDING,
+//       txRef: reference,
+//       amount,
+//       customerName: `${passenger.user.firstName} ${passenger.user.lastName}`,
+//       customerEmail: passenger.user.email,
+//     }),
+//   );
+
+//   const gateway = await this.paymentFactory.initiatePayment({
+//     amount,
+//     email: passenger.user.email,
+//     reference,
+//     callback_url: dto.callbackUrl,
+//     metadata: {
+//       paymentId: payment.id,
+//       intentId: intent.id,               // ← was bookingId / bookingCode from booking
+//       bookingCode: intent.bookingCode,
+//       tripId: trip.id,
+//       passengerId: passenger.id,
+//       driverId: trip.driverId,
+//       type: 'trip_booking',
+//     },
+//   });
+
+//   this.logger.log(`Payment initiated ${reference} for intent ${intent.bookingCode}`);
+//   return { payment, ...gateway };
+// }
+
+
+
+//original 1
   // async initiatePayment(userId: string, dto: InitiatePaymentDto) {
   //   const passenger = await this.passengerRepo.findOne({
   //     where: { userId },
