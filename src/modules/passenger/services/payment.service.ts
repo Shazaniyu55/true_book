@@ -429,7 +429,7 @@ async verifyPayment(
         status: BookingStatus.CONFIRMED,
         paymentStatus: PaymentStatus.SUCCESS,
         paymentReference: reference,
-        ticketStatus: TicketStatus.PENDING,
+        ticketStatus: TicketStatus.ISSUED,
         ticketToken: this.randomness.generateReference('TKT'),
         ticketIssuedAt: new Date(),
         metadata: intent.metadata,
