@@ -1359,6 +1359,110 @@ async updatePassword(
 
 // ─── Financial ───────────────────────────────────────────────────────────────
 
+// async getFinancialReport(query: { page?: number; limit?: number } = {}) {
+//   const { page = 1, limit = 50 } = query;
+//   const skip = (page - 1) * limit;
+
+//   // Pending withdrawal counts by type
+//   const [
+//     totalAgentPendingWithdrawals,
+//     totalDriverPendingWithdrawals,
+//     totalPassengerPendingWithdrawals,
+//   ] = await Promise.all([
+//     this.payoutRepo.count({
+//       where: { status: PayoutStatus.PENDING, payoutableType: 'agent' },
+//     }),
+//     this.payoutRepo.count({
+//       where: { status: PayoutStatus.PENDING, payoutableType: 'driver' },
+//     }),
+//     this.payoutRepo.count({
+//       where: { status: PayoutStatus.PENDING, payoutableType: 'passenger' },
+//     }),
+//   ]);
+
+//   // Pending withdrawal amounts by type
+// const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Promise.all([
+//   this.payoutRepo
+//     .createQueryBuilder('p')
+//     .select('SUM(p.amount)', 'total')
+//     .where('p.status = :status', { status: PayoutStatus.PENDING })
+//     .andWhere('p.payoutableType = :type', { type: 'agent' })
+//     .getRawOne(),
+//   this.payoutRepo
+//     .createQueryBuilder('p')
+//     .select('SUM(p.amount)', 'total')
+//     .where('p.status = :status', { status: PayoutStatus.PENDING })
+//     .andWhere('p.payoutableType = :type', { type: 'driver' })
+//     .getRawOne(),
+//   this.payoutRepo
+//     .createQueryBuilder('p')
+//     .select('SUM(p.amount)', 'total')
+//     .where('p.status = :status', { status: PayoutStatus.PENDING })
+//     .andWhere('p.payoutableType = :type', { type: 'passenger' })
+//     .getRawOne(),
+// ]);
+
+//   // Platform earnings (sum of all successful booking platform fees)
+//   const platformEarningResult = await this.escroRepository
+//     .createQueryBuilder('b')
+//     .select('SUM(b.platformFee)', 'total')
+//     .where('b.status = :s', { s: 'released' })
+//     .getRawOne();
+
+//   // Recent payouts (last 50)
+//   const recentPayouts = await this.payoutRepo.find({
+//     relations: ['driver.user', 'agent.user', 'beneficiary'],
+//     order: { createdAt: 'DESC' },
+//     skip,
+//     take: limit,
+//   });
+
+//   const allPayouts = recentPayouts.map((p) => ({
+//     id: p.id,
+//     type: 'payout',
+//     amount: Number(p.amount ?? 0) / 100,
+//     status: p.status,
+//     reference: p.reference,
+//     transfer_code: p.transferCode,
+//     reason: p.reason,
+//     paid_to: p.driver?.user
+//       ? {
+//           id: p.driver.user.id,
+//           first_name: p.driver.user.firstName,
+//           last_name: p.driver.user.lastName,
+//           email: p.driver.user.email,
+//           phone: p.driver.user.phone,
+//           profile_image: p.driver.user.profileImage,
+//         }
+//       : p.agent?.user
+//         ? {
+//             id: p.agent.user.id,
+//             first_name: p.agent.user.firstName,
+//             last_name: p.agent.user.lastName,
+//             email: p.agent.user.email,
+//             phone: p.agent.user.phone,
+//             profile_image: p.agent.user.profileImage,
+//           }
+//         : null,
+//     created_at: p.createdAt,
+//     updated_at: p.updatedAt,
+//   }));
+
+//   const revenue = await this.getRevenue();
+
+//   return {
+//     total_agent_pending_withdrawals: totalAgentPendingWithdrawals,
+//     total_driver_pending_withdrawals: totalDriverPendingWithdrawals,
+//     total_passenger_pending_withdrawals: totalPassengerPendingWithdrawals,
+//     total_agent_pending_withdrawals_amount: parseFloat(agentAmountResult?.total ?? '0') / 100,
+//     total_driver_pending_withdrawals_amount: parseFloat(driverAmountResult?.total ?? '0') / 100,
+//     total_passenger_pending_withdrawals_amount: parseFloat(passengerAmountResult?.total ?? '0') / 100,
+//     platform_earnings: parseFloat(platformEarningResult?.total ?? '0'),
+//     all_payouts: allPayouts,
+//     revenue,
+//   };
+// }
+
 async getFinancialReport(query: { page?: number; limit?: number } = {}) {
   const { page = 1, limit = 50 } = query;
   const skip = (page - 1) * limit;
@@ -1381,26 +1485,26 @@ async getFinancialReport(query: { page?: number; limit?: number } = {}) {
   ]);
 
   // Pending withdrawal amounts by type
-const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Promise.all([
-  this.payoutRepo
-    .createQueryBuilder('p')
-    .select('SUM(p.amount)', 'total')
-    .where('p.status = :status', { status: PayoutStatus.PENDING })
-    .andWhere('p.payoutableType = :type', { type: 'agent' })
-    .getRawOne(),
-  this.payoutRepo
-    .createQueryBuilder('p')
-    .select('SUM(p.amount)', 'total')
-    .where('p.status = :status', { status: PayoutStatus.PENDING })
-    .andWhere('p.payoutableType = :type', { type: 'driver' })
-    .getRawOne(),
-  this.payoutRepo
-    .createQueryBuilder('p')
-    .select('SUM(p.amount)', 'total')
-    .where('p.status = :status', { status: PayoutStatus.PENDING })
-    .andWhere('p.payoutableType = :type', { type: 'passenger' })
-    .getRawOne(),
-]);
+  const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Promise.all([
+    this.payoutRepo
+      .createQueryBuilder('p')
+      .select('SUM(p.amount)', 'total')
+      .where('p.status = :status', { status: PayoutStatus.PENDING })
+      .andWhere('p.payoutableType = :type', { type: 'agent' })
+      .getRawOne(),
+    this.payoutRepo
+      .createQueryBuilder('p')
+      .select('SUM(p.amount)', 'total')
+      .where('p.status = :status', { status: PayoutStatus.PENDING })
+      .andWhere('p.payoutableType = :type', { type: 'driver' })
+      .getRawOne(),
+    this.payoutRepo
+      .createQueryBuilder('p')
+      .select('SUM(p.amount)', 'total')
+      .where('p.status = :status', { status: PayoutStatus.PENDING })
+      .andWhere('p.payoutableType = :type', { type: 'passenger' })
+      .getRawOne(),
+  ]);
 
   // Platform earnings (sum of all successful booking platform fees)
   const platformEarningResult = await this.escroRepository
@@ -1408,6 +1512,15 @@ const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Pro
     .select('SUM(b.platformFee)', 'total')
     .where('b.status = :s', { s: 'released' })
     .getRawOne();
+
+  // Live gateway balance from Paystack — don't let a Paystack outage
+  // break the whole report, just report it as unavailable.
+  let gatewayBalance: { balance: number; currency: string } | null = null;
+  try {
+    gatewayBalance = await this.paystackAdapter.checkBalance();
+  } catch {
+    gatewayBalance = null;
+  }
 
   // Recent payouts (last 50)
   const recentPayouts = await this.payoutRepo.find({
@@ -1460,6 +1573,9 @@ const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Pro
     platform_earnings: parseFloat(platformEarningResult?.total ?? '0'),
     all_payouts: allPayouts,
     revenue,
+    gateway_balance: gatewayBalance?.balance ?? null,
+    gateway_balance_currency: gatewayBalance?.currency ?? null,
+    gateway_balance_available: gatewayBalance !== null,
   };
 }
 
