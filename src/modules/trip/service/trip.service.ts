@@ -210,9 +210,9 @@ async getTripSummaryById(tripId: string, driverUserId?: string) {
   // reuse your ownership-checked fetch
   const booking = await this.tripRepository.getBookingByCode( userId, bookingCode,);
 
-  if (booking.ticketStatus !== TicketStatus.ISSUED) {
-    throw new ForbiddenException('Ticket is not available for boarding (unpaid, scanned, or void)');
-  }
+  // if (booking.ticketStatus !== TicketStatus.ISSUED) {
+  //   throw new ForbiddenException('Ticket is not available for boarding (unpaid, scanned, or void)');
+  // }
   if (!booking.ticketToken) {
     throw new NotFoundException('No ticket issued for this booking');
   }
