@@ -94,7 +94,7 @@ if (vehicleCount === 0) {
           //bookedSeats: 0,
         });
 
-         this.expoService.sendPushNotification(driver.user.expoToken, "Trip Created", `You Just created a Trip :${reference}`, { userId: driver.id })
+         await this.expoService.sendPushNotification(driver.user.expoToken, "Trip Created", `You Just created a Trip :${reference}`, { userId: driver.id })
         return await manager.save(Trip, trip);
       }
 
@@ -240,7 +240,7 @@ if (vehicleCount === 0) {
           type: NotificationType.TRIP_CANCELLED,
           data: { tripId: trip.id, bookingCode: booking.bookingCode, reason: dto.reason },
         });
-          this.expoService.sendPushNotification(booking.passenger.user.expoToken, "Trip Cancelled", `You Just Cancelled a Trip`, { userId: booking.passenger.userId })
+          await this.expoService.sendPushNotification(booking.passenger.user.expoToken, "Trip Cancelled", `You Just Cancelled a Trip`, { userId: booking.passenger.userId })
 
       } catch (err) {
         this.logger.warn(`Failed to notify passenger for booking ${booking.bookingCode}: ${err?.message}`);
