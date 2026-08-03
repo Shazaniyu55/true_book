@@ -204,19 +204,19 @@ export class AuthService {
 
   
 
-      await this.notificationService.notify({
-    userId: user.id,
-    title: 'New Login',
-    body: `You signed in to your Tru Booker account on ${new Date().toLocaleString()}.`,
-    type: NotificationType.BROADCAST,
-    data: { userId: user.id, at: new Date().toISOString() },
-  });
+  //     await this.notificationService.notify({
+  //   userId: user.id,
+  //   title: 'New Login',
+  //   body: `You signed in to your Tru Booker account on ${new Date().toLocaleString()}.`,
+  //   type: NotificationType.BROADCAST,
+  //   data: { userId: user.id, at: new Date().toISOString() },
+  // });
 
-  if (user.expoToken) {
-  this.expoService
-    .sendPushNotification(user.expoToken, 'New Login', 'You signed in to your account', { userId: user.id })
-    .catch(err => console.error('Expo push failed', err));
-}
+//   if (user.expoToken) {
+//   this.expoService
+//     .sendPushNotification(user.expoToken, 'New Login', 'You signed in to your account', { userId: user.id })
+//     .catch(err => console.error('Expo push failed', err));
+// }
   
     return { user, ...tokens };
   }
@@ -374,19 +374,7 @@ async loginAgent(dto: LoginDto): Promise<{ user: User; accessToken: string; refr
 
     const tokens = this.generateTokens(user);
 
-    await this.notificationService.notify({
-      userId: user.id,
-      title: 'New Login',
-      body: `You signed in to your Tru Booker agent account on ${new Date().toLocaleString()}.`,
-      type: NotificationType.BROADCAST,
-      data: { userId: user.id, at: new Date().toISOString() },
-    });
 
-    if (user.expoToken) {
-      this.expoService
-        .sendPushNotification(user.expoToken, 'New Login', 'You signed in to your agent account', { userId: user.id })
-        .catch(err => console.error('Expo push failed', err));
-    }
 
     return { user, ...tokens };
   }
