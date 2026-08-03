@@ -10,6 +10,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 
@@ -30,6 +31,7 @@ import { DeleteUserAccountUsecase } from '../usecases/deleteacct.usecase';
 import { DeleteUserDto } from '@modules/auth/dtos/deleteuser.dto';
 import { InitiatePaymentUsecase } from '../usecases/initiatepayment.usecase';
 import { GetBankListUsecase } from '../usecases/getbanklist.usecase';
+import { NotificationService } from '@modules/notification/services/notification.service';
 
 @ApiTags('Passenger')
 @ApiBearerAuth()
@@ -44,7 +46,9 @@ export class PassengerController {
     private readonly getPassengerDashBoardUsecase:GetPassengerDashBoardUsecase,
     private readonly deleteAccountUsecase:DeleteUserAccountUsecase,
     private readonly initiatePaymentUsecase:InitiatePaymentUsecase,
-    private readonly getBankListUsecase: GetBankListUsecase
+    private readonly getBankListUsecase: GetBankListUsecase,
+    private readonly notificationService: NotificationService,
+    
   
   ) {}
 
@@ -85,6 +89,13 @@ export class PassengerController {
   })
   deleteAccount(@AuthUser() user: JwtPayload, dto: DeleteUserDto) {
     return this.broker.runUsecases([this.deleteAccountUsecase], {id: user.sub, dto: dto})
+  }
+
+  @Get('anoucements')
+  @ApiOperation({ summary: 'Get all announcements' })
+  @ApiResponse({ status: 200, description: 'Announcements fetched successfully' })
+  async getAllAnnouncements() {
+    return this.notificationService.getAllAnnouncements();
   }
 
 @PassengerOnly()

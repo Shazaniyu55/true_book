@@ -56,6 +56,7 @@ import { TripStatus } from 'src/types/enums';
 import { GetDriverProfileUsecase } from '../usecases/getdriverprofile.usecase';
 import { PayoutService } from '../services/payout.service';
 import { WalletTxQueryDto } from '../dtos/wallet-query.dto';
+import { NotificationService } from '@modules/notification/services/notification.service';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -91,6 +92,8 @@ export class DriverTripController {
     private readonly getDriverDashboardUsecase: GetDriverDashboardUsecase,
     private readonly getDriverProfileUsecase:GetDriverProfileUsecase,
     private readonly payoutService: PayoutService,
+        private readonly notificationService: NotificationService,
+    
   ) {}
 
   /**
@@ -137,6 +140,14 @@ getWalletTransactions(@AuthUser() user: any, @Query() query: WalletTxQueryDto) {
   return this.payoutService.getWalletTransactions(user.sub, query);
 }
 
+  @Get('anoucements')
+  @ApiOperation({ summary: 'Get all announcements' })
+  @ApiResponse({ status: 200, description: 'Announcements fetched successfully' })
+  async getAllAnnouncements() {
+    return this.notificationService.getAllAnnouncements();
+  }
+
+  
 @DriverOnly()
 @Get('transactions/:id/single')
 @ApiOperation({ summary: 'Get a single wallet transaction' })
