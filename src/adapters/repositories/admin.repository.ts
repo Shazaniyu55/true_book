@@ -129,38 +129,89 @@ export class AdminRepository extends Repository<Admin> {
   };
 }
 
-  async getPassengers(query: {
+//   async getPassengers(query: {
+//   page?: number;
+//   limit?: number;
+//   search?: string;
+//   kycStatus?: string;
+//   status?: string;
+// }): Promise<PagedDto<any>>{
+//     const { page = 1, limit = 20, search, kycStatus, status } = query;
+//   const skip = (page - 1) * limit;
+//     const qb = this.passengerRepo
+//     .createQueryBuilder('passenger')
+//     .leftJoinAndSelect('passenger.user', 'user')
+//     .where('passenger.deletedAt IS NULL')
+//     .orderBy('passenger.createdAt', 'DESC')
+//     .skip(skip)
+//     .take(limit);
+
+//      const [data, total] = await qb.getManyAndCount();
+//      const pagedDto = new PagedDto();
+//       pagedDto.data = data;
+//       pagedDto.meta = {
+//         page,
+//         limit,
+//         count: data.length,
+//         previousPage: page > 1 ? page - 1 : false,
+//         nextPage: skip + limit < total ? page + 1 : false,
+//         pageCount: Math.ceil(total / limit),
+//         totalRecords: total,
+//       };
+//       return pagedDto;
+
+//   }
+
+async getPassengers(query: {
   page?: number;
   limit?: number;
   search?: string;
   kycStatus?: string;
   status?: string;
-}): Promise<PagedDto<any>>{
-    const { page = 1, limit = 20, search, kycStatus, status } = query;
+}): Promise<PagedDto<any>> {
+  const { page = 1, limit = 20, search, kycStatus, status } = query;
   const skip = (page - 1) * limit;
-    const qb = this.passengerRepo
+
+  const qb = this.passengerRepo
     .createQueryBuilder('passenger')
     .leftJoinAndSelect('passenger.user', 'user')
-    .where('passenger.deletedAt IS NULL')
-    .orderBy('passenger.createdAt', 'DESC')
-    .skip(skip)
-    .take(limit);
+    .where('passenger.deletedAt IS NULL');
 
-     const [data, total] = await qb.getManyAndCount();
-     const pagedDto = new PagedDto();
-      pagedDto.data = data;
-      pagedDto.meta = {
-        page,
-        limit,
-        count: data.length,
-        previousPage: page > 1 ? page - 1 : false,
-        nextPage: skip + limit < total ? page + 1 : false,
-        pageCount: Math.ceil(total / limit),
-        totalRecords: total,
-      };
-      return pagedDto;
+if (search) {
+  qb.andWhere(
+    `("user"."firstName" ILIKE :search
+      OR "user"."lastName" ILIKE :search
+      OR "user"."email" ILIKE :search
+      OR "user"."phone" ILIKE :search)`,
+    { search: `%${search}%` },
+  );
+}
 
+  if (status) {
+    qb.andWhere('user.status = :status', { status });
   }
+
+  if (kycStatus) {
+    qb.andWhere('passenger.kycStatus = :kycStatus', { kycStatus });
+  }
+
+  qb.orderBy('passenger.createdAt', 'DESC').skip(skip).take(limit);
+
+  const [data, total] = await qb.getManyAndCount();
+
+  const pagedDto = new PagedDto();
+  pagedDto.data = data;
+  pagedDto.meta = {
+    page,
+    limit,
+    count: data.length,
+    previousPage: page > 1 ? page - 1 : false,
+    nextPage: skip + limit < total ? page + 1 : false,
+    pageCount: Math.ceil(total / limit),
+    totalRecords: total,
+  };
+  return pagedDto;
+}
 
   async getRevenue() {
   const today = endOfDay(new Date());
