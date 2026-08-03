@@ -95,7 +95,7 @@ import { GetDriverHistoryUsecase } from '../usecases/getdriverdochistory.usecase
 import { DeleteDriverDocHistoryUsecase } from '../usecases/deletedriverdochis.usecase';
 import { UpdateDriverDocUsecase } from '../usecases/updatedriverdoc.usecase';
 import { AddDriverDocUsecase } from '../usecases/adddriverdoc.usecase';
-import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
+import { AddDriverDocumentsDto, UploadDriverDocumentDto  } from '../dtos/adddoc.dto';
 import { GetPassengersUsecase } from '../usecases/getpassenger.usecase';
 import { GetPassengerByIdUsecase } from '../usecases/getpassengerid.usecase';
 import { GetDriverVehicleByIdUsecase } from '../usecases/getdrivervehicle.usecase';
@@ -121,6 +121,7 @@ import {
 } from '../usecases/finance.usecase';
 import { AdminNotificationActivityQueryDto } from '../dtos/admin-notification-query.dto';
 import { GetAdminNotificationActivityUseCase } from '../usecases/getadminnotify.usecase';
+import { AdminGetVehicleTypesUsecase } from '../usecases/getvehicletypes.usecase';
 
 
 
@@ -196,7 +197,8 @@ private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
     private readonly togglePassengerStatusUsecase:TogglePassengerStatusUsecase,
     private readonly fetchDriverDocUsecase:FetchDriverDocUsecase,
     private readonly notificationService: NotificationService,
-    private readonly getAdminNotificationActivityUsecase: GetAdminNotificationActivityUseCase
+    private readonly getAdminNotificationActivityUsecase: GetAdminNotificationActivityUseCase,
+     private readonly adminGetVehicleTypesUsecase:AdminGetVehicleTypesUsecase,
   ) {}
 
 
@@ -242,6 +244,16 @@ private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
 async getAllAnnouncements() {
   return this.notificationService.getAllAnnouncements();
 }
+
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @RequirePermissions(Permission.USER_VIEW)
+  @Get('vehicle-types')
+  @ApiOperation({ summary: 'Get list of vehicle types' })
+  getVehicleTypes() {
+    return this.broker.runUsecases([this.adminGetVehicleTypesUsecase]);
+  }
 
   @ApiBearerAuth()
   @AdminOnly()
@@ -441,14 +453,30 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
     return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto:dto });
   }
 
+  // @ApiBearerAuth()
+  // @AdminOnly()
+  // @Post('drivers/add-document/:id')
+  // @ApiOperation({ summary: 'update driver doc  by ID' })
+  // @ApiParam({ name: 'id', type: String, description: 'update driver doc  by ID' })
+  // @ApiBody({ type: AddDriverDocumentsDto })
+  // addDriverDoc(@Param('id') id: string, @Body() dto: AddDriverDocumentsDto) {
+  //   return this.broker.runUsecases([this.addDriverDocUsecase], { id: id, dto:dto });
+  // }
+
   @ApiBearerAuth()
   @AdminOnly()
   @Post('drivers/add-document/:id')
-  @ApiOperation({ summary: 'update driver doc  by ID' })
-  @ApiParam({ name: 'id', type: String, description: 'update driver doc  by ID' })
-  @ApiBody({ type: AddDriverDocumentsDto })
-  addDriverDoc(@Param('id') id: string, @Body() dto: AddDriverDocumentsDto) {
-    return this.broker.runUsecases([this.addDriverDocUsecase], { id: id, dto:dto });
+  @UseInterceptors(FileInterceptor('document'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a new document for a driver' })
+  @ApiParam({ name: 'id', type: String, description: 'driver UUID' })
+  @ApiBody({ type: UploadDriverDocumentDto })
+  addDriverDoc(
+    @Param('id') id: string,
+    @Body() dto: UploadDriverDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.broker.runUsecases([this.addDriverDocUsecase], { id, dto, file });
   }
 
   @ApiBearerAuth()

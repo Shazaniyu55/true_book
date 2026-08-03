@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Usecase } from '@broker/types';
 import { AdminService } from '../services/admin.service';
-import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
+import { UploadDriverDocumentDto } from '../dtos/adddoc.dto';
 
 @Injectable()
 export class AddDriverDocUsecase extends Usecase {
@@ -10,7 +10,10 @@ export class AddDriverDocUsecase extends Usecase {
     super();
   }
 
-  async execute(_entityManager: EntityManager,  args: {id: string, dto: AddDriverDocumentsDto}) {
-    return this.adminService.addDriverDocuments(args.id, args.dto);
+  async execute(
+    _entityManager: EntityManager,
+    args: { id: string; dto: UploadDriverDocumentDto; file?: Express.Multer.File },
+  ) {
+    return this.adminService.addDriverDocumentFile(args.id, args.dto, args.file);
   }
 }

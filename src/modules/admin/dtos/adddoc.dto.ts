@@ -30,3 +30,15 @@ export class AddDriverDocumentsDto {
   @Type(() => DriverDocumentItemDto)
   documents: DriverDocumentItemDto[];
 }
+
+// Used by the multipart/form-data upload flow (POST drivers/add-document/:id).
+// The file itself arrives via FileInterceptor, not in this DTO.
+export class UploadDriverDocumentDto {
+  @IsString()
+  @IsNotEmpty()
+  documentType: string;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
+}

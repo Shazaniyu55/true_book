@@ -13,11 +13,12 @@ import { Role } from '@modules/core/entities/role.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
-import { AddDriverDocumentsDto } from '../dtos/adddoc.dto';
+import { AddDriverDocumentsDto, UploadDriverDocumentDto } from '../dtos/adddoc.dto';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 import { AdminNotificationActivityQuery, UserStatus } from 'src/types/enums';
 import { CreateSubAdminDto } from '../dtos/create-subadmin.dto';
+
 
 @Injectable()
 export class AdminService {
@@ -49,6 +50,8 @@ async getDashboardStats(query: { page?: number; limit?: number } = {}) {
     CACHE_TTL.MEDIUM,
   );
 }
+
+
 
   async getDrivers(query: {
   page?: number;
@@ -244,6 +247,32 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
   async addDriverDocuments(id: string, dto: AddDriverDocumentsDto){
     return await this.adminRepo.addDriverDocuments(id, dto)
   }
+
+   async addDriverDocumentFile(
+    id: string,
+    dto: UploadDriverDocumentDto,
+    file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Document file is required');
+    }
+
+    const uploaded = await this.cloudinaryService.upload(file, {
+      folder: `drivers/${id}/documents`,
+    });
+
+    return this.addDriverDocuments(id, {
+      documents: [
+        {
+          documentType: dto.documentType,
+          documentUrl: uploaded.secure_url,
+          verificationData: dto.name ? { name: dto.name } : undefined,
+        },
+      ],
+    });
+  }
+
+
 
   async deleteDriverDocHistory(id: string){
     return await this.adminRepo.deleteDriverDocumentHistory(id); 

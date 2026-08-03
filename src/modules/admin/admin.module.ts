@@ -112,7 +112,8 @@ import {
 import { GetAdminNotificationActivityUseCase } from './usecases/getadminnotify.usecase';
 import { Notification } from '@modules/core/entities/notification.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
-
+import { DriverModule } from '@modules/driver/driver.module';
+import { AdminGetVehicleTypesUsecase } from './usecases/getvehicletypes.usecase';
 
 
 const USECASES = [
@@ -178,6 +179,7 @@ const USECASES = [
 @Module({
   imports: [
     CloudinaryModule,
+    DriverModule,
     TypeOrmModule.forFeature([
       
       Admin,
@@ -224,6 +226,7 @@ const USECASES = [
       GetDriversEarningsUsecase,
   GetAgentsEarningsUsecase,
   GetRefundRequestsUsecase,
+  AdminGetVehicleTypesUsecase,
     { provide: HashingUtil, useClass: BcryptHashingUtil },
     RandomnessUtil,
     ...USECASES,
