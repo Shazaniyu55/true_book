@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
+import { Repository, EntityManager, In, MoreThanOrEqual } from 'typeorm';
 
 import { Coupon } from '@modules/core/entities/coupon.entity';
 import { User } from '@modules/core/entities/user.entity';
@@ -293,6 +293,155 @@ async getReferralCuponType(
     meta: { page, limit, total, pages: Math.ceil(total / limit) },
   };
 }
+
+  // ─── Admin: overview dashboard (stats cards + performance table) ─────────
+
+  /**
+   * Powers the admin "Referral & Coupon Program" page.
+   * Returns the six summary stat-card figures plus a paginated
+   * per-passenger performance table.
+   */
+  async getAdminOverview(query: { page?: number; limit?: number }) {
+    const { page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+    const now = new Date();
+
+    // Distinct referrers, paginated, most referrals first
+    const referrerRows = await this.referralRepo
+      .createQueryBuilder('r')
+      .select('r.referrerId', 'referrerId')
+      .addSelect('COUNT(*)', 'referralsMade')
+      .groupBy('r.referrerId')
+      .orderBy('COUNT(*)', 'DESC')
+      .offset(skip)
+      .limit(limit)
+      .getRawMany<{ referrerId: string; referralsMade: string }>();
+
+    const totalReferrersRow = await this.referralRepo
+      .createQueryBuilder('r')
+      .select('COUNT(DISTINCT r.referrerId)', 'count')
+      .getRawOne<{ count: string }>();
+    const totalReferrers = Number(totalReferrersRow?.count ?? 0);
+
+    const referrerIds = referrerRows.map((r) => r.referrerId);
+
+    const [users, referralCoupons] = await Promise.all([
+      referrerIds.length
+        ? this.userRepo.find({ where: { id: In(referrerIds) } })
+        : Promise.resolve([]),
+      referrerIds.length
+        ? this.couponRepo.find({
+            where: { userId: In(referrerIds), type: CouponType.REFERRAL },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const usersById = new Map(users.map((u) => [u.id, u]));
+    const couponsByReferrer = new Map<string, Coupon[]>();
+    for (const coupon of referralCoupons) {
+      if (!coupon.userId) continue;
+      const list = couponsByReferrer.get(coupon.userId) ?? [];
+      list.push(coupon);
+      couponsByReferrer.set(coupon.userId, list);
+    }
+
+    const data = referrerRows.map((row) => {
+      const user = usersById.get(row.referrerId);
+      const myCoupons = couponsByReferrer.get(row.referrerId) ?? [];
+      const used_coupons = myCoupons.filter((c) => c.usageCount > 0).length;
+      const expired_coupons = myCoupons.filter(
+        (c) => c.usageCount === 0 && c.expiresAt && new Date(c.expiresAt) < now,
+      ).length;
+      const unused_coupons = myCoupons.filter(
+        (c) => c.usageCount === 0 && (!c.expiresAt || new Date(c.expiresAt) >= now),
+      ).length;
+
+      const name = user
+        ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email
+        : 'Unknown passenger';
+
+      return {
+        id: row.referrerId,
+        name,
+        referrals_made: Number(row.referralsMade),
+        used_coupons,
+        unused_coupons,
+        expired_coupons,
+      };
+    });
+
+    // ─ Platform-wide stat cards ─
+    const [
+      totalActiveReferrals,
+      totalReferralCouponsIssued,
+      totalReferralCouponsRedeemed,
+      totalReferralCouponsExpired,
+      welcomeStats,
+    ] = await Promise.all([
+      this.referralRepo.count({ where: { isQualified: true } }),
+      this.couponRepo.count({ where: { type: CouponType.REFERRAL } }),
+      this.couponRepo
+        .createQueryBuilder('c')
+        .where('c.type = :type', { type: CouponType.REFERRAL })
+        .andWhere('c.usageCount > 0')
+        .getCount(),
+      this.couponRepo
+        .createQueryBuilder('c')
+        .where('c.type = :type', { type: CouponType.REFERRAL })
+        .andWhere('c.usageCount = 0')
+        .andWhere('c.expiresAt IS NOT NULL')
+        .andWhere('c.expiresAt < :now', { now })
+        .getCount(),
+      this.getWelcomeCouponStats(),
+    ]);
+
+    return {
+      performance_count: totalReferrers,
+      total_active_referrals: totalActiveReferrals,
+      total_coupon_issued: totalReferralCouponsIssued,
+      total_coupon_redeemed: totalReferralCouponsRedeemed,
+      total_expired_coupons: totalReferralCouponsExpired,
+      welcome_coupons_given: welcomeStats.given,
+      welcome_coupons_redeemed: welcomeStats.redeemed,
+      referral_performance: {
+        data,
+        meta: {
+          page,
+          limit,
+          total: totalReferrers,
+          last_page: Math.max(1, Math.ceil(totalReferrers / limit)),
+        },
+      },
+    };
+  }
+
+  /**
+   * NOTE: there's no per-user "welcome coupon dispatched" log in the schema
+   * today, so `given` is estimated as the number of passengers who registered
+   * on/after the (most recent) welcome coupon's start date — since every
+   * registrant while it's active is emailed the same code. `redeemed` is the
+   * coupon's actual usageCount, which is accurate. If exact per-user tracking
+   * is needed, add a `welcome_coupon_dispatches` table and log a row each
+   * time `dispatchWelcomeCouponIfActive` sends an email.
+   */
+  private async getWelcomeCouponStats(): Promise<{ given: number; redeemed: number }> {
+    const welcomeCoupons = await this.couponRepo.find({
+      where: { isWelcomeCoupon: true },
+      order: { createdAt: 'DESC' },
+    });
+    if (!welcomeCoupons.length) return { given: 0, redeemed: 0 };
+
+    const redeemed = welcomeCoupons.reduce((sum, c) => sum + (c.usageCount ?? 0), 0);
+
+    const reference = welcomeCoupons.find((c) => c.isActive) ?? welcomeCoupons[0];
+    const given = reference?.startsAt
+      ? await this.userRepo.count({
+          where: { createdAt: MoreThanOrEqual(reference.startsAt) },
+        })
+      : 0;
+
+    return { given, redeemed };
+  }
 
   // ─── Config helpers ───────────────────────────────────────────────────────
 

@@ -29,6 +29,7 @@ import { AgentRepository } from '@adapters/repositories/agent.repository';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { UpdatePasswordDto } from '../dtos/updatepassword.dto';
 import { Agent } from '@modules/core/entities/agent.entity';
+import { SmsFactory } from '@adapters/sms/sms.factory';
 
 @Injectable()
 export class AuthService {
@@ -45,6 +46,7 @@ export class AuthService {
     private readonly referralService: ReferralService,
     private readonly couponService: CouponService,
     private readonly dojahAdapter: DojahAdapter,
+    private readonly smsFactory: SmsFactory,
     private readonly adminRepo: AdminRepository,
     private readonly agentRepo: AgentRepository,
     private readonly notificationService: NotificationService,
@@ -115,26 +117,7 @@ export class AuthService {
     }
 
     // ── Phone verification OTP — for passengers AND drivers ──
-// if (user.phone && (user.role === UserRole.PASSENGER || user.role === UserRole.DRIVER)) {
-//   const minutes = this.configService.get<number>('common.otp.durationMinutes');
-//   const phoneOtp = this.randomnessUtil.generateOtp();
-//   const hasedphone = await this.hashingUtil.hash(phoneOtp);
 
-//   await this.userRepository.updateUser(
-//     user.id,
-//     { phoneOtpCode: hasedphone, phoneOtpExpiresAt: getOtpExpiry(minutes) },
-//     entityManager,
-//   );
-//   user.phoneOtpCode = hasedphone;
-//   user.phoneOtpExpiresAt = getOtpExpiry(minutes);
-
-//   this.dojahAdapter
-//     .sendSms({
-//       destination: user.phone,
-//       message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
-//     })
-//     .catch(() => {/* logged in provider */});
-// }
 
       // ── Referral: record who referred this user (if referralCode supplied) ──
   if (dto.referralCode && user.role === UserRole.PASSENGER) {
@@ -460,10 +443,16 @@ async resendPhoneOtp({ phone }: ResendPhoneOtpDto, entityManager?: EntityManager
   const hashedPhoneOtp = await this.hashingUtil.hash(phoneOtp);
 
   // send the PLAINTEXT otp via SMS, store the HASH
-  await this.dojahAdapter.sendSms({
-    destination: user.phone,
-    message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
-  });
+  // await this.dojahAdapter.sendSms({
+  //   destination: user.phone,
+  //   message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
+  // });
+
+  const sent = await this.smsFactory.sendSms({
+  destination: user.phone,
+  message: `Your Tru Booker verification code is ${phoneOtp}. It expires in ${minutes} minutes.`,
+});
+if (!sent) throw new BadRequestException('Could not send SMS. Please try again.');
 
   await this.userRepository.updateUser(
     user.id,

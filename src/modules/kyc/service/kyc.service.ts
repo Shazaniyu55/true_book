@@ -25,6 +25,7 @@ import { getOtpExpiry } from '@shared/utils/helpers/common.utils';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { ConfigService } from '@nestjs/config';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
+import { SmsFactory } from '@adapters/sms/sms.factory';
 
 @Injectable()
 export class KycService {
@@ -37,6 +38,7 @@ export class KycService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
     private readonly dojahAdapter: DojahAdapter,
+    private readonly smsFactory:SmsFactory,
     private readonly randomnessUtil: RandomnessUtil,
     private readonly configService: ConfigService,
     @InjectQueue(LICENSE_QUEUE) private readonly licenseQueue: Queue<LicenseJobData>,
@@ -84,11 +86,11 @@ export class KycService {
       phoneOtpExpiresAt: getOtpExpiry(minutes),
     });
 
-    const sent = await this.dojahAdapter.sendSms({
-      destination: user.phone,
-      message: `Your Tru Booker verification code is ${otp}. It expires in ${minutes} minutes.`,
-    });
-    if (!sent) throw new BadRequestException('Could not send SMS. Please try again.');
+const sent = await this.smsFactory.sendSms({
+  destination: user.phone,
+  message: `Your Tru Booker verification code is ${otp}. It expires in ${minutes} minutes.`,
+});
+if (!sent) throw new BadRequestException('Could not send SMS. Please try again.');
 
     return { success: true, message: 'Verification code sent to your phone' };
   }

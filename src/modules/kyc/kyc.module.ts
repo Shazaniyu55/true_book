@@ -21,6 +21,11 @@ import { ConfigService } from '@nestjs/config';
 import { LICENSE_QUEUE } from './dtos/kyc.queue';
 import { LicenseProcessor } from './dtos/license.processor';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
+import { SmsFactory } from '@adapters/sms/sms.factory';
+import { BrevoAdapter } from '@adapters/sms/brevo/brevo.adapter';
+import { BrevoProvider } from '@adapters/sms/brevo/providers/brevo.provider';
+import { TermiiAdapter } from '@adapters/sms/termii/termii.adapter';
+import { TermiiProvider } from '@adapters/sms/termii/providers/termii.provider';
 
 @Module({
   imports: [
@@ -47,6 +52,11 @@ import { Vehicle } from '@modules/core/entities/vehicle.entity';
     KycService, 
     DojahAdapter, 
     DojahProvider, 
+    SmsFactory,
+        BrevoAdapter,
+        BrevoProvider,
+        TermiiAdapter,
+        TermiiProvider,
     RandomnessUtil,
 
     GetDriverKycStatusUsecase,

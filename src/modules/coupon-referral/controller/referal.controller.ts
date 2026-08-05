@@ -75,6 +75,29 @@ export class ReferralController {
   // ─── Admin ────────────────────────────────────────────────────────────────
 
   /**
+   * Powers the admin "Referral & Coupon Program" dashboard: the six stat
+   * cards (performance_count, total_active_referrals, total_coupon_issued,
+   * total_coupon_redeemed, total_expired_coupons, welcome_coupons_given) plus
+   * a paginated `referral_performance` table (one row per referring passenger).
+   */
+  @AdminOnly()
+  @Get('admin/overview')
+  @ApiOperation({
+    summary: 'Admin: Referral program overview (stats + performance table)',
+    description:
+      'Aggregate referral/coupon stats for the admin dashboard, plus a paginated ' +
+      'per-passenger performance table (referrals made, used/unused/expired coupons).',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getAdminOverview(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.referralService.getAdminOverview({ page, limit });
+  }
+
+  /**
    * View the current referral reward configuration.
    */
   @AdminOnly()

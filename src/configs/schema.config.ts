@@ -112,7 +112,13 @@ export default {
     YOUVERIFY_BASEURL: optionalString,
     TERMII_API_KEY: optionalString,
     TERMII_SENDER_ID: optionalString,
+    TERMII_BASE_URL: optionalString,
     PLATFORM_FEE_RATE: optionalNumber,
     AGENT_COMMISSION_RATE: optionalNumber,
+
+    SMS_PROVIDER_ORDER: optionalString,
+    BREVO_BASE_URL: optionalString,
+    BREVO_API_KEY: optionalString,
+    BREVO_SMS_SENDER: optionalString,
   }),
 };

@@ -163,4 +163,15 @@ export default registerAs('common', () => ({
     apiKey: process.env.TERMII_API_KEY,
     senderId: process.env.TERMII_SENDER_ID,
   },
+    sms: {
+    providerOrder: process.env.SMS_PROVIDER_ORDER || 'dojah,brevo,termii',
+    brevo: {
+      baseUrl: process.env.BREVO_BASE_URL || 'https://api.brevo.com',
+      apiKey: process.env.BREVO_API_KEY,
+      sender: process.env.BREVO_SMS_SENDER || 'TruBooker',
+    },
+    termii: {
+      baseUrl: process.env.TERMII_BASE_URL || 'https://api.ng.termii.com',
+    },
+  },
 }));
