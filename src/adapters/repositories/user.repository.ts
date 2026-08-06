@@ -25,7 +25,7 @@ export class UserRepository extends Repository<User> {
   }
 
   async findByPhone(phone: string): Promise<User> {
-    return this.findOne({ where: { phone } });
+    return this.findOne({ where: { phone: phone } });
   }
 
   async findByReferralCode(referralCode: string): Promise<User> {
