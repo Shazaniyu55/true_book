@@ -1010,17 +1010,32 @@ async deleteDriverDocumentHistory(driverId: string): Promise<{ message: string; 
   };
 }
 
+// async updateDriverDocuments(
+//   driverId: string,
+//   data: Partial<DocumentVerification>,
+// ): Promise<{ message: string; updated: number }> {
+//   const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+//   if (!driver) throw new NotFoundException('Driver not found');
+
+//   const result = await this.docRepo.update({ driverId }, data);
+
+//   return {
+//     message: 'Driver documents updated successfully',
+//     updated: result.affected ?? 0,
+//   };
+// }
+
 async updateDriverDocuments(
-  driverId: string,
+  documentId: string,
   data: Partial<DocumentVerification>,
 ): Promise<{ message: string; updated: number }> {
-  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-  if (!driver) throw new NotFoundException('Driver not found');
+  const document = await this.docRepo.findOne({ where: { id: documentId } });
+  if (!document) throw new NotFoundException('Document not found');
 
-  const result = await this.docRepo.update({ driverId }, data);
+  const result = await this.docRepo.update({ id: documentId }, data);
 
   return {
-    message: 'Driver documents updated successfully',
+    message: 'Driver document updated successfully',
     updated: result.affected ?? 0,
   };
 }
@@ -1029,10 +1044,8 @@ async addDriverDocuments(
   driverId: string,
   dto: AddDriverDocumentsDto,
 ): Promise<DocumentVerification[]> {
-
-  try{
-        const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-   if (!driver) throw new NotFoundException('Driver not found');
+  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+  if (!driver) throw new NotFoundException('Driver not found');
 
   const documents = dto.documents.map((doc) =>
     this.docRepo.create({
@@ -1045,11 +1058,33 @@ async addDriverDocuments(
   );
 
   return this.docRepo.save(documents);
-  }catch(error){
-    console.log(error)
-  }
-
 }
+
+// async addDriverDocuments(
+//   driverId: string,
+//   dto: AddDriverDocumentsDto,
+// ): Promise<DocumentVerification[]> {
+
+//   try{
+//         const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+//    if (!driver) throw new NotFoundException('Driver not found');
+
+//   const documents = dto.documents.map((doc) =>
+//     this.docRepo.create({
+//       driverId,
+//       documentType: doc.documentType,
+//       documentUrl: doc.documentUrl,
+//       verificationData: doc.verificationData,
+//       status: DocumentStatus.PENDING, // new uploads start pending review
+//     }),
+//   );
+
+//   return this.docRepo.save(documents);
+//   }catch(error){
+//     console.log(error)
+//   }
+
+// }
 
   // ─── Driver / KYC Management ─────────────────────────────────────────────────
 

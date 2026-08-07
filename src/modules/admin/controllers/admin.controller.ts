@@ -443,16 +443,24 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
     return this.broker.runUsecases([this.deleteDriverDocHistoryUsecase], { id });
   }
 
-  @ApiBearerAuth()
-  @AdminOnly()
-  @Post('drivers/update-document/:id')
-  @ApiOperation({ summary: 'update driver doc  by ID' })
-  @ApiParam({ name: 'id', type: String, description: 'update driver doc  by ID' })
-  @ApiBody({ type: UpdateDriverDocumentDto })
-  updateDriverDoc(@Param('id') id: string, @Body() dto: UpdateDriverDocumentDto) {
-    return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto:dto });
-  }
-
+  // @ApiBearerAuth()
+  // @AdminOnly()
+  // @Post('drivers/update-document/:id')
+  // @ApiOperation({ summary: 'update driver doc  by ID' })
+  // @ApiParam({ name: 'id', type: String, description: 'update driver doc  by ID' })
+  // @ApiBody({ type: UpdateDriverDocumentDto })
+  // updateDriverDoc(@Param('id') id: string, @Body() dto: UpdateDriverDocumentDto) {
+  //   return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto:dto });
+  // }
+@ApiBearerAuth()
+@AdminOnly()
+@Post('drivers/update-document/:id')
+@ApiOperation({ summary: 'Update a single driver document by document ID' })
+@ApiParam({ name: 'id', type: String, description: 'document_verifications row ID (NOT the driver ID)' })
+@ApiBody({ type: UpdateDriverDocumentDto })
+updateDriverDoc(@Param('id') id: string, @Body() dto: UpdateDriverDocumentDto) {
+  return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto: dto });
+}
 
 
   @ApiBearerAuth()
