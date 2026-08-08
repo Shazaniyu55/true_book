@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
 
 export class CreateAnnouncementDto {
   @IsString()
@@ -13,7 +13,9 @@ export class CreateAnnouncementDto {
   @IsNotEmpty()
   duration: string;
 
+ 
   @IsOptional()
   @IsString()
+  @IsIn(['driver', 'passenger', 'all', 'both'])
   target?: string;
 }
