@@ -18,6 +18,8 @@ import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
 import { AdminNotificationActivityQuery, UserStatus } from 'src/types/enums';
 import { CreateSubAdminDto } from '../dtos/create-subadmin.dto';
+import { DriverRepository } from '@adapters/repositories/driver.repository';
+import { VehicleRepository } from '@adapters/repositories/vehicle.repository';
 
 
 @Injectable()
@@ -31,6 +33,8 @@ export class AdminService {
     private readonly configService: ConfigService,
     private readonly cloudinaryService: CloudinaryService,
     private readonly cache: RedisCacheService, 
+    private readonly driverRepo: DriverRepository,
+    private readonly vehicleRepo: VehicleRepository,
 
     @InjectRepository(Role)
   private readonly roleRepository: Repository<Role>
@@ -51,6 +55,79 @@ async getDashboardStats(query: { page?: number; limit?: number } = {}) {
   );
 }
 
+ async addVehicleForDriver(
+    rawBody: Record<string, any>,
+    files: Express.Multer.File[] = [],
+  ) {
+    const driverId = rawBody?.driver_id;
+    if (!driverId) {
+      throw new BadRequestException('driver_id is required');
+    }
+
+    // driver_id may be either the drivers.id PK or the underlying users.id —
+    // support both so the frontend doesn't need to know which one it has.
+    const driver = await this.driverRepo.findByIdOrUserId(driverId);
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const vehicleTypeId = rawBody?.vehicle_type_id;
+    if (!vehicleTypeId) {
+      throw new BadRequestException('vehicle_type_id is required');
+    }
+    const vehicleType = await this.driverRepo.getVehicleTypeById(vehicleTypeId);
+    if (!vehicleType) {
+      throw new NotFoundException('Vehicle type not found');
+    }
+
+    const model = rawBody?.model;
+    const licensePlateNumber = rawBody?.license_plate_number;
+    const color = rawBody?.color;
+    const capacity = Number(rawBody?.capacity);
+
+    if (!model || !licensePlateNumber || !color || !capacity || Number.isNaN(capacity)) {
+      throw new BadRequestException('model, license_plate_number, capacity and color are required');
+    }
+
+    const plateTaken = await this.vehicleRepo.findByPlateOrLicense(licensePlateNumber);
+    if (plateTaken) {
+      throw new BadRequestException('A vehicle with this plate number already exists');
+    }
+
+    const features = this.extractIndexedFormArray(rawBody, 'features');
+
+    const photoFiles = (files ?? []).filter((f) => f.fieldname?.startsWith('photos'));
+    if (photoFiles.length < 3) {
+      throw new BadRequestException('At least 3 vehicle photos are required');
+    }
+
+    const vehiclePhoto: string[] = [];
+    for (const file of photoFiles) {
+      const uploaded = await this.cloudinaryService.upload(file, {
+        resource_type: 'image',
+        folder: `vehicles/${driver.id}/photos`,
+      });
+      vehiclePhoto.push(uploaded.secure_url);
+    }
+
+    const vehicle = await this.vehicleRepo.createVehicle({
+      driverId: driver.id,
+      type: vehicleType.name,
+      model,
+      plateNumber: licensePlateNumber,
+      licensePlateNumber,
+      capacity,
+      color,
+      features,
+      vehiclePhoto,
+      isActive: true,
+      isVerified: false,
+    });
+
+    await this.driverRepo.update({ id: driver.id }, { vehicleId: vehicle.id });
+
+    return vehicle;
+  }
 
 
   async getDrivers(query: {
@@ -389,5 +466,16 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
       expiresIn: this.configService.get<string>('common.auth.jwt.refreshExpiresIn'),
     });
     return { accessToken, refreshToken };
+  }
+
+  private extractIndexedFormArray(body: Record<string, any>, prefix: string): string[] {
+    return Object.keys(body ?? {})
+      .filter((key) => key.startsWith(`${prefix}[`))
+      .sort((a, b) => {
+        const ai = Number(a.match(/\[(\d+)\]/)?.[1] ?? 0);
+        const bi = Number(b.match(/\[(\d+)\]/)?.[1] ?? 0);
+        return ai - bi;
+      })
+      .map((key) => body[key]);
   }
 }

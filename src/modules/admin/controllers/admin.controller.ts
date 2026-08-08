@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -84,7 +85,7 @@ import { Permission } from 'src/types/enums/permission.enums';
 import { PermissionsGuard } from '@shared/guards/permissions.guard';
 import { RequirePermissions } from '@shared/decorators/permissions.decorator';
 import { AdminService } from '../services/admin.service';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { AnyFilesInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import { GetAdminProfileUsecase } from '../usecases/getprofile.usecase';
 import { UpdatePasswordUsecase } from '../usecases/updatepassword.usecase';
 import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
@@ -122,6 +123,7 @@ import {
 import { AdminNotificationActivityQueryDto } from '../dtos/admin-notification-query.dto';
 import { GetAdminNotificationActivityUseCase } from '../usecases/getadminnotify.usecase';
 import { AdminGetVehicleTypesUsecase } from '../usecases/getvehicletypes.usecase';
+import { AdminAddVehicleDto } from '../dtos/add-vehicle.dto';
 
 
 
@@ -461,6 +463,21 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
 updateDriverDoc(@Param('id') id: string, @Body() dto: UpdateDriverDocumentDto) {
   return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto: dto });
 }
+
+@ApiBearerAuth()
+  @AdminOnly()
+  @Post('drivers/add-vehicle')
+  @UseInterceptors(AnyFilesInterceptor())
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Admin: add a vehicle for a driver' })
+  @ApiBody({ type: AdminAddVehicleDto })
+  @ApiResponse({ status: 201, description: 'Vehicle added successfully' })
+  addVehicleForDriver(
+    @Body() body: any,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.adminService.addVehicleForDriver(body, files);
+  }
 
 
   @ApiBearerAuth()

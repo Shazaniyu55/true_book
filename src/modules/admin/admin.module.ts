@@ -114,6 +114,9 @@ import { Notification } from '@modules/core/entities/notification.entity';
 import { Escrow } from '@modules/core/entities/escro.entity';
 import { DriverModule } from '@modules/driver/driver.module';
 import { AdminGetVehicleTypesUsecase } from './usecases/getvehicletypes.usecase';
+import { DriverRepository } from '@adapters/repositories/driver.repository';
+import { VehicleRepository } from '@adapters/repositories/vehicle.repository';
+import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 
 
 const USECASES = [
@@ -201,7 +204,8 @@ const USECASES = [
       Vehicle,
       Permission,
       Review,
-      Notification
+      Notification,
+      VehicleType
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -227,6 +231,8 @@ const USECASES = [
   GetAgentsEarningsUsecase,
   GetRefundRequestsUsecase,
   AdminGetVehicleTypesUsecase,
+      DriverRepository,
+    VehicleRepository,
     { provide: HashingUtil, useClass: BcryptHashingUtil },
     RandomnessUtil,
     ...USECASES,
