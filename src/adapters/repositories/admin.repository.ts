@@ -1010,20 +1010,7 @@ async deleteDriverDocumentHistory(driverId: string): Promise<{ message: string; 
   };
 }
 
-// async updateDriverDocuments(
-//   driverId: string,
-//   data: Partial<DocumentVerification>,
-// ): Promise<{ message: string; updated: number }> {
-//   const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-//   if (!driver) throw new NotFoundException('Driver not found');
 
-//   const result = await this.docRepo.update({ driverId }, data);
-
-//   return {
-//     message: 'Driver documents updated successfully',
-//     updated: result.affected ?? 0,
-//   };
-// }
 
 async updateDriverDocuments(
   documentId: string,
@@ -1060,31 +1047,7 @@ async addDriverDocuments(
   return this.docRepo.save(documents);
 }
 
-// async addDriverDocuments(
-//   driverId: string,
-//   dto: AddDriverDocumentsDto,
-// ): Promise<DocumentVerification[]> {
 
-//   try{
-//         const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-//    if (!driver) throw new NotFoundException('Driver not found');
-
-//   const documents = dto.documents.map((doc) =>
-//     this.docRepo.create({
-//       driverId,
-//       documentType: doc.documentType,
-//       documentUrl: doc.documentUrl,
-//       verificationData: doc.verificationData,
-//       status: DocumentStatus.PENDING, // new uploads start pending review
-//     }),
-//   );
-
-//   return this.docRepo.save(documents);
-//   }catch(error){
-//     console.log(error)
-//   }
-
-// }
 
   // ─── Driver / KYC Management ─────────────────────────────────────────────────
 
@@ -1125,7 +1088,25 @@ async addDriverDocuments(
     return pagedDto;
   }
 
-  async approveDocument(docId: string, adminEmail: string) {
+  // async approveDocument(docId: string, adminEmail: string) {
+  //   const doc = await this.docRepo.findOne({
+  //     where: { id: docId },
+  //     relations: ['driver'],
+  //   });
+  //   if (!doc) throw new NotFoundException('Document not found');
+  //   if (doc.status !== DocumentStatus.PENDING)
+  //     throw new BadRequestException('Document is not pending');
+
+  //   doc.status = DocumentStatus.APPROVED;
+  //   doc.updatedBy = adminEmail;
+  //   await this.docRepo.save(doc);
+
+  //   // Check if all required docs are approved → update driver KYC status
+  //   await this.recalculateDriverKyc(doc.driverId);
+  //   return doc;
+  // }
+
+   async approveDocument(docId: string, adminEmail: string) {
     const doc = await this.docRepo.findOne({
       where: { id: docId },
       relations: ['driver'],
@@ -1138,19 +1119,67 @@ async addDriverDocuments(
     doc.updatedBy = adminEmail;
     await this.docRepo.save(doc);
 
+    // A license document approved through the admin review queue never
+    // touched driver.licenseVerified before — that's the flag the driver
+    // app actually reads (to gate trip creation and show "license
+    // verified"), separate from the generic document_verifications row.
+    // Keep it in sync here so admin approval has the same effect as the
+    // automated Dojah verification flow.
+    if (this.isLicenseDocumentType(doc.documentType)) {
+      const driver = doc.driver ?? (await this.driverRepo.findOne({ where: { id: doc.driverId } }));
+      if (driver) {
+        await this.driverRepo.update(doc.driverId, {
+          license: doc.documentUrl,
+          licenseVerified: true,
+          licenseVerifiedAt: new Date(),
+         
+        });
+      }
+    }
+
     // Check if all required docs are approved → update driver KYC status
     await this.recalculateDriverKyc(doc.driverId);
     return doc;
   }
 
-  async rejectDocument(docId: string, reason: string, adminEmail: string) {
+    private isLicenseDocumentType(documentType: string): boolean {
+    return ['document_front_side', 'document_back_side', 'driverLicense'].includes(
+      (documentType ?? '').toLowerCase(),
+    );
+  }
+
+  // async rejectDocument(docId: string, reason: string, adminEmail: string) {
+  //   const doc = await this.docRepo.findOne({ where: { id: docId } });
+  //   if (!doc) throw new NotFoundException('Document not found');
+
+  //   doc.status = DocumentStatus.REJECTED;
+  //   doc.rejectionReason = reason;
+  //   doc.updatedBy = adminEmail;
+  //   return this.docRepo.save(doc);
+  // }
+
+   async rejectDocument(docId: string, reason: string, adminEmail: string) {
     const doc = await this.docRepo.findOne({ where: { id: docId } });
     if (!doc) throw new NotFoundException('Document not found');
 
     doc.status = DocumentStatus.REJECTED;
     doc.rejectionReason = reason;
     doc.updatedBy = adminEmail;
-    return this.docRepo.save(doc);
+    const saved = await this.docRepo.save(doc);
+
+    // Mirror finalizeLicenseRejected() so a manually-rejected license also
+    // flips the driver back to unverified instead of leaving a stale flag.
+    if (this.isLicenseDocumentType(doc.documentType)) {
+      const driver = await this.driverRepo.findOne({ where: { id: doc.driverId } });
+      if (driver) {
+        await this.driverRepo.update(doc.driverId, {
+             licenseVerified: false,
+              reason: reason,
+        });
+      }
+    }
+
+    return saved;
   }
 
   private async recalculateDriverKyc(driverId: string) {

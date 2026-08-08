@@ -102,27 +102,62 @@ export class RolesService {
 
   // ─── Assign role to a user or an admin ───────────────────────────────────────
 
-  async assignRole(dto: AssignRoleDto) {
-    const role = await this.roleRepo.findOne({ where: { id: dto.roleId } });
-    if (!role) throw new NotFoundException('Role not found');
+ async assignRole(dto: AssignRoleDto) {
+  const role = await this.roleRepo.findOne({
+    where: { id: dto.roleId },
+  });
 
-    // Try admin first, fall back to user
-    const admin = await this.adminRepo.findOne({ where: { id: dto.userId } });
-    if (admin) {
-      admin.roleId = role.id;
-      admin.role = role.name;
-      await this.adminRepo.save(admin);
-      return { id: admin.id, role: role.name, type: 'admin' };
-    }
-
-    const user = await this.userRepo.findOne({ where: { id: dto.userId } });
-    if (!user) throw new NotFoundException('User not found');
-
-    user.roleId = role.id;
-    user.role = role.name as any; // user.role is typed as UserRole enum
-    await this.userRepo.save(user);
-    return { id: user.id, role: role.name, type: 'user' };
+  if (!role) {
+    throw new NotFoundException("Role not found");
   }
+
+  // Try admin first
+  const admin = await this.adminRepo.findOne({
+    where: { id: dto.userId },
+  });
+
+  if (admin) {
+    admin.roleId = role.id;
+    admin.role = role.name;
+
+    await this.adminRepo.save(admin);
+
+    return {
+      id: admin.id,
+      role: role.name,
+      roleId: role.id,
+      type: "admin",
+    };
+  }
+
+  // Try regular user
+  const user = await this.userRepo.findOne({
+    where: { id: dto.userId },
+  });
+
+  if (!user) {
+    throw new NotFoundException("User not found");
+  }
+
+  user.roleId = role.id;
+  user.role = role.name as any;
+
+  await this.userRepo.save(user);
+
+  // Reload user with role relationship
+  const updatedUser = await this.userRepo.findOne({
+    where: { id: user.id },
+    relations: ["roletru"],
+  });
+
+  return {
+    id: updatedUser?.id,
+    role: updatedUser?.role,
+    roleId: updatedUser?.roleId,
+    roletru: updatedUser?.roletru,
+    type: "user",
+  };
+}
 
   // ─── Invite an admin (provisioned with a temp password, emailed) ─────────────
 
@@ -193,41 +228,66 @@ export class RolesService {
   // ─── Paginated users (searchable, optional role filter) ──────────────────────
 
   async getUsersByRole(query: UserByRoleQueryDto) {
-    const page = Number(query.page) > 0 ? Number(query.page) : 1;
-    const limit = 20;
-    const skip = (page - 1) * limit;
+  const page =
+    Number(query.page) > 0
+      ? Number(query.page)
+      : 1;
 
-    const qb = this.userRepo
-      .createQueryBuilder('u')
-      .leftJoinAndSelect('u.roletru', 'role')
-      .orderBy('u.createdAt', 'DESC')
-      .skip(skip)
-      .take(limit);
+  const limit = 20;
+  const skip = (page - 1) * limit;
 
-    if (query.role) {
-      qb.andWhere('u.role = :role', { role: query.role });
-    }
+  const qb = this.userRepo
+    .createQueryBuilder('u')
+    .leftJoinAndSelect('u.roletru', 'role')
+    .orderBy('u.createdAt', 'DESC')
+    .skip(skip)
+    .take(limit);
 
-    if (query.search) {
-      qb.andWhere(
-        '(u.firstName ILIKE :s OR u.lastName ILIKE :s OR u.email ILIKE :s)',
-        { s: `%${query.search}%` },
-      );
-    }
-
-    const [data, total] = await qb.getManyAndCount();
-
-    return {
-      data,
-      meta: {
-        page,
-        limit,
-        count: data.length,
-        previousPage: page > 1 ? page - 1 : false,
-        nextPage: skip + limit < total ? page + 1 : false,
-        pageCount: Math.ceil(total / limit),
-        totalRecords: total,
+  if (query.role) {
+    qb.andWhere(
+      'role.name = :role',
+      {
+        role: query.role,
       },
-    };
+    );
   }
+
+  if (query.search?.trim()) {
+    const search = query.search.trim();
+
+    qb.andWhere(
+      `(
+        u.firstName ILIKE :search
+        OR u.lastName ILIKE :search
+        OR u.email ILIKE :search
+        OR CONCAT(u.firstName, ' ', u.lastName) ILIKE :search
+      )`,
+      {
+        search: `%${search}%`,
+      },
+    );
+  }
+
+  const [data, total] =
+    await qb.getManyAndCount();
+
+  return {
+    data,
+    meta: {
+      page,
+      limit,
+      count: data.length,
+      previousPage:
+        page > 1 ? page - 1 : false,
+      nextPage:
+        skip + limit < total
+          ? page + 1
+          : false,
+      pageCount: Math.ceil(
+        total / limit
+      ),
+      totalRecords: total,
+    },
+  };
+}
 }
