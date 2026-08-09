@@ -117,6 +117,7 @@ import { AdminGetVehicleTypesUsecase } from './usecases/getvehicletypes.usecase'
 import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { VehicleRepository } from '@adapters/repositories/vehicle.repository';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
+import { ExpoService } from '@modules/notification/services/expo.service';
 
 
 const USECASES = [
@@ -226,6 +227,7 @@ const USECASES = [
     RolesService,
     UserRepository,
     PaystackAdapter,
+    ExpoService,
     PaystackProvider,
       GetDriversEarningsUsecase,
   GetAgentsEarningsUsecase,
