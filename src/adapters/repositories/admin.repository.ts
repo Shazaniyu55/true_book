@@ -406,10 +406,11 @@ async getAgents(query: {
 }
 async getDriverVehicle(driverId: string) {
   try {
-    const vehicle = await this.vehicleRepo.findOne({
+    const vehicles = await this.vehicleRepo.find({
       where: { driverId },
+      order: { createdAt: 'DESC' }, // optional, but usually nice to have
     });
-    return vehicle;
+    return vehicles;
   } catch (e) {
     // log it properly instead of swallowing
     throw e;
