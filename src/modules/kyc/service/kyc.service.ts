@@ -1,3 +1,5 @@
+
+
 import {
   BadRequestException,
   ConflictException,
@@ -173,6 +175,32 @@ async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
   });
   await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
 
+  // Mirror into document_verifications too — this is the table the admin's
+  // document list actually reads (fetchDriversDocuments/getDriverDocumentHistory).
+  // Without this row, a license submitted through this automated flow was
+  // only ever visible via driver.licenseData, never in the admin UI's
+  // document list, even though every other document type (insurance,
+  // registration, admin-added docs) goes through document_verifications.
+  const existingLicenseDoc = await this.docRepo.findOne({
+    where: { driverId: driver.id, documentType: 'license' },
+  });
+  if (existingLicenseDoc) {
+    await this.docRepo.update(existingLicenseDoc.id, {
+      documentUrl: driversLicense,
+      status: DocumentStatus.PENDING,
+      rejectionReason: null,
+    });
+  } else {
+    await this.docRepo.save(
+      this.docRepo.create({
+        driverId: driver.id,
+        documentType: 'license',
+        documentUrl: driversLicense,
+        status: DocumentStatus.PENDING,
+      }),
+    );
+  }
+
   // Persist the licence URL to the vehicle record.
   await this.attachDocsToVehicle(driver.id, { driversLicense });
 
@@ -314,6 +342,17 @@ async uploadDriverDocument(
         verifiedAt: new Date().toISOString(),
       } as Record<string, any>,
     });
+
+    const licenseDoc = await this.docRepo.findOne({
+      where: { driverId, documentType: 'license' },
+    });
+    if (licenseDoc) {
+      await this.docRepo.update(licenseDoc.id, {
+        status: DocumentStatus.APPROVED,
+        rejectionReason: null,
+      });
+    }
+
     await this.recalculateDriverKycStatus(driverId);
 
     await this.notificationService.notify({
@@ -339,6 +378,17 @@ async uploadDriverDocument(
         rejectedAt: new Date().toISOString(),
       } as Record<string, any>,
     });
+
+    const licenseDoc = await this.docRepo.findOne({
+      where: { driverId, documentType: 'license' },
+    });
+    if (licenseDoc) {
+      await this.docRepo.update(licenseDoc.id, {
+        status: DocumentStatus.REJECTED,
+        rejectionReason: reason,
+      });
+    }
+
     await this.recalculateDriverKycStatus(driverId);
 
     await this.notificationService.notify({
@@ -438,6 +488,7 @@ async uploadDriverDocument(
     const driver = await this.driverRepo.findOne({
       where: { userId: userId },
       relations: ['user'],
+      order: { createdAt: 'DESC' },
     });
     if (!driver) throw new NotFoundException('Driver profile not found');
     return driver;
@@ -459,6 +510,9 @@ async uploadDriverDocument(
   }
 }
 
+
+
+//case 1
 // import {
 //   BadRequestException,
 //   ConflictException,
@@ -474,23 +528,19 @@ async uploadDriverDocument(
 // import { DocumentVerification } from '@modules/core/entities/document-verification.entity';
 // import { DojahAdapter } from '@adapters/kyc/dojah/dojah.adapter';
 
-// import {
-//   UploadDocumentDto,
-  
-
-// } from '../dtos/kyc.dto';
+// import { UploadDocumentDto, VerifyDriverLicenseDto } from '../dtos/kyc.dto';
 // import { InjectQueue } from '@nestjs/bullmq';
 // import { Queue } from 'bullmq';
 // import { LICENSE_QUEUE, LicenseJobData } from '../dtos/kyc.queue';
 // import { NotificationService } from '@modules/notification/services/notification.service';
 // import { NotificationType } from 'src/types/enums';
 // import { DocumentStatus, KycStatus } from '../../../types/enums';
-// import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 // import { User } from '@modules/core/entities/user.entity';
 // import { getOtpExpiry } from '@shared/utils/helpers/common.utils';
 // import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 // import { ConfigService } from '@nestjs/config';
 // import { Vehicle } from '@modules/core/entities/vehicle.entity';
+// import { SmsFactory } from '@adapters/sms/sms.factory';
 
 // @Injectable()
 // export class KycService {
@@ -503,12 +553,11 @@ async uploadDriverDocument(
 //     @InjectRepository(User) private readonly userRepo: Repository<User>,
 //     @InjectRepository(Vehicle) private readonly vehicleRepo: Repository<Vehicle>,
 //     private readonly dojahAdapter: DojahAdapter,
-//     private readonly cloudinaryService: CloudinaryService,
+//     private readonly smsFactory:SmsFactory,
 //     private readonly randomnessUtil: RandomnessUtil,
 //     private readonly configService: ConfigService,
 //     @InjectQueue(LICENSE_QUEUE) private readonly licenseQueue: Queue<LicenseJobData>,
 //     private readonly notificationService: NotificationService,
-    
 //   ) {}
 
 //   // ══════════════════════════════════════════════════════════════════════════
@@ -534,101 +583,68 @@ async uploadDriverDocument(
 //     };
 //   }
 
- 
-
-//     /**
+//   /**
 //    * Verify driver PhoneNumber via Dojah.
 //    * Checks that the PhoneNumber matches the name on the driver's profile.
 //    */
+//   async sendPhoneOtp(userId: string) {
+//     const user = await this.getUserOrThrow(userId);
 
-// async sendPhoneOtp(userId: string) {
-//   const user = await this.getUserOrThrow(userId);
+//     if (!user.phone) throw new BadRequestException('No phone number on file');
+//     if (user.isPhoneVerified) throw new ConflictException('Phone number is already verified');
 
-//   if (!user.phone) throw new BadRequestException('No phone number on file');
-//   if (user.isPhoneVerified) throw new ConflictException('Phone number is already verified');
+//     const minutes = this.configService.get<number>('common.otp.durationMinutes') ?? 10;
+//     const otp = this.randomnessUtil.generateOtp();
 
-//   const minutes = this.configService.get<number>('common.otp.durationMinutes') ?? 10;
-//   const otp = this.randomnessUtil.generateOtp();
+//     await this.userRepo.update(user.id, {
+//       phoneOtpCode: otp,
+//       phoneOtpExpiresAt: getOtpExpiry(minutes),
+//     });
 
-//   await this.userRepo.update(user.id, {
-//     phoneOtpCode: otp,
-//     phoneOtpExpiresAt: getOtpExpiry(minutes),
-//   });
+// const sent = await this.smsFactory.sendSms({
+//   destination: user.phone,
+//   message: `Your Tru Booker verification code is ${otp}. It expires in ${minutes} minutes.`,
+// });
+// if (!sent) throw new BadRequestException('Could not send SMS. Please try again.');
 
-//   const sent = await this.dojahAdapter.sendSms({
-//     destination: user.phone,
-//     message: `Your Tru Booker verification code is ${otp}. It expires in ${minutes} minutes.`,
-//   });
-//   if (!sent) throw new BadRequestException('Could not send SMS. Please try again.');
-
-//   return { success: true, message: 'Verification code sent to your phone' };
-// }
+//     return { success: true, message: 'Verification code sent to your phone' };
+//   }
 
   
-//   /**
-//    * Verify driver's license via Dojah.
-//    */
 
-
-// async verifyDriverLicense(
-//   userId: string,
-//   files: {
-//     drivers_license?: Express.Multer.File[];
-//     vehicle_insurance?: Express.Multer.File[];
-//     reg_docs?: Express.Multer.File[];
-//   },
-// ) {
+// async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
 //   const driver = await this.getDriverOrThrow(userId);
 //   if (driver.licenseVerified) {
 //     throw new ConflictException("Driver's license is already verified");
 //   }
 
-//   const front = files?.drivers_license?.[0];
-//   if (!front) throw new BadRequestException('Drivers license image is required');
+//   const { driversLicense } = dto;
 
-//   const regDocs = files?.reg_docs?.[0];
-//   if (!regDocs) throw new BadRequestException('Registration documents are required');
-
-//   const insurance = files?.vehicle_insurance?.[0];
-
-//   // Uploads stay inline — fast, reliable, and we need the URLs for the job.
-//   const [frontUpload, regDocsUpload, insuranceUpload] = await Promise.all([
-//     this.cloudinaryService.upload(front, { folder: `kyc/drivers/${driver.id}/license` }),
-//     this.cloudinaryService.upload(regDocs, { folder: `kyc/drivers/${driver.id}/license` }),
-//     insurance
-//       ? this.cloudinaryService.upload(insurance, { folder: `kyc/drivers/${driver.id}/insurance` })
-//       : Promise.resolve(null),
-//   ]);
+//   if (!driversLicense) throw new BadRequestException('Drivers license image is required');
 
 //   // Mark processing so GET /kyc/status reflects it immediately.
-// await this.driverRepo.update(driver.id, {
+//   await this.driverRepo.update(driver.id, {
 //     licenseData: {
 //       ...(driver.licenseData ?? {}),
-//       driverLicense: frontUpload.secure_url,
-//       regDocs: regDocsUpload.secure_url,
-//       vehicleInsurance: insuranceUpload?.secure_url ?? null,
+//       driverLicense: driversLicense,
 //       verificationState: 'processing',
 //       submittedAt: new Date().toISOString(),
 //     } as Record<string, any>,
 //   });
 //   await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
 
-// const vehicle = await this.vehicleRepo.findOne({
-//   where: { driverId: driver.id },
-//   order: { createdAt: 'DESC' }, 
-// });
-
+//   // Persist the licence URL to the vehicle record.
+//   await this.attachDocsToVehicle(driver.id, { driversLicense });
 
 //   await this.licenseQueue.add(
 //     'verify',
 //     {
 //       driverId: driver.id,
-//       driversLicense: frontUpload.secure_url,
-//       regDocs: regDocsUpload.secure_url,
+//       driversLicense,
 //     },
 //     {
 //       attempts: 5,
-//       backoff: { type: 'exponential', delay: 60_000 }, // 1m, 2m, 4m, ...
+//       backoff: { type: 'exponential', delay: 60_000 },
 //       removeOnComplete: true,
 //       removeOnFail: 100,
 //     },
@@ -644,97 +660,121 @@ async uploadDriverDocument(
 //   /**
 //    * Upload a KYC document (stored as Cloudinary URL, pending admin review).
 //    */
+//   /**
+//  * Register a KYC document (URL already produced by the app, pending admin review).
+//  */
 // async uploadDriverDocument(
-//     userId: string,
-//     dto: UploadDocumentDto,
-//     file: Express.Multer.File,
-//   ) {
-//     const driver = await this.getDriverOrThrow(userId);
+//   userId: string,
+//   dto: UploadDocumentDto,
+// ) {
+//   const driver = await this.getDriverOrThrow(userId);
 
-//     const existing = await this.docRepo.findOne({
-//       where: {
-//         driverId: driver.id,
-//         documentType: dto.documentType,
-//         status: DocumentStatus.PENDING,
-//       },
-//     });
-//     if (existing) {
-//       throw new ConflictException(`A ${dto.documentType} document is already pending review`);
-//     }
-
-//     // Upload under an authenticated request — validation happens inside the service
-//     const uploaded = await this.cloudinaryService.upload(file, {
-//       folder: `kyc/drivers/${driver.id}`,
-//     });
-
-//     const doc = this.docRepo.create({
+//   const existing = await this.docRepo.findOne({
+//     where: {
 //       driverId: driver.id,
 //       documentType: dto.documentType,
-//       documentUrl: uploaded.secure_url, // server-produced, not client-supplied
 //       status: DocumentStatus.PENDING,
-//     });
-
-//     const saved = await this.docRepo.save(doc);
-//     this.logger.log(`Document ${dto.documentType} uploaded for driver ${driver.id}`);
-
-//     return { success: true, message: 'Document uploaded and queued for review', data: saved };
+//     },
+//   });
+//   if (existing) {
+//     throw new ConflictException(`A ${dto.documentType} document is already pending review`);
 //   }
 
+//   const doc = this.docRepo.create({
+//     driverId: driver.id,
+//     documentType: dto.documentType,
+//     documentUrl: dto.documentUrl,
+//     status: DocumentStatus.PENDING,
+//   });
 
+//   const saved = await this.docRepo.save(doc);
+//   this.logger.log(`Document ${dto.documentType} uploaded for driver ${driver.id}`);
 
+//   return { success: true, message: 'Document uploaded and queued for review', data: saved };
+// }
 
 //   // ══════════════════════════════════════════════════════════════════════════
 //   // PRIVATE HELPERS
 //   // ══════════════════════════════════════════════════════════════════════════
-// async finalizeLicenseVerified(driverId: string, entity: Record<string, any>): Promise<void> {
-//   const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-//   if (!driver) return;
 
-//  await this.driverRepo.update(driverId, {
-//     licenseVerified: true,
-//     licenseVerifiedAt: new Date(),
-//     licenseData: {
-//       ...(driver.licenseData ?? {}),
-//       ...entity,
-//       verificationState: 'verified',
-//       verifiedAt: new Date().toISOString(),
-//     } as Record<string, any>,
-//   });
-//   await this.recalculateDriverKycStatus(driverId);
+  
+//   private async attachDocsToVehicle(
+//     driverId: string,
+//     docs: { driversLicense: string },
+//   ): Promise<void> {
+//     const vehicle = await this.vehicleRepo.findOne({
+//       where: { driverId },
+//       order: { createdAt: 'DESC' }, // most recent vehicle if they have more than one
+//     });
 
-//   await this.notificationService.notify({
-//     userId: driver.userId,
-//     title: 'Licence Verified',
-//     body: "Your driver's licence has been verified successfully.",
-//     type: NotificationType.DOCUMENT_APPROVED,
-//     data: { driverId },
-//   });
-// }
+//     if (!vehicle) {
+//       this.logger.warn(
+//         `No vehicle found for driver ${driverId}; skipped vehicle document update`,
+//       );
+//       return;
+//     }
 
-// async finalizeLicenseRejected(driverId: string, reason: string): Promise<void> {
-//   const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-//   if (!driver) return;
+//     await this.vehicleRepo.update(vehicle.id, {
+//       documents: {
+//         ...(vehicle.documents ?? {}),
+//         driversLicense: docs.driversLicense,
+//         submittedAt: new Date().toISOString(),
+//       } as Record<string, any>,
+//     });
 
-//  await this.driverRepo.update(driverId, {
-//     licenseVerified: false,
-//     reason,
-//     licenseData: {
-//       ...(driver.licenseData ?? {}),
-//       verificationState: 'rejected',
-//       rejectionReason: reason,
-//       rejectedAt: new Date().toISOString(),
-//     } as Record<string, any>,
-//   });
-//   await this.recalculateDriverKycStatus(driverId);
+//     this.logger.log(`Vehicle ${vehicle.id} updated with driver licence for driver ${driverId}`);
+//   }
 
-//   await this.notificationService.notify({
-//     userId: driver.userId,
-//     title: 'Licence Verification Failed',
-//     body: `We couldn't verify your licence: ${reason}. Please re-upload clear documents.`,
-//     type: NotificationType.DOCUMENT_REJECTED,
-//     data: { driverId, reason },
-//   });
-// }
+//   async finalizeLicenseVerified(driverId: string, entity: Record<string, any>): Promise<void> {
+//     const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+//     if (!driver) return;
+
+//     await this.driverRepo.update(driverId, {
+//       licenseVerified: true,
+//       licenseVerifiedAt: new Date(),
+//       licenseData: {
+//         ...(driver.licenseData ?? {}),
+//         ...entity,
+//         verificationState: 'verified',
+//         verifiedAt: new Date().toISOString(),
+//       } as Record<string, any>,
+//     });
+//     await this.recalculateDriverKycStatus(driverId);
+
+//     await this.notificationService.notify({
+//       userId: driver.userId,
+//       title: 'Licence Verified',
+//       body: "Your driver's licence has been verified successfully.",
+//       type: NotificationType.DOCUMENT_APPROVED,
+//       data: { driverId },
+//     });
+//   }
+
+//   async finalizeLicenseRejected(driverId: string, reason: string): Promise<void> {
+//     const driver = await this.driverRepo.findOne({ where: { id: driverId } });
+//     if (!driver) return;
+
+//     await this.driverRepo.update(driverId, {
+//       licenseVerified: false,
+//       reason,
+//       licenseData: {
+//         ...(driver.licenseData ?? {}),
+//         verificationState: 'rejected',
+//         rejectionReason: reason,
+//         rejectedAt: new Date().toISOString(),
+//       } as Record<string, any>,
+//     });
+//     await this.recalculateDriverKycStatus(driverId);
+
+//     await this.notificationService.notify({
+//       userId: driver.userId,
+//       title: 'Licence Verification Failed',
+//       body: `We couldn't verify your licence: ${reason}. Please re-upload clear documents.`,
+//       type: NotificationType.DOCUMENT_REJECTED,
+//       data: { driverId, reason },
+//     });
+//   }
+
 //   /**
 //    * Recalculate and persist driver KYC status after any verification step.
 //    * COMPLETED = BVN (or NIN) verified + License verified + at least one doc approved.
@@ -760,10 +800,6 @@ async uploadDriverDocument(
 //     await this.driverRepo.update(driverId, { kycComplete: newStatus });
 //   }
 
-
-  
- 
-
 //   /**
 //    * Cross-checks the name returned by Dojah against the user's profile.
 //    * Uses a fuzzy match (Jaro-Winkler-like via normalized comparison).
@@ -778,12 +814,8 @@ async uploadDriverDocument(
 //     const expectedLast = (user?.lastName ?? '').toLowerCase().trim();
 
 //     // Dojah returns different field names for BVN vs NIN
-//     const returnedFirst = (
-//       entity?.first_name ?? entity?.firstname ?? ''
-//     ).toLowerCase().trim();
-//     const returnedLast = (
-//       entity?.last_name ?? entity?.surname ?? ''
-//     ).toLowerCase().trim();
+//     const returnedFirst = (entity?.first_name ?? entity?.firstname ?? '').toLowerCase().trim();
+//     const returnedLast = (entity?.last_name ?? entity?.surname ?? '').toLowerCase().trim();
 
 //     const firstScore = this.stringSimilarity(expectedFirst, returnedFirst);
 //     const lastScore = this.stringSimilarity(expectedLast, returnedLast);
@@ -822,8 +854,6 @@ async uploadDriverDocument(
 //     return Math.min(score, 100);
 //   }
 
-
-
 //   private maskPhone(phone: string): string {
 //     if (!phone || phone.length < 7) return '***';
 //     return phone.slice(0, 4) + '****' + phone.slice(-3);
@@ -847,9 +877,9 @@ async uploadDriverDocument(
 //     return passenger;
 //   }
 
-//  private async getUserOrThrow(userId: string): Promise<User> {
-//   const user = await this.userRepo.findOne({ where: { id: userId } });
-//   if (!user) throw new NotFoundException('User not found');
-//   return user;
-// }
+//   private async getUserOrThrow(userId: string): Promise<User> {
+//     const user = await this.userRepo.findOne({ where: { id: userId } });
+//     if (!user) throw new NotFoundException('User not found');
+//     return user;
+//   }
 // }
