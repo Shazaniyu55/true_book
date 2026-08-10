@@ -175,12 +175,7 @@ async verifyDriverLicense(userId: string, dto: VerifyDriverLicenseDto) {
   });
   await this.recalculateDriverKycStatus(driver.id); // → IN_PROGRESS
 
-  // Mirror into document_verifications too — this is the table the admin's
-  // document list actually reads (fetchDriversDocuments/getDriverDocumentHistory).
-  // Without this row, a license submitted through this automated flow was
-  // only ever visible via driver.licenseData, never in the admin UI's
-  // document list, even though every other document type (insurance,
-  // registration, admin-added docs) goes through document_verifications.
+  
   const existingLicenseDoc = await this.docRepo.findOne({
     where: { driverId: driver.id, documentType: 'license' },
   });
@@ -265,41 +260,7 @@ async uploadDriverDocument(
   // PRIVATE HELPERS
   // ══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Attach the license / registration / insurance URLs to the driver's vehicle.
-   * Picks the most recent vehicle for the driver. No-op (with a warning) if the
-   * driver has no vehicle yet.
-   */
-  // private async attachDocsToVehicle(
-  //   driverId: string,
-  //   docs: { driversLicense: string; regDocs: string; vehicleInsurance: string | null },
-  // ): Promise<void> {
-  //   const vehicle = await this.vehicleRepo.findOne({
-  //     where: { driverId },
-  //     order: { createdAt: 'DESC' }, // most recent vehicle if they have more than one
-  //   });
-
-  //   if (!vehicle) {
-  //     this.logger.warn(
-  //       `No vehicle found for driver ${driverId}; skipped vehicle document update`,
-  //     );
-  //     return;
-  //   }
-
-  // await this.vehicleRepo.update(vehicle.id, {
-  //     registrationDoc: docs.regDocs,
-  //     insurance: docs.vehicleInsurance ?? vehicle.insurance, // keep old if none uploaded
-  //     documents: {
-  //       ...(vehicle.documents ?? {}),
-  //       driversLicense: docs.driversLicense,
-  //       regDocs: docs.regDocs,
-  //       vehicleInsurance: docs.vehicleInsurance ?? null,
-  //       submittedAt: new Date().toISOString(),
-  //     } as Record<string, any>,
-  //   });
-
-  //   this.logger.log(`Vehicle ${vehicle.id} updated with KYC documents for driver ${driverId}`);
-  // }
+  
 
   private async attachDocsToVehicle(
     driverId: string,

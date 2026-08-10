@@ -26,6 +26,9 @@ export class Driver extends BaseEntity {
   @ManyToOne(() => Vehicle)
   @JoinColumn({ name: 'vehicleId',  })
   vehicle: Vehicle;
+
+  @OneToMany(() => Vehicle, (vehicle) => vehicle.driver)
+  vehicles: Vehicle[];
   
 
   // ── Driver's Licence ──────────────────────────────────────────────────────

@@ -279,19 +279,23 @@ async getDriverById(id: string) {
   try {
     const driver = await this.driverRepo.findOne({
       where: { id },
-      relations: ['user', 'vehicle'],
+      relations: ['user', 'vehicles'],
     });
-    if (!driver) throw new NotFoundException('Driver not found');
 
-     const [tripHistory] = await this.tripRepo.findAndCount({
+    if (!driver) {
+      throw new NotFoundException('Driver not found');
+    }
+
+    const [tripHistory, tripCount] = await this.tripRepo.findAndCount({
       where: { driverId: id },
       order: { createdAt: 'DESC' },
       take: 10,
     });
-    //return driver;
-     return {
+
+    return {
       ...driver,
-      tripHistory: tripHistory,
+      tripHistory,
+      tripCount,
     };
   } catch (e) {
     console.error('getDriverById error:', e?.message, e?.stack);
@@ -639,7 +643,7 @@ async getDriverWithDetails(id: string, query: { page?: number; limit?: number } 
 
   const driver = await this.driverRepo.findOne({
     where: { id },
-    relations: ['user', 'vehicle', 'beneficiaries'],
+    relations: ['user', 'vehicles', 'beneficiaries'],
   });
   if (!driver) throw new NotFoundException('Driver not found');
 
@@ -903,28 +907,21 @@ async getTripWithPassengers(tripId: string, query: { page?: number; limit?: numb
     order: { createdAt: 'DESC' },
   });
 
+  console.log('driverId:', driverId);
+  console.log('documents:', documents);
+  console.log('document count:', documents.length);
   return documents;
 }
 async fetchDriversDocuments(driverId: string) {
-  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-  if (!driver) throw new NotFoundException('Driver not found');
+  const driver = await this.driverRepo.findOne({
+    where: { id: driverId },
+  });
 
-  // Returns only the latest document per type
-  const documents = await this.docRepo
-    .createQueryBuilder('doc')
-    .where('doc.driverId = :driverId', { driverId })
-    .orderBy('doc.createdAt', 'DESC')
-    .getMany();
-
-  // Group by documentType and return only the latest of each
-  const latestByType = new Map<string, DocumentVerification>();
-  for (const doc of documents) {
-    if (!latestByType.has(doc.documentType)) {
-      latestByType.set(doc.documentType, doc);
-    }
+  if (!driver) {
+    throw new NotFoundException('Driver not found');
   }
 
-  return Array.from(latestByType.values());
+  return driver.licenseData;
 }
 
 async deleteDriverDocumentHistory(driverId: string): Promise<{ message: string; deleted: number }> {
