@@ -15,6 +15,7 @@ import { UpdateDriverProfileDto } from '../dtos/updatedriver.dto';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
+import { ExpoService } from '@modules/notification/services/expo.service';
  
 const PLATFORM_FEE_RATE = parseFloat(process.env.PLATFORM_FEE_RATE ?? '7'); // 5%
  
@@ -45,6 +46,7 @@ export class DriverTripService {
     private readonly notifiyService:NotificationService,
     private readonly driverRepository: DriverRepository,
     private readonly cache: RedisCacheService,
+    private readonly expoService: ExpoService
     
     
     
@@ -148,6 +150,7 @@ await this.notifiyService.notify({
   },
 });
 //send push
+await this.expoService.sendPushNotification(driver.user.expoToken, 'Trip Created Successfully', `Your Trip (${reference})`,{ driverId: userId },)
      
         return savedTrip;
  

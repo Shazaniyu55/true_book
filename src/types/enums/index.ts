@@ -100,7 +100,10 @@ export enum NotificationType {
   BROADCAST = 'broadcast',
   ANNOUNCEMENT = 'announcement',
   OTP = 'otp',
-  ADMIN_ACTIVITY = 'admin_activity'
+  ADMIN_ACTIVITY = 'admin_activity',
+  VEHICLE_REGISTRATION = 'vehicle_registration',
+  VEHICLE_UPDATED= 'vehicle_updated',
+  VEHICLE_DELETED= 'vehicle_deleted'
 }
 
 export enum CouponType {

@@ -13,7 +13,8 @@ import { VehicleRepository } from '@adapters/repositories/vehicle.repository';
 import { CreateVehicleDto, UpdateVehicleDto } from '../dto/vehicle.dto';
 import { CloudinaryService } from '@modules/cloudinary/services/cloudinary.service';
 import { Trip } from '@modules/core/entities/trip.entity';
-import { DocumentStatus, TripStatus } from 'src/types/enums';
+import { DocumentStatus, NotificationType, TripStatus } from 'src/types/enums';
+import { NotificationService } from '@modules/notification/services/notification.service';
 
 @Injectable()
 export class VehicleService {
@@ -22,6 +23,7 @@ export class VehicleService {
     @InjectRepository(Driver) private readonly driverRepo: Repository<Driver>,
     @InjectRepository(Trip) private readonly tripRepo: Repository<Trip>,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly notificationService: NotificationService
   ) {}
 
   async registerVehicle(
@@ -54,6 +56,17 @@ export class VehicleService {
     );
 
     await this.driverRepo.update({ id: driver.id }, { vehicleId: vehicle.id });
+    await this.notificationService.notifyAdmins({
+  title: 'New Vehicle Registration',
+  body: `A driver has registered a new vehicle with plate number ${vehicle.plateNumber}.`,
+  type: NotificationType.VEHICLE_REGISTRATION,
+  data: {
+    vehicleId: vehicle.id,
+    driverId: driver.id,
+    plateNumber: vehicle.plateNumber,
+    verificationStatus: vehicle.verificationStatus,
+  },
+});
 
     return vehicle;
   }
@@ -93,6 +106,18 @@ export class VehicleService {
     ...(needsReverification ? { isVerified: false } : {}),
   });
 
+  await this.notificationService.notifyAdmins({
+  title: 'Vehicle Updated',
+  body: `A driver  has updated his  vehicle with plate number ${vehicle.plateNumber}.`,
+  type: NotificationType.VEHICLE_UPDATED,
+  data: {
+    firstName: vehicle.driver.user.firstName,
+    email: vehicle.driver.user.email,
+    driverId: userId,
+    plateNumber: vehicle.plateNumber,
+    verificationStatus: vehicle.verificationStatus,
+  },
+});
   return this.vehicleRepo.save(vehicle);
 }
 
@@ -126,6 +151,18 @@ async deleteVehicle(userId: string, vehicleId: string) {
     });
     await this.driverRepo.update({ id: driver.id }, { vehicleId: remaining?.id ?? null });
   }
+  await this.notificationService.notifyAdmins({
+  title: 'Vehicle Deleted',
+  body: `A driver has deleted his vehicle with plate number ${vehicle.plateNumber}.`,
+  type: NotificationType.VEHICLE_DELETED,
+  data: {
+    name: vehicle.driver.user.firstName,
+    email: vehicle.driver.user.email,
+    driverId: driver.id,
+    plateNumber: vehicle.plateNumber,
+    verificationStatus: vehicle.verificationStatus,
+  },
+});
 
   return { id: vehicle.id, deleted: true };
 }
