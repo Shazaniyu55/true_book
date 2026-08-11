@@ -31,6 +31,8 @@ export class AddDriverDocumentsDto {
   documents: DriverDocumentItemDto[];
 }
 
+
+
 export class UploadDriverDocumentDto {
   @IsString()
   @IsNotEmpty()
@@ -39,4 +41,8 @@ export class UploadDriverDocumentDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  @IsString()
+  @IsOptional()
+  vehicleId?: string;
 }

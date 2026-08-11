@@ -25,7 +25,7 @@ import {
 import { Role } from '@modules/core/entities/role.entity';
 import { PagedDto } from '@shared/interface/paged.interface';
 import { Agent } from '@modules/core/entities/agent.entity';
-import { AddDriverDocumentsDto } from '@modules/admin/dtos/adddoc.dto';
+import { AddDriverDocumentsDto, UploadDriverDocumentDto } from '@modules/admin/dtos/adddoc.dto';
 import { Beneficiary } from '@modules/core/entities/beneficiary.entity';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
 import { startOfDay, endOfDay, subDays, format } from 'date-fns';
@@ -970,44 +970,68 @@ async updateDriverDocuments(
 
 async addDriverDocuments(
   driverId: string,
-  dto: AddDriverDocumentsDto,
-): Promise<DocumentVerification[]> {
-  const driver = await this.driverRepo.findOne({ where: { id: driverId } });
-  if (!driver) throw new NotFoundException('Driver not found');
+  dto: UploadDriverDocumentDto,
+  documentUrl: string,
+): Promise<DocumentVerification | Vehicle> {
 
-  return this.entityManager.transaction(async (manager) => {
-    // 1. docRepo — source of truth: status, history, per-document review trail
-    const documents = dto.documents.map((doc) =>
-      manager.create(DocumentVerification, {
-        driverId,
-        documentType: doc.documentType,
-        documentUrl: doc.documentUrl,
-        verificationData: doc.verificationData,
-        status: DocumentStatus.PENDING, // new uploads start pending review
-      }),
-    );
-    const saved = await manager.save(DocumentVerification, documents);
+  switch (dto.documentType) {
+    case 'insurance':
+    case 'registration_doc':
+    case 'vehicle': {
+      if (!dto.vehicleId) {
+        throw new BadRequestException(
+          `vehicleId is required for documentType "${dto.documentType}"`,
+        );
+      }
 
-    // 2. driverRepo — mirror into the existing licenseData jsonb column,
-    //    nested under `documents` (keyed by documentType) so we don't
-    //    clobber the existing license fields (driverLicense, submittedAt,
-    //    rejectionReason, verificationState, etc).
-    const licenseData = { ...(driver.licenseData ?? {}) };
-    const existingDocs = { ...(licenseData.documents ?? {}) };
-    for (const doc of dto.documents) {
-      existingDocs[doc.documentType] = {
-        documentUrl: doc.documentUrl,
-        verificationData: doc.verificationData,
-        status: DocumentStatus.PENDING,
-        rejectionReason: null,
-        updatedAt: new Date().toISOString(),
-      };
+      const vehicle = await this.vehicleRepo.findOne({
+        where: { id: dto.vehicleId, driverId },
+      });
+      if (!vehicle) throw new NotFoundException('Vehicle not found for this driver');
+
+      if (dto.documentType === 'insurance') {
+        vehicle.insurance = documentUrl;
+      } else if (dto.documentType === 'registration_doc') {
+        vehicle.registrationDoc = documentUrl;
+      } else {
+        vehicle.vehiclePhoto = [...(vehicle.vehiclePhoto ?? []), documentUrl];
+      }
+
+      vehicle.verificationStatus = DocumentStatus.PENDING;
+      vehicle.rejectionReason = null;
+
+      return this.vehicleRepo.save(vehicle);
     }
-    licenseData.documents = existingDocs;
-    await manager.update(Driver, { id: driverId }, { licenseData });
 
-    return saved;
-  });
+    default: {
+      // license / other → driver document
+      return this.entityManager.transaction(async (manager) => {
+        const document = manager.create(DocumentVerification, {
+          driverId,
+          documentType: dto.documentType,
+          documentUrl,
+          verificationData: dto.name ? { name: dto.name } : undefined,
+          status: DocumentStatus.PENDING,
+        });
+        const saved = await manager.save(DocumentVerification, document);
+
+        const driver = await manager.findOne(Driver, { where: { id: driverId } });
+        const licenseData = { ...(driver.licenseData ?? {}) };
+        const existingDocs = { ...(licenseData.documents ?? {}) };
+        existingDocs[dto.documentType] = {
+          documentUrl,
+          verificationData: dto.name ? { name: dto.name } : undefined,
+          status: DocumentStatus.PENDING,
+          rejectionReason: null,
+          updatedAt: new Date().toISOString(),
+        };
+        licenseData.documents = existingDocs;
+        await manager.update(Driver, { id: driverId }, { licenseData });
+
+        return saved;
+      });
+    }
+  }
 }
 
 // ─── Vehicle Verification ───────────────────────────────────────────────────

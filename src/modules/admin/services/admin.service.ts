@@ -38,8 +38,10 @@ export class AdminService {
 
     @InjectRepository(Role)
   private readonly roleRepository: Repository<Role>
+  
   ) {}
 
+private static readonly VEHICLE_DOC_TYPES = ['insurance', 'registration_doc', 'vehicle'];
 
 async getDashboardStats(query: { page?: number; limit?: number } = {}) {
   const page = query?.page ?? 1;
@@ -331,33 +333,63 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
     return await this.adminRepo.updateDriverDocuments(id, dto)
   }
   
-  async addDriverDocuments(id: string, dto: AddDriverDocumentsDto){
-    return await this.adminRepo.addDriverDocuments(id, dto)
+  async addDriverDocuments(id: string, dto: UploadDriverDocumentDto, documentUrl: string){
+    return await this.adminRepo.addDriverDocuments(id, dto, documentUrl)
   }
 
-   async addDriverDocumentFile(
-    id: string,
-    dto: UploadDriverDocumentDto,
-    file?: Express.Multer.File,
-  ) {
-    if (!file) {
-      throw new BadRequestException('Document file is required');
+async addDriverDocumentFile(
+  id: string,
+  dto: UploadDriverDocumentDto,
+  file?: Express.Multer.File,
+) {
+  if (!file) {
+    throw new BadRequestException('Document file is required');
+  }
+
+  const isVehicleDoc = AdminService.VEHICLE_DOC_TYPES.includes(dto.documentType);
+
+  if (isVehicleDoc) {
+    if (!dto.vehicleId) {
+      throw new BadRequestException(
+        `vehicleId is required for documentType "${dto.documentType}"`,
+      );
+    }
+
+    const vehicle = await this.vehicleRepo.findOne({
+      where: { id: dto.vehicleId, driverId: id },
+    });
+    if (!vehicle) {
+      throw new NotFoundException('Vehicle not found for this driver');
     }
 
     const uploaded = await this.cloudinaryService.upload(file, {
-      folder: `drivers/${id}/documents`,
+      folder: `vehicles/${vehicle.id}/documents`,
     });
 
-    return this.addDriverDocuments(id, {
-      documents: [
-        {
-          documentType: dto.documentType,
-          documentUrl: uploaded.secure_url,
-          verificationData: dto.name ? { name: dto.name } : undefined,
-        },
-      ],
-    });
+    const update: Record<string, any> = {
+      verificationStatus: 'pending',
+      rejectionReason: null,
+    };
+
+    if (dto.documentType === 'insurance') {
+      update.insurance = uploaded.secure_url;
+    } else if (dto.documentType === 'registration_doc') {
+      update.registrationDoc = uploaded.secure_url;
+    } else {
+      update.vehiclePhoto = [...(vehicle.vehiclePhoto ?? []), uploaded.secure_url];
+    }
+
+    await this.vehicleRepo.update({ id: vehicle.id }, update);
+    return { ...vehicle, ...update };
   }
+
+  // license / other → driver document, matches the real 3-arg repo signature
+  const uploaded = await this.cloudinaryService.upload(file, {
+    folder: `drivers/${id}/documents`,
+  });
+
+  return this.adminRepo.addDriverDocuments(id, dto, uploaded.secure_url);
+}
 
 
 
