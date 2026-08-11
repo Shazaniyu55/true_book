@@ -41,9 +41,6 @@ export class AdminService {
   ) {}
 
 
-  // async getDashboardStats(query: { page?: number; limit?: number }) {
-  //   return await this.adminRepo.getDashboardStats(query);
-  // }
 async getDashboardStats(query: { page?: number; limit?: number } = {}) {
   const page = query?.page ?? 1;
   const limit = query?.limit ?? 20;
@@ -238,6 +235,19 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
     status: subAdmin.status,
   };
 }
+
+// ─── Vehicle Verification ────────────────────────────────────────────────
+  async listPendingVehicles(query: AdminListQueryDto) {
+    return await this.adminRepo.listPendingVehicles(query);
+  }
+
+  async approveVehicle(vehicleId: string, adminEmail: string) {
+    return await this.adminRepo.approveVehicle(vehicleId, adminEmail);
+  }
+
+  async rejectVehicle(vehicleId: string, reason: string, adminEmail: string) {
+    return await this.adminRepo.rejectVehicle(vehicleId, reason, adminEmail);
+  }
 
   // --------------------------
   async togglePassengerStatus(id: string){

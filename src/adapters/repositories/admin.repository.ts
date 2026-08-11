@@ -907,9 +907,6 @@ async getTripWithPassengers(tripId: string, query: { page?: number; limit?: numb
     order: { createdAt: 'DESC' },
   });
 
-  console.log('driverId:', driverId);
-  console.log('documents:', documents);
-  console.log('document count:', documents.length);
   return documents;
 }
 async fetchDriversDocuments(driverId: string) {
@@ -1012,6 +1009,103 @@ async addDriverDocuments(
     return saved;
   });
 }
+
+// ─── Vehicle Verification ───────────────────────────────────────────────────
+
+  async listPendingVehicles(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PagedDto<any>> {
+    const { page = 1, limit = 20, search } = query;
+    const skip = (page - 1) * limit;
+
+    const qb = this.vehicleRepo
+      .createQueryBuilder('vehicle')
+      .leftJoinAndSelect('vehicle.driver', 'driver')
+      .where('vehicle.verificationStatus = :status', { status: DocumentStatus.PENDING })
+      .orderBy('vehicle.createdAt', 'ASC')
+      .skip(skip)
+      .take(limit);
+
+    if (search) {
+      qb.andWhere(
+        '(driver.email ILIKE :search OR vehicle.plateNumber ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+
+    const pagedDto = new PagedDto();
+    pagedDto.data = data;
+    pagedDto.meta = {
+      page,
+      limit,
+      count: data.length,
+      previousPage: page > 1 ? page - 1 : false,
+      nextPage: skip + limit < total ? page + 1 : false,
+      pageCount: Math.ceil(total / limit),
+      totalRecords: total,
+    };
+
+    return pagedDto;
+  }
+
+  async approveVehicle(vehicleId: string, adminEmail: string) {
+    const vehicle = await this.vehicleRepo.findOne({
+      where: { id: vehicleId },
+      relations: ['driver', 'driver.user'],
+    });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+    if (vehicle.verificationStatus === DocumentStatus.APPROVED) {
+      throw new BadRequestException('Vehicle is already approved');
+    }
+
+    vehicle.verificationStatus = DocumentStatus.APPROVED;
+    vehicle.isVerified = true;
+    vehicle.rejectionReason = null;
+    vehicle.updatedBy = adminEmail;
+    const saved = await this.vehicleRepo.save(vehicle);
+
+    const expoToken = vehicle.driver?.user?.expoToken;
+    if (expoToken) {
+      await this.expoService.sendPushNotification(
+        expoToken,
+        'Vehicle approved',
+        `Your vehicle (${vehicle.plateNumber}) has been approved. You can now use it for trips.`,
+        { driverId: vehicle.driverId },
+      );
+    }
+
+    return saved;
+  }
+
+  async rejectVehicle(vehicleId: string, reason: string, adminEmail: string) {
+    const vehicle = await this.vehicleRepo.findOne({
+      where: { id: vehicleId },
+      relations: ['driver', 'driver.user'],
+    });
+    if (!vehicle) throw new NotFoundException('Vehicle not found');
+
+    vehicle.verificationStatus = DocumentStatus.REJECTED;
+    vehicle.isVerified = false;
+    vehicle.rejectionReason = reason;
+    vehicle.updatedBy = adminEmail;
+    const saved = await this.vehicleRepo.save(vehicle);
+
+    const expoToken = vehicle.driver?.user?.expoToken;
+    if (expoToken) {
+      await this.expoService.sendPushNotification(
+        expoToken,
+        'Vehicle rejected',
+        `Your vehicle (${vehicle.plateNumber}) was rejected: ${reason}`,
+        { driverId: vehicle.driverId },
+      );
+    }
+
+    return saved;
+  }
 
 
 

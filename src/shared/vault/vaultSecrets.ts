@@ -54,11 +54,9 @@ const KV_PATHS: Record<string, string> = {
  */
 export async function loadSecretsFromVault(): Promise<void> {
   if (process.env.VAULT_ENABLED !== 'true') {
-    console.log(' Vault disabled — using environment variables directly');
     return;
   }
 
-  console.log('  Loading secrets from HashiCorp Vault...');
   const errors: string[] = [];
 
   for (const [envKey, kvPath] of Object.entries(KV_PATHS)) {

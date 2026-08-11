@@ -1,6 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { Driver } from './driver.entity';
 import { BaseEntity } from './base.entity';
+import { DocumentStatus } from 'src/types/enums';
 
 @Entity('vehicles')
 export class Vehicle extends BaseEntity {
@@ -56,6 +57,12 @@ export class Vehicle extends BaseEntity {
 
   @Column({ type: 'varchar', nullable: true })
   licensePlateNumber: string;
+
+  @Column({ type: 'varchar', enum: DocumentStatus, default: DocumentStatus.PENDING })
+  verificationStatus: DocumentStatus;
+
+    @Column({ type: 'varchar', nullable: true })
+  rejectionReason: string;
 
   
 }

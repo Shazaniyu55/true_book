@@ -124,6 +124,7 @@ import { AdminNotificationActivityQueryDto } from '../dtos/admin-notification-qu
 import { GetAdminNotificationActivityUseCase } from '../usecases/getadminnotify.usecase';
 import { AdminGetVehicleTypesUsecase } from '../usecases/getvehicletypes.usecase';
 import { AdminAddVehicleDto } from '../dtos/add-vehicle.dto';
+import { ApproveVehicleUsecase, ListPendingVehiclesUsecase, RejectVehicleUsecase } from '../usecases/vehicle-verification.usecase';
 
 
 
@@ -201,6 +202,10 @@ private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
     private readonly notificationService: NotificationService,
     private readonly getAdminNotificationActivityUsecase: GetAdminNotificationActivityUseCase,
      private readonly adminGetVehicleTypesUsecase:AdminGetVehicleTypesUsecase,
+     // Vehicle Verification
+    private readonly listPendingVehiclesUsecase: ListPendingVehiclesUsecase,
+    private readonly approveVehicleUsecase: ApproveVehicleUsecase,
+    private readonly rejectVehicleUsecase: RejectVehicleUsecase,
   ) {}
 
 
@@ -229,6 +234,49 @@ private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
   getAgentById(@Param('id') id: string) {
     return this.broker.runUsecases([this.getAgentByIdUsecase], {id: id});
   }
+
+  // ─── Vehicle Verification ────────────────────────────────────────────────────
+ 
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Get('vehicles/pending')
+  @ApiOperation({ summary: 'List vehicles pending admin approval' })
+  listPendingVehicles(@Query() query: AdminListQueryDto) {
+    return this.broker.runUsecases([this.listPendingVehiclesUsecase], query);
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Patch('vehicles/:id/approve')
+  @ApiOperation({ summary: 'Approve a driver vehicle' })
+  @ApiParam({ name: 'id', type: String, description: 'Vehicle UUID' })
+  approveVehicle(@Param('id') id: string, @AuthUser() user: any) {
+    return this.broker.runUsecases([this.approveVehicleUsecase], {
+      id,
+      adminEmail: user.email,
+    });
+  }
+
+  @ApiBearerAuth()
+  @AdminOnly()
+  @Patch('vehicles/:id/reject')
+  @ApiOperation({ summary: 'Reject a driver vehicle' })
+  @ApiParam({ name: 'id', type: String, description: 'Vehicle UUID' })
+  @ApiBody({ type: RejectDocumentDto })
+  rejectVehicle(
+    @Param('id') id: string,
+    @Body() dto: RejectDocumentDto,
+    @AuthUser() user: any,
+  ) {
+    return this.broker.runUsecases([this.rejectVehicleUsecase], {
+      id,
+      reason: dto.reason,
+      adminEmail: user.email,
+    });
+  }
+
+  // ─── Vehicle Verification ────────────────────────────────────────────────────
+
 
   @ApiBearerAuth()
   @AdminOnly()
@@ -445,15 +493,7 @@ createSubAdmin(@Body() dto: CreateSubAdminDto, @AuthUser() user: any) {
     return this.broker.runUsecases([this.deleteDriverDocHistoryUsecase], { id });
   }
 
-  // @ApiBearerAuth()
-  // @AdminOnly()
-  // @Post('drivers/update-document/:id')
-  // @ApiOperation({ summary: 'update driver doc  by ID' })
-  // @ApiParam({ name: 'id', type: String, description: 'update driver doc  by ID' })
-  // @ApiBody({ type: UpdateDriverDocumentDto })
-  // updateDriverDoc(@Param('id') id: string, @Body() dto: UpdateDriverDocumentDto) {
-  //   return this.broker.runUsecases([this.updateDriverDocUsecase], { id: id, dto:dto });
-  // }
+
 @ApiBearerAuth()
 @AdminOnly()
 @Post('drivers/update-document/:id')

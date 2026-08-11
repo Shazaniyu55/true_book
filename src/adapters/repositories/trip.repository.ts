@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DeepPartial, EntityManager, FindManyOptions, Repository } from 'typeorm';
 import { Trip } from '@modules/core/entities/trip.entity';
-import { BookingStatus, CouponType, EscrowStatus, NotificationType, PaymentStatus, TicketStatus, TripStatus } from '../../types/enums';
+import { BookingStatus, CouponType, DocumentStatus, EscrowStatus, NotificationType, PaymentStatus, TicketStatus, TripStatus } from '../../types/enums';
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { RandomnessUtil } from '@shared/utils/encryption/randomness.util';
 import { Driver } from '@modules/core/entities/driver.entity';
@@ -53,7 +53,7 @@ export class TripRepository extends Repository<Trip> {
     super(tripRepository.target, tripRepository.manager, tripRepository.queryRunner);
   }
 
-      async createTrip(
+async createTrip(
         userId: string,
         dto: CreateTripDto,
         entityManager?: EntityManager,
@@ -70,34 +70,64 @@ export class TripRepository extends Repository<Trip> {
         }
 
         if (!driver.licenseVerified) {
-  throw new BadRequestException(
-    "Please verify your driver's license before creating a trip",
-  );
-}
+          throw new BadRequestException(
+            "Please verify your driver's license before creating a trip",
+          );
+        }
 
-const vehicleCount = await manager.count(Vehicle, {
-  where: { driverId: driver.id as any },
-});
-if (vehicleCount === 0) {
-  throw new BadRequestException(
-    'Please register a vehicle before creating a trip',
-  );
-}
+        // ── Vehicle must exist AND be admin-approved ─────────────────────────
+        let vehicle: Vehicle | null = null;
+
+        if (dto.vehicleId) {
+          // Trip explicitly targets one of the driver's vehicles
+          vehicle = await manager.findOne(Vehicle, {
+            where: { id: dto.vehicleId as any, driverId: driver.id as any },
+          });
+          if (!vehicle) {
+            throw new NotFoundException(
+              'Vehicle not found or does not belong to you',
+            );
+          }
+        } else {
+          // No vehicle specified — fall back to the driver's most recently
+          // approved vehicle, if any
+          vehicle = await manager.findOne(Vehicle, {
+            where: {
+              driverId: driver.id as any,
+              verificationStatus: DocumentStatus.APPROVED,
+            },
+            order: { createdAt: 'DESC' },
+          });
+        }
+
+        if (!vehicle) {
+          throw new BadRequestException(
+            'Please register a vehicle before creating a trip',
+          );
+        }
+
+        if (vehicle.verificationStatus !== DocumentStatus.APPROVED) {
+          throw new BadRequestException(
+            vehicle.verificationStatus === DocumentStatus.REJECTED
+              ? `Your vehicle (${vehicle.plateNumber}) was rejected${vehicle.rejectionReason ? `: ${vehicle.rejectionReason}` : ''}. Please update it and wait for re-approval.`
+              : `Your vehicle (${vehicle.plateNumber}) is still pending admin approval. You can't create a trip until it's approved.`,
+          );
+        }
 
         const reference = this.randomnessUtil.generateReference('TRP');
 
         const trip = manager.create(Trip, {
           ...dto,
+          vehicleId: vehicle.id, // always set explicitly — dto.vehicleId may have been omitted
           reference,
-          driverId: driver.id, 
+          driverId: driver.id,
           status: TripStatus.PENDING,
           //bookedSeats: 0,
         });
 
-         await this.expoService.sendPushNotification(driver.user.expoToken, "Trip Created", `You Just created a Trip :${reference}`, { userId: driver.id })
+        await this.expoService.sendPushNotification(driver.user.expoToken, "Trip Created", `You Just created a Trip :${reference}`, { userId: driver.id })
         return await manager.save(Trip, trip);
       }
-
 
       async activateTrip(id: string, tripId: string): Promise<Trip>{
 
@@ -1056,53 +1086,6 @@ async bookTrip(userId: string, dto: BookTripDto, entityManager: EntityManager) {
   };
 }
 
-//   async confirmBookingPayment(  bookingId: string,
-//     paymentReference: string,
-//     entityManager: EntityManager,){
-
-//     const manager = entityManager || this.entityManager;
-
-//         const booking = await this.bookingRepo.findOne({
-//       where: { id: bookingId },
-//       relations: ['trip', 'passenger', 'passenger.user'],
-//     });
-
-//         if (!booking) throw new NotFoundException('Booking not found');
-//     if (booking.status === BookingStatus.CONFIRMED) return booking; // idempotent
-
-//     booking.status = BookingStatus.CONFIRMED;
-//     booking.paymentStatus = PaymentStatus.SUCCESS;
-//     booking.paymentReference = paymentReference;
-
-//     // ── issue boarding ticket ──
-//     booking.ticketToken = this.randomnessUtil.generateSecureToken(40);
-//     booking.ticketStatus = TicketStatus.ISSUED;
-//     booking.ticketIssuedAt = new Date();
-
-//     await manager.save(Booking, booking);
-
-//         // Create escrow record
-//     const platformFee = (booking.amountPaid * PLATFORM_FEE_RATE) / 100;
-//     const netDriverAmount = booking.amountPaid - platformFee;
-//     const escrowRef = this.randomnessUtil.generateReference('ESC');
-
-//    const escrow = manager.create(Escrow, {
-//   reference: escrowRef,
-//   bookingId: booking.id,
-//   amount: booking.amountPaid,
-//   platformFee,
-//   netDriverAmount,
-//   status: EscrowStatus.HELD,
-//   driverId: booking.trip.driverId,
-//   passengerId: booking.passengerId,
-//   paymentReference,
-// } as DeepPartial<Escrow>);
-
-// await manager.save(escrow);
-
-// return booking;
-
-//   }
 
   
 

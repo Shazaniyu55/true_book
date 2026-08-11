@@ -118,7 +118,12 @@ import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { VehicleRepository } from '@adapters/repositories/vehicle.repository';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
 import { ExpoService } from '@modules/notification/services/expo.service';
-
+// ─── Vehicle Verification ───────────────────────────────────────────────────
+import {
+  ApproveVehicleUsecase,
+  ListPendingVehiclesUsecase,
+  RejectVehicleUsecase,
+} from './usecases/vehicle-verification.usecase';
 
 const USECASES = [
   
@@ -149,6 +154,10 @@ const USECASES = [
   RejectDocumentUsecase,
   GetPassengersUsecase,
   GetPassengerByIdUsecase,
+    // Vehicle Verification
+  ListPendingVehiclesUsecase,
+  ApproveVehicleUsecase,
+  RejectVehicleUsecase,
   // Trips
   ListTripsUsecase,
   GetTripUsecase,
