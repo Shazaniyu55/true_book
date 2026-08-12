@@ -125,7 +125,6 @@ async createTrip(
           //bookedSeats: 0,
         });
 
-        await this.expoService.sendPushNotification(driver.user.expoToken, "Trip Created", `You Just created a Trip :${reference}`, { userId: driver.id })
         return await manager.save(Trip, trip);
       }
 
@@ -270,7 +269,6 @@ async createTrip(
           type: NotificationType.TRIP_CANCELLED,
           data: { tripId: trip.id, bookingCode: booking.bookingCode, reason: dto.reason },
         });
-          await this.expoService.sendPushNotification(booking.passenger.user.expoToken, "Trip Cancelled", `You Just Cancelled a Trip`, { userId: booking.passenger.userId })
 
       } catch (err) {
         this.logger.warn(`Failed to notify passenger for booking ${booking.bookingCode}: ${err?.message}`);

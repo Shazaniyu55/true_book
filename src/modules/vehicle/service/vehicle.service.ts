@@ -56,7 +56,8 @@ export class VehicleService {
     );
 
     await this.driverRepo.update({ id: driver.id }, { vehicleId: vehicle.id });
-    await this.notificationService.notifyAdmins({
+    await this.notificationService.notify({
+     userId: driver.id, 
   title: 'New Vehicle Registration',
   body: `A driver has registered a new vehicle with plate number ${vehicle.plateNumber}.`,
   type: NotificationType.VEHICLE_REGISTRATION,

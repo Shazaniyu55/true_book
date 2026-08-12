@@ -150,7 +150,6 @@ await this.notifiyService.notify({
   },
 });
 //send push
-await this.expoService.sendPushNotification(driver.user.expoToken, 'Trip Created Successfully', `Your Trip (${reference})`,{ driverId: userId },)
      
         return savedTrip;
  
