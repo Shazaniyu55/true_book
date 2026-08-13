@@ -124,6 +124,7 @@ import {
   ListPendingVehiclesUsecase,
   RejectVehicleUsecase,
 } from './usecases/vehicle-verification.usecase';
+import { GetTotalApproveDriverUsecase } from './usecases/gettotalapprove.usecase';
 
 const USECASES = [
   
@@ -158,6 +159,7 @@ const USECASES = [
   ListPendingVehiclesUsecase,
   ApproveVehicleUsecase,
   RejectVehicleUsecase,
+  GetTotalApproveDriverUsecase,
   // Trips
   ListTripsUsecase,
   GetTripUsecase,

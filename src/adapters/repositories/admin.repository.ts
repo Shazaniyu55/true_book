@@ -227,6 +227,15 @@ if (search) {
   };
 }
 
+async getApprovedDriversCount(): Promise<number> {
+  return this.driverRepo
+    .createQueryBuilder('driver')
+    .innerJoin('driver.user', 'user')
+    .where('driver.deletedAt IS NULL')
+    .andWhere('user.status = :status', { status: UserStatus.ACTIVE })
+    .getCount();
+}
+
 async getDrivers(query: {
   page?: number;
   limit?: number;

@@ -443,7 +443,9 @@ async addDriverDocumentFile(
   async listBookings(query: AdminListQueryDto) {
     return await this.adminRepo.listBookings(query);
   }
-
+async getTotalApproveDriver(){
+  return await this.adminRepo.getApprovedDriversCount();
+}
   async getBooking(id: string) {
     return await this.adminRepo.getBooking(id);
   }

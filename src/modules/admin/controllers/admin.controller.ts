@@ -125,6 +125,7 @@ import { GetAdminNotificationActivityUseCase } from '../usecases/getadminnotify.
 import { AdminGetVehicleTypesUsecase } from '../usecases/getvehicletypes.usecase';
 import { AdminAddVehicleDto } from '../dtos/add-vehicle.dto';
 import { ApproveVehicleUsecase, ListPendingVehiclesUsecase, RejectVehicleUsecase } from '../usecases/vehicle-verification.usecase';
+import { GetTotalApproveDriverUsecase } from '../usecases/gettotalapprove.usecase';
 
 
 
@@ -154,6 +155,7 @@ export class AdminController {
 private readonly getDriversEarningsUsecase: GetDriversEarningsUsecase,
 private readonly getAgentsEarningsUsecase: GetAgentsEarningsUsecase,
 private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
+private readonly getTotalApproveDriverUsecase:GetTotalApproveDriverUsecase,
 
     // Dashboard
     private readonly getDashboardUsecase: GetDashboardUsecase,
@@ -288,11 +290,19 @@ private readonly getRefundRequestsUsecase: GetRefundRequestsUsecase,
     return this.broker.runUsecases([this.getAgentWithDetailUsecase], {id: id});
   }
 
+  
 @Get('anoucements')
 @ApiOperation({ summary: 'Get all announcements' })
 @ApiResponse({ status: 200, description: 'Announcements fetched successfully' })
 async getAllAnnouncements() {
   return this.notificationService.getAllAnnouncements();
+}
+
+@AdminOnly()
+@Get('drivers/approved/count')
+@ApiOperation({ summary: 'Get total number of approved drivers' })
+async getApprovedDriversCount() {
+  return  this.broker.runUsecases([this.getTotalApproveDriverUsecase]);
 }
 
 
