@@ -255,7 +255,7 @@ async getDrivers(query: {
 
   if (search) {
     qb.andWhere(
-      '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search)',
+      '(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.phone ILIKE :search)',
       { search: `%${search}%` },
     );
   }
@@ -1956,7 +1956,7 @@ async getDriversEarnings(query: {
         trip.status ILIKE :search OR
         user.firstName ILIKE :search OR
         user.lastName ILIKE :search OR
-        user.email ILIKE :search
+        user.email ILIKE :search 
       )`,
       { search: `%${search}%` },
     );

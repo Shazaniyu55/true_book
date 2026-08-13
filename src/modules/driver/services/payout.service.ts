@@ -86,19 +86,15 @@ async initiatePayout(userId: string, dto: InitiatePayoutDto) {
     }
 
      let beneficiary: Beneficiary | null = null;
-    try {
+
       if (!dto.bankHolderName) dto.bankHolderName = resolved.account_name;
       // Only persist a beneficiary when the client asked us to (default: yes).
       if (dto.saveBeneficiary !== false) {
         beneficiary = await this.createBeneficiary(entity, kind, dto, manager);
       }
-    } catch (err) {
-      this.logger.warn(
-        `Could not save beneficiary for user ${userId} (${dto.accountNumber}/${dto.bankCode}): ${err?.message}`,
-      );
-    }
+   
 
-    const payout = await this.createPayoutRecord(entity, kind, dto, resolved, manager);
+    const payout = await this.createPayoutRecord(entity, kind, dto, resolved, manager, beneficiary);
 
     // Drivers (and refunds) dispense immediately; agents wait for admin approval.
     if (kind === 'driver' || dto.refund) {
@@ -774,7 +770,7 @@ private mapPayoutToTransaction(p: Payout): TransactionShape {
     const existing = await manager.findOne(Beneficiary, { where });
     if (existing) {
       await manager.update(Beneficiary, existing.id, {
-        bankName: dto.bankName,
+        bankName: dto.bankName ?? 'Unknown Bank',
         bankHolderName: dto.bankHolderName,
       });
       return manager.findOne(Beneficiary, { where: { id: existing.id } });
@@ -788,7 +784,7 @@ private mapPayoutToTransaction(p: Payout): TransactionShape {
       agentId: kind === 'agent' ? entity.id : null,
       accountNumber: dto.accountNumber,
       bankCode: dto.bankCode,
-      bankName: dto.bankName,
+      bankName: dto.bankName ?? 'Unknown Bank',
       bankHolderName: dto.bankHolderName,
     });
     return manager.save(Beneficiary, beneficiary);
