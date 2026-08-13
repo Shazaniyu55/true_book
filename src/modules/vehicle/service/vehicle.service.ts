@@ -59,11 +59,11 @@ export class VehicleService {
     await this.notificationService.notify({
      userId: userId, 
   title: 'New Vehicle Registration',
-  body: `A driver has registered a new vehicle with Name: ${driver.user.firstName}, Email: ${driver.user.email} plate number ${vehicle.plateNumber}.`,
+  body: `A driver has registered a new vehicle with Name: ${vehicle.driver.user.firstName}, Email: ${vehicle.driver.user.email} plate number ${vehicle.plateNumber}.`,
   type: NotificationType.VEHICLE_REGISTRATION,
   data: {
     vehicleId: vehicle.id,
-    driverId: driver.id,
+    driverId: vehicle.driver.id,
     plateNumber: vehicle.plateNumber,
     verificationStatus: vehicle.verificationStatus,
   },
