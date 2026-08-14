@@ -105,12 +105,12 @@ async initiatePayout(userId: string, dto: InitiatePayoutDto) {
 }
 
 
-  // ─── Actually push money to the bank via Paystack ─────────────────────────
 async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
   const run = async (manager: EntityManager) => {
     const payout = await manager.findOne(Payout, {
       where: { id: payoutId },
-      relations: ['driver', 'agent', 'beneficiary'],
+      //relations: ['driver', 'agent', 'beneficiary'],
+       relations: ['driver', 'driver.user', 'agent', 'agent.user', 'beneficiary'],
     });
     if (!payout) throw new NotFoundException('Payout not found');
     const details = (payout.paymentDetails ?? {}) as Record<string, any>;
@@ -125,8 +125,7 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
       this.logger.warn(
         `Payout ${payout.reference} blocked — insufficient gateway balance (₦${balance} < ₦${payout.amount})`,
       );
-      // Don't leave the payout stuck in PENDING — mark it declined so the
-      // webhook can never mistakenly claim it and admins aren't left with ghosts.
+  
       await manager.update(Payout, payout.id, { status: PayoutStatus.DECLINED });
       return {
         message: "Can't process this request right now, try again later.",
@@ -175,24 +174,34 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
     });
     await this.adjustBalance(payout, Number(payout.amount), 'debit', manager);
 
-    const userId = payout.driver?.userId ?? payout.agent?.userId;
-    if (userId) {
-      await this.notificationService.notify({
-        userId,
-        title: 'Withdrawal Successful',
-        body: `Your withdrawal of N${payout.amount} has been processed.`,
-        type: NotificationType.PAYOUT_APPROVED,
-        data: { payoutId: payout.id, reference: payout.reference },
-      });
+      const user = payout.driver?.user ?? payout.agent?.user;
 
-      await this.expoService.sendPushNotification(payout.driver.user.expoToken, 'Withdrawal Successful', `Your withdrawal of N${payout.amount} has been processed.`)
-    }
+   try {
+        if (user?.id) {
+          await this.notificationService.notify({
+            userId: user.id,
+            title: 'Withdrawal Successful',
+            body: `Your withdrawal of N${payout.amount} has been processed.`,
+            type: NotificationType.PAYOUT_APPROVED,
+            data: { payoutId: payout.id, reference: payout.reference },
+          });
+        }
+        if (user?.expoToken) {
+          await this.expoService.sendPushNotification(
+            user.expoToken,
+            'Withdrawal Successful',
+            `Your withdrawal of N${payout.amount} has been processed.`,
+          );
+        }
+      } catch (err) {
+        this.logger.error(`Payout ${payout.reference} notify/push failed: ${err?.message}`);
+      }
+
     return { message: transfer.status ?? 'Transfer queued', status: true };
   };
   return em ? run(em) : this.dataSource.transaction(run);
 }
 
-  // ─── Webhook: transfer.success / paymentrequest.success ───────────────────
   async completePayout(reference: string, em?: EntityManager): Promise<boolean> {
     const run = async (manager: EntityManager): Promise<boolean> => {
       const claim = await manager.update(
@@ -207,7 +216,9 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
 
       const payout = await manager.findOne(Payout, {
         where: { reference },
-        relations: ['driver', 'agent'],
+        // relations: ['driver', 'agent'],
+        relations: ['driver', 'driver.user', 'agent', 'agent.user'],
+
       });
 
       if (reference.toLowerCase().includes('refund-')) {
@@ -222,16 +233,26 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
         await this.adjustBalance(payout, Number(payout.amount), 'debit', manager);
       }
 
-      const userId = payout.driver?.userId ?? payout.agent?.userId;
-      if (userId) {
-        await this.notificationService.notify({
-          userId,
-          title: 'Withdrawal Successful',
-          body: `Your withdrawal of N${payout.amount} has been processed.`,
-          type: NotificationType.PAYOUT_APPROVED,
-          data: { payoutId: payout.id, reference: payout.reference },
-        });
-        await this.expoService.sendPushNotification(payout.driver.user.expoToken, 'Withdrawal Successful', `Your withdrawal of N${payout.amount} has been processed.`)
+      const user = payout.driver?.user ?? payout.agent?.user;
+      try {
+        if (user?.id) {
+          await this.notificationService.notify({
+            userId: user.id,
+            title: 'Withdrawal Successful',
+            body: `Your withdrawal of N${payout.amount} has been processed.`,
+            type: NotificationType.PAYOUT_APPROVED,
+            data: { payoutId: payout.id, reference: payout.reference },
+          });
+        }
+        if (user?.expoToken) {
+          await this.expoService.sendPushNotification(
+            user.expoToken,
+            'Withdrawal Successful',
+            `Your withdrawal of N${payout.amount} has been processed.`,
+          );
+        }
+      } catch (err) {
+        this.logger.error(`completePayout notify/push failed for ${reference}: ${err?.message}`);
       }
       return true;
     };
@@ -243,12 +264,13 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
     }
   }
 
-  // ─── Webhook: transfer.failed / transfer.reversed ─────────────────────────
   async reversePayout(reference: string): Promise<boolean> {
     return this.dataSource.transaction(async (manager) => {
       const payout = await manager.findOne(Payout, {
         where: { reference },
-        relations: ['driver', 'agent'],
+        // relations: ['driver', 'agent'],
+        relations: ['driver', 'driver.user', 'agent', 'agent.user'],
+
       });
       if (!payout) return false;
 
@@ -258,16 +280,27 @@ async dispenseFundFromPayout(payoutId: string, em?: EntityManager) {
       }
       await manager.update(Payout, payout.id, { status: PayoutStatus.DECLINED });
 
-      const userId = payout.driver?.userId ?? payout.agent?.userId;
-      if (userId) {
-        await this.notificationService.notify({
-          userId,
-          title: 'Withdrawal Failed',
-          body: `Your withdrawal of N${payout.amount} could not be completed and was reversed.`,
-          type: NotificationType.PAYOUT_DECLINED,
-          data: { payoutId: payout.id, reference: payout.reference },
-        });
-        await this.expoService.sendPushNotification(payout.driver.user.expoToken, 'Withdrawal Failed',`Your withdrawal of N${payout.amount} could not be completed and was reversed.`)
+      const user = payout.driver?.user ?? payout.agent?.user;
+
+    try {
+        if (user?.id) {
+          await this.notificationService.notify({
+            userId: user.id,
+            title: 'Withdrawal Failed',
+            body: `Your withdrawal of N${payout.amount} could not be completed and was reversed.`,
+            type: NotificationType.PAYOUT_DECLINED,
+            data: { payoutId: payout.id, reference: payout.reference },
+          });
+        }
+        if (user?.expoToken) {
+          await this.expoService.sendPushNotification(
+            user.expoToken,
+            'Withdrawal Failed',
+            `Your withdrawal of N${payout.amount} could not be completed and was reversed.`,
+          );
+        }
+      } catch (err) {
+        this.logger.error(`reversePayout notify/push failed for ${reference}: ${err?.message}`);
       }
       return true;
     });

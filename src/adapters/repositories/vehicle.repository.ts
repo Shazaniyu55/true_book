@@ -23,9 +23,9 @@ export class VehicleRepository extends Repository<Vehicle> {
     return this.find({ where: { driverId } });
   }
 
-  async findByPlate(plateNumber: string): Promise<Vehicle> {
-    return this.findOne({ where: { plateNumber } });
-  }
+ async findByPlate(plateNumber: string): Promise<Vehicle | null> {
+  return this.findOne({ where: { plateNumber } });
+}
    
   async findByPlateOrLicense(value: string): Promise<Vehicle | null> {
     return this.findOne({

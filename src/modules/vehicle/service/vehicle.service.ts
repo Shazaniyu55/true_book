@@ -31,8 +31,11 @@ export class VehicleService {
     dto: CreateVehicleDto,
     em?: EntityManager,
   ) {
-    const driver = await this.driverRepo.findOne({ where: { userId } });
-    if (!driver) throw new NotFoundException('Driver profile not found');
+   const driver = await this.driverRepo.findOne({
+  where: { userId },
+  relations: ['user'],
+});
+if (!driver) throw new NotFoundException('Driver profile not found');
 
     const plateTaken = await this.vehicleRepo.findByPlate(dto.plateNumber);
     if (plateTaken) {
@@ -59,11 +62,11 @@ export class VehicleService {
     await this.notificationService.notify({
      userId: userId, 
   title: 'New Vehicle Registration',
-  body: `A driver has registered a new vehicle with Name: ${vehicle.driver.user.firstName}, Email: ${vehicle.driver.user.email} plate number ${vehicle.plateNumber}.`,
+  body: `A driver has registered a new vehicle with Name: ${driver.user.firstName}, Email:${driver.user.email}  plate number ${vehicle.plateNumber}.`,
   type: NotificationType.VEHICLE_REGISTRATION,
   data: {
     vehicleId: vehicle.id,
-    driverId: vehicle.driver.id,
+    driverId: driver.id,
     plateNumber: vehicle.plateNumber,
     verificationStatus: vehicle.verificationStatus,
   },
@@ -107,7 +110,8 @@ export class VehicleService {
     ...(needsReverification ? { isVerified: false } : {}),
   });
 
-  await this.notificationService.notifyAdmins({
+  await this.notificationService.notify({
+    userId: vehicle.driver.id,
   title: 'Vehicle Updated',
   body: `A driver  has updated his  vehicle with plate number ${vehicle.plateNumber}.`,
   type: NotificationType.VEHICLE_UPDATED,
@@ -144,17 +148,10 @@ async deleteVehicle(userId: string, vehicleId: string) {
   // soft delete — historical trips keep pointing at the row
   await this.vehicleRepo.softDelete(vehicle.id);
 
-  // if it was the driver's active vehicle, promote another one (or null)
-  if (driver?.vehicleId === vehicle.id) {
-    const remaining = await this.vehicleRepo.findOne({
-      where: { driverId: driver.id },
-      order: { createdAt: 'DESC' },
-    });
-    await this.driverRepo.update({ id: driver.id }, { vehicleId: remaining?.id ?? null });
-  }
-  await this.notificationService.notifyAdmins({
+  await this.notificationService.notify({
+  userId: userId,
   title: 'Vehicle Deleted',
-  body: `A driver has deleted his vehicle with plate number ${vehicle.plateNumber}.`,
+  body: `A driver has deleted his vehicle with plate number ${vehicle.plateNumber}. Name ${driver.user.firstName}`,
   type: NotificationType.VEHICLE_DELETED,
   data: {
     name: vehicle.driver.user.firstName,
@@ -169,14 +166,21 @@ async deleteVehicle(userId: string, vehicleId: string) {
 }
 
 private async getOwnedVehicle(userId: string, vehicleId: string): Promise<Vehicle> {
-  const driver = await this.driverRepo.findOne({ where: { userId } });
+  const driver = await this.driverRepo.findOne({
+    where: { userId },
+    relations: ['user'],
+  });
   if (!driver) throw new NotFoundException('Driver profile not found');
 
-  const vehicle = await this.vehicleRepo.findOne({ where: { id: vehicleId } });
+  const vehicle = await this.vehicleRepo.findOne({
+    where: { id: vehicleId },
+    relations: ['driver', 'driver.user'],
+  });
   if (!vehicle) throw new NotFoundException('Vehicle not found');
   if (vehicle.driverId !== driver.id)
     throw new ForbiddenException('This vehicle does not belong to you');
 
   return vehicle;
 }
+
 }
