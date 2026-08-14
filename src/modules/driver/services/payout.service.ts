@@ -682,44 +682,7 @@ private firstNumber(...values: any[]): number {
   }
   return 0;
 }
-// private async createPayoutRecord(
-//   entity: PayoutEntity,
-//   kind: EntityKind,
-//   dto: InitiatePayoutDto,
-//   resolved: { account_number: string; account_name: string; },
-//   manager: EntityManager,
-  
-// ): Promise<Payout> {
-//   const reference = this.randomness.generateReference('PAYOUT').toLowerCase();
-//   const payout = manager.create(Payout, {
-//     reference,
-//     amount: dto.amount,
-//     narration: dto.narration ?? 'Wallet withdrawal',
-//     status: PayoutStatus.PENDING,
-//     paymentMethod: 'bank_transfer',
-//     driverId: kind === 'driver' ? entity.id : null,
-//     agentId: kind === 'agent' ? entity.id : null,
-//     payoutableType: kind,
-//     payoutableId: entity.id,
-//     paymentDetails: {
-//       account_number: dto.accountNumber,
-//       bank_name: dto.bankName ?? 'Unknown Bank',
-//       bank_code: dto.bankCode,
-//       bank_holder_name: resolved.account_name,
-//       currency: 'NGN',
-//       debit_currency: 'NGN',
-//     } as any,
-//   });
-//   const saved = await manager.save(Payout, payout);
 
-//   await this.notificationService.notifyAdmins({
-//     title: 'Withdrawal Application',
-//     body: `${(entity as any).user?.firstName ?? 'A user'} applied to withdraw N${dto.amount} (ref ${reference}).`,
-//     type: NotificationType.BROADCAST,
-//     data: { payoutId: saved.id, reference },
-//   });
-//   return saved;
-// }
 
 private async createPayoutRecord(
   entity: PayoutEntity,
@@ -752,12 +715,7 @@ private async createPayoutRecord(
   });
   const saved = await manager.save(Payout, payout);
 
-  await this.notificationService.notifyAdmins({
-    title: 'Withdrawal Application',
-    body: `${(entity as any).user?.firstName ?? 'A user'} applied to withdraw N${dto.amount} (ref ${reference}).`,
-    type: NotificationType.BROADCAST,
-    data: { payoutId: saved.id, reference },
-  });
+
   return saved;
 }
 
