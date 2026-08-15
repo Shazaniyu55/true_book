@@ -297,7 +297,7 @@ async verifyPayment(
       await this.notificationService.notify({
         userId: driverUserId,
         title: 'New Booking',
-        body: `A passenger has paid for booking ${code} on your trip.`,
+        body: `A passenger has paid for booking  on your trip.`,
         type: NotificationType.TRIP_BOOKED,
         data: { bookingId: booking.id, bookingCode: code, tripId: booking.tripId },
       });
@@ -305,7 +305,7 @@ async verifyPayment(
 
     await this.notificationService.notifyAdmins({
       title: 'Trip Booked',
-      body: `Booking ${code} paid — amount N${Number(booking.amountPaid)}.`,
+      body: `Booking  paid — amount N${Number(booking.amountPaid)}.`,
       type: NotificationType.TRIP_BOOKED,
       data: { bookingId: booking.id, bookingCode: code },
     });

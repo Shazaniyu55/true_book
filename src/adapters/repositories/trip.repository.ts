@@ -557,7 +557,7 @@ private async notifyDriverEarningsCredited(
     await this.notificationService.notify({
       userId: driverUserId,
       title: 'Earnings Credited',
-      body: `You earned ₦${amount} from booking ${booking.bookingCode}. It's now in your wallet.`,
+      body: `You earned ₦${amount} from booking. It's now in your wallet.`,
       type: NotificationType.PAYMENT_SUCCESS,
       data: { bookingId: booking.id, bookingCode: booking.bookingCode, amount, tripId: booking.tripId },
     });
@@ -567,7 +567,7 @@ private async notifyDriverEarningsCredited(
       await this.expoService.sendPushNotification(
         driver.user.expoToken,
         'Earnings Credited',
-        `You earned ₦${amount} from booking ${booking.bookingCode}.`,
+        `You earned ₦${amount} from booking.`,
         { bookingId: booking.id, amount },
       );
     }
