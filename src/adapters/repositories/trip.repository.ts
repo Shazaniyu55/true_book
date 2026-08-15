@@ -328,7 +328,8 @@ async createTrip(
       return await manager.save(Trip, trip);
     }
 
-async scanTicket(
+
+    async scanTicket(
   driverUserId: string,
   payload: { bookingCode: string; ticketToken: string },
   entityManager?: EntityManager,
@@ -338,50 +339,103 @@ async scanTicket(
   const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
   if (!driver) throw new NotFoundException('Driver profile not found');
 
-  const booking = await this.bookingRepo.findOne({
-    where: { bookingCode: payload.bookingCode },
-    relations: ['trip', 'passenger', 'passenger.user'],
+  // Wrap the read-check-write in a transaction with a row lock so two
+  // concurrent scans of the same booking serialize instead of racing.
+  return manager.transaction(async (trx) => {
+    const booking = await trx.findOne(Booking, {
+      where: { bookingCode: payload.bookingCode },
+      relations: ['trip', 'passenger', 'passenger.user'],
+      lock: { mode: 'pessimistic_write' }, // SELECT ... FOR UPDATE
+    });
+    if (!booking) throw new NotFoundException('Ticket not found');
+
+    if (booking.trip?.driverId !== driver.id)
+      throw new ForbiddenException('This ticket is not for your trip');
+
+    if (!booking.ticketToken || booking.ticketToken !== payload.ticketToken)
+      throw new BadRequestException('Invalid ticket');
+
+    if (booking.paymentStatus !== PaymentStatus.SUCCESS || booking.status !== BookingStatus.CONFIRMED)
+      throw new BadRequestException('Ticket is not active');
+
+    // Still inside the lock — this check is now race-free.
+    if (booking.ticketStatus === TicketStatus.SCANNED) {
+      return { alreadyScanned: true, booking, credited: 0 };
+    }
+
+    booking.ticketStatus = TicketStatus.SCANNED;
+    booking.scannedAt = new Date();
+    booking.scannedBy = driver.id;
+    booking.isCheckedIn = true;
+    booking.checkedInAt = new Date();
+    await trx.save(Booking, booking);
+
+    const credited = await this.releaseEscrowForBooking(booking, trx);
+
+    await this.notifyBookingVerified(booking);
+
+    if (credited > 0) {
+      await this.invalidateDriverDashboardCache(driverUserId);
+      await this.notifyDriverEarningsCredited(driverUserId, booking, credited);
+    }
+
+    return { success: true, booking, credited };
   });
-  if (!booking) throw new NotFoundException('Ticket not found');
-
-  // ownership — ticket must belong to this driver's trip
-  if (booking.trip?.driverId !== driver.id)
-    throw new ForbiddenException('This ticket is not for your trip');
-
-  // authenticity
-  if (!booking.ticketToken || booking.ticketToken !== payload.ticketToken)
-    throw new BadRequestException('Invalid ticket');
-
-  // must be paid & confirmed
-  if (booking.paymentStatus !== PaymentStatus.SUCCESS || booking.status !== BookingStatus.CONFIRMED)
-    throw new BadRequestException('Ticket is not active');
-
-  // idempotent — re-scanning never double-credits
-  if (booking.ticketStatus === TicketStatus.SCANNED) {
-    return { alreadyScanned: true, booking, credited: 0 };
-  }
-
-  booking.ticketStatus = TicketStatus.SCANNED;
-  booking.scannedAt = new Date();
-  booking.scannedBy = driver.id;
-  booking.isCheckedIn = true;
-  booking.checkedInAt = new Date();
-  await manager.save(Booking, booking);
-
-  const credited = await this.releaseEscrowForBooking(booking, manager);
-
-  // Confirmation to the passenger (mirrors Laravel's BookTripConfirmationNotification)
-  await this.notifyBookingVerified(booking);
-
-  // Driver-facing: earnings credited instantly on scan — dashboard cache must
-  // be dropped and the driver notified right away, not on the next TTL refresh.
-  if (credited > 0) {
-    await this.invalidateDriverDashboardCache(driverUserId);
-    await this.notifyDriverEarningsCredited(driverUserId, booking, credited);
-  }
-
-  return { success: true, booking, credited };
 }
+// async scanTicket(
+//   driverUserId: string,
+//   payload: { bookingCode: string; ticketToken: string },
+//   entityManager?: EntityManager,
+// ) {
+//   const manager = entityManager || this.entityManager;
+
+//   const driver = await this.driverRepo.findOne({ where: { userId: driverUserId } });
+//   if (!driver) throw new NotFoundException('Driver profile not found');
+
+//   const booking = await this.bookingRepo.findOne({
+//     where: { bookingCode: payload.bookingCode },
+//     relations: ['trip', 'passenger', 'passenger.user'],
+//   });
+//   if (!booking) throw new NotFoundException('Ticket not found');
+
+//   // ownership — ticket must belong to this driver's trip
+//   if (booking.trip?.driverId !== driver.id)
+//     throw new ForbiddenException('This ticket is not for your trip');
+
+//   // authenticity
+//   if (!booking.ticketToken || booking.ticketToken !== payload.ticketToken)
+//     throw new BadRequestException('Invalid ticket');
+
+//   // must be paid & confirmed
+//   if (booking.paymentStatus !== PaymentStatus.SUCCESS || booking.status !== BookingStatus.CONFIRMED)
+//     throw new BadRequestException('Ticket is not active');
+
+//   // idempotent — re-scanning never double-credits
+//   if (booking.ticketStatus === TicketStatus.SCANNED) {
+//     return { alreadyScanned: true, booking, credited: 0 };
+//   }
+
+//   booking.ticketStatus = TicketStatus.SCANNED;
+//   booking.scannedAt = new Date();
+//   booking.scannedBy = driver.id;
+//   booking.isCheckedIn = true;
+//   booking.checkedInAt = new Date();
+//   await manager.save(Booking, booking);
+
+//   const credited = await this.releaseEscrowForBooking(booking, manager);
+
+//   // Confirmation to the passenger (mirrors Laravel's BookTripConfirmationNotification)
+//   await this.notifyBookingVerified(booking);
+
+//   // Driver-facing: earnings credited instantly on scan — dashboard cache must
+//   // be dropped and the driver notified right away, not on the next TTL refresh.
+//   if (credited > 0) {
+//     await this.invalidateDriverDashboardCache(driverUserId);
+//     await this.notifyDriverEarningsCredited(driverUserId, booking, credited);
+//   }
+
+//   return { success: true, booking, credited };
+// }
 
 /** Best-effort push to the passenger when their booking is verified/scanned. */
 private async notifyBookingVerified(booking: Booking): Promise<void> {
