@@ -236,7 +236,7 @@ export class RolesService {
   const limit = 20;
   const skip = (page - 1) * limit;
 
-  const qb = this.userRepo
+  const qb = this.adminRepo
     .createQueryBuilder('u')
     .leftJoinAndSelect('u.roletru', 'role')
     .orderBy('u.createdAt', 'DESC')
