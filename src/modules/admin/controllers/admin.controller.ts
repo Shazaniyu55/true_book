@@ -126,6 +126,8 @@ import { AdminGetVehicleTypesUsecase } from '../usecases/getvehicletypes.usecase
 import { AdminAddVehicleDto } from '../dtos/add-vehicle.dto';
 import { ApproveVehicleUsecase, ListPendingVehiclesUsecase, RejectVehicleUsecase } from '../usecases/vehicle-verification.usecase';
 import { GetTotalApproveDriverUsecase } from '../usecases/gettotalapprove.usecase';
+import { NoVehicleUploadedUsecase } from '../usecases/noVehicleUploaded.usecase';
+import { AdminUpdateVehicleDto } from '../dtos/update-vehicle.dto';
 
 
 
@@ -208,6 +210,7 @@ private readonly getTotalApproveDriverUsecase:GetTotalApproveDriverUsecase,
     private readonly listPendingVehiclesUsecase: ListPendingVehiclesUsecase,
     private readonly approveVehicleUsecase: ApproveVehicleUsecase,
     private readonly rejectVehicleUsecase: RejectVehicleUsecase,
+    private readonly   noVehicleUploadedUsecase: NoVehicleUploadedUsecase
   ) {}
 
 
@@ -298,11 +301,34 @@ async getAllAnnouncements() {
   return this.notificationService.getAllAnnouncements();
 }
 
+
+@ApiBearerAuth()
+@AdminOnly()
+@Post('drivers/update-vehicle')
+@UseInterceptors(AnyFilesInterceptor())
+@ApiConsumes('multipart/form-data')
+@ApiOperation({ summary: 'Admin: update an existing vehicle for a driver' })
+@ApiBody({ type: AdminUpdateVehicleDto })
+@ApiResponse({ status: 200, description: 'Vehicle updated successfully' })
+updateVehicleForDriver(
+  @Body() body: any,
+  @UploadedFiles() files: Express.Multer.File[],
+) {
+  return this.adminService.updateVehicleForDriver(body, files);
+}
+
 @AdminOnly()
 @Get('drivers/approved/count')
 @ApiOperation({ summary: 'Get total number of approved drivers' })
 async getApprovedDriversCount() {
   return  this.broker.runUsecases([this.getTotalApproveDriverUsecase]);
+}
+
+@AdminOnly()
+@Get('drivers/vehicle-uploaded/count')
+@ApiOperation({ summary: 'Get total number of vehicle uploaded by drivers' })
+async getVehicleUploadedCount() {
+  return  this.broker.runUsecases([this.noVehicleUploadedUsecase]);
 }
 
 

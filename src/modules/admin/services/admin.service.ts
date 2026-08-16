@@ -16,10 +16,11 @@ import { UpdatePasswordDto } from '../dtos/updatePassword.dto';
 import { AddDriverDocumentsDto, UploadDriverDocumentDto } from '../dtos/adddoc.dto';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS, CACHE_TTL } from '@modules/cache/redis-cache.constants';
-import { AdminNotificationActivityQuery, UserStatus } from 'src/types/enums';
+import { AdminNotificationActivityQuery, DocumentStatus, UserStatus } from 'src/types/enums';
 import { CreateSubAdminDto } from '../dtos/create-subadmin.dto';
 import { DriverRepository } from '@adapters/repositories/driver.repository';
 import { VehicleRepository } from '@adapters/repositories/vehicle.repository';
+import { Vehicle } from '@modules/core/entities/vehicle.entity';
 
 
 @Injectable()
@@ -254,6 +255,8 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
     return await this.adminRepo.approveVehicle(vehicleId, adminEmail);
   }
 
+  
+
   async rejectVehicle(vehicleId: string, reason: string, adminEmail: string) {
     return await this.adminRepo.rejectVehicle(vehicleId, reason, adminEmail);
   }
@@ -453,6 +456,10 @@ async addDriverDocumentFile(
 async getTotalApproveDriver(){
   return await this.adminRepo.getApprovedDriversCount();
 }
+
+async noVehicleUploaded(){
+  return await this.adminRepo.noVehicleUploaded();
+}
   async getBooking(id: string) {
     return await this.adminRepo.getBooking(id);
   }
@@ -503,6 +510,109 @@ async getTotalApproveDriver(){
 
   const hashed = await this.hashingUtil.hash(dto.newPassword);
   return this.adminRepo.updatePassword(adminId, hashed);
+}
+
+
+async updateVehicleForDriver(
+  rawBody: Record<string, any>,
+  files: Express.Multer.File[] = [],
+) {
+  const vehicleId = rawBody?.vehicle_id;
+  if (!vehicleId) {
+    throw new BadRequestException('vehicle_id is required');
+  }
+
+  const vehicle = await this.vehicleRepo.findOne({ where: { id: vehicleId } });
+  if (!vehicle) {
+    throw new NotFoundException('Vehicle not found');
+  }
+
+  const update: Partial<Vehicle> = {};
+
+  // Optional vehicle-type change
+  if (rawBody?.vehicle_type_id) {
+    const vehicleType = await this.driverRepo.getVehicleTypeById(rawBody.vehicle_type_id);
+    if (!vehicleType) throw new NotFoundException('Vehicle type not found');
+    update.type = vehicleType.name;
+  }
+
+  // Scalar fields — only set the ones actually sent
+  if (rawBody?.model !== undefined) update.model = rawBody.model;
+  if (rawBody?.make !== undefined) update.make = rawBody.make;
+  if (rawBody?.year !== undefined) update.year = rawBody.year;
+  if (rawBody?.color !== undefined) update.color = rawBody.color;
+  if (rawBody?.insurance !== undefined) update.insurance = rawBody.insurance;
+
+  if (rawBody?.capacity !== undefined) {
+    const capacity = Number(rawBody.capacity);
+    if (Number.isNaN(capacity)) {
+      throw new BadRequestException('capacity must be a number');
+    }
+    update.capacity = capacity;
+  }
+
+  // Plate change — enforce uniqueness against OTHER vehicles
+  const newPlate = rawBody?.license_plate_number;
+  if (newPlate && newPlate !== vehicle.plateNumber) {
+    const plateTaken = await this.vehicleRepo.findByPlateOrLicense(newPlate);
+    if (plateTaken && plateTaken.id !== vehicle.id) {
+      throw new BadRequestException('A vehicle with this plate number already exists');
+    }
+    update.plateNumber = newPlate;
+    update.licensePlateNumber = newPlate;
+  }
+
+  // Features array (features[0], features[1], ... from multipart)
+  const features = this.extractIndexedFormArray(rawBody, 'features');
+  if (features.length > 0) {
+    update.features = features;
+  }
+
+  // New photos (optional) — if any are sent, replace the whole set
+  const photoFiles = (files ?? []).filter((f) => f.fieldname?.startsWith('photos'));
+  if (photoFiles.length > 0) {
+    const vehiclePhoto: string[] = [];
+    for (const file of photoFiles) {
+      const uploaded = await this.cloudinaryService.upload(file, {
+        resource_type: 'image',
+        folder: `vehicles/${vehicle.driverId}/photos`,
+      });
+      vehiclePhoto.push(uploaded.secure_url);
+    }
+    update.vehiclePhoto = vehiclePhoto;
+  }
+
+  // New registration document (optional)
+  const registrationFile = (files ?? []).find(
+    (f) => f.fieldname === 'registrationDoc' || f.fieldname?.startsWith('registrationDoc'),
+  );
+  if (registrationFile) {
+    const uploaded = await this.cloudinaryService.upload(registrationFile, {
+      resource_type: 'auto',
+      folder: `vehicles/${vehicle.driverId}/documents`,
+    });
+    update.registrationDoc = uploaded.secure_url;
+  }
+
+  if (Object.keys(update).length === 0) {
+    throw new BadRequestException('No fields provided to update');
+  }
+
+  // Policy: if identity-relevant fields change on an already-approved vehicle,
+  // send it back for re-verification. Delete this block to allow silent edits.
+  const identityChanged =
+    update.plateNumber !== undefined ||
+    update.model !== undefined ||
+    update.registrationDoc !== undefined;
+
+  if (identityChanged && vehicle.verificationStatus === DocumentStatus.APPROVED) {
+    update.verificationStatus = DocumentStatus.PENDING;
+    update.isVerified = false;
+    update.rejectionReason = null;
+  }
+
+  Object.assign(vehicle, update);
+  return this.vehicleRepo.save(vehicle);
 }
 
 

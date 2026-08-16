@@ -129,6 +129,21 @@ export class AdminRepository extends Repository<Admin> {
 }
 
 
+async noVehicleUploaded(): Promise<number> {
+  return this.driverRepo
+    .createQueryBuilder('driver')
+    .leftJoin('driver.vehicles', 'vehicle')
+    .leftJoin(
+      DocumentVerification,
+      'doc',
+      'doc.driverId = driver.id AND doc.deletedAt IS NULL',
+    )
+    .where('vehicle.id IS NULL')
+    .andWhere('doc.id IS NULL')
+    .getCount();
+}
+
+
 
 async getPassengers(query: {
   page?: number;
