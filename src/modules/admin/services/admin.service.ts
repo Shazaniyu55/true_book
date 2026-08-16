@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 
 import { Admin } from '@modules/core/entities/admin.entity';
 import { AdminRepository } from '@adapters/repositories/admin.repository';
@@ -199,7 +199,7 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
   const hashedPassword = await this.hashingUtil.hash(tempPassword);
 
   const subAdmin = await this.adminRepo.createAdmin({
-    email: dto.email,
+    email: dto.email.toLowerCase().trim(),
     firstName: dto.firstName,
     lastName: dto.lastName,
     fullName: `${dto.firstName} ${dto.lastName}`,
@@ -217,7 +217,7 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
   });
 
   // Email the temporary credentials (uses the generic send())
-  await this.emailService.send({
+  const emailResult = await this.emailService.send({
     to: dto.email,
     subject: 'Your Tru Booker admin account',
     html: `
@@ -228,6 +228,13 @@ async createSubAdmin(creatorAdminId: string, dto: CreateSubAdminDto) {
       <p>Please log in and change it immediately.</p>
     `,
   });
+
+  if (!emailResult.success) {
+  // roll the sub-admin back, or surface a clear warning to the caller
+  throw new InternalServerErrorException(
+    'Sub-admin created but the credentials email failed to send. Reset the password before they can log in.',
+  );
+}
 
   return {
     id: subAdmin.id,

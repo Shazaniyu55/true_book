@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
@@ -15,6 +16,7 @@ export class CreateSubAdminDto {
   @IsString() @IsNotEmpty() lastName: string;
 
   @ApiProperty({ example: 'john.doe@example.com' })
+  @Transform(({ value }) => value?.toLowerCase()?.trim())
   @IsEmail() email: string;
 
   @ApiProperty({ example: '+2348012345678' })
