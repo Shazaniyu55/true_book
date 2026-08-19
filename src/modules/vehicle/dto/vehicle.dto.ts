@@ -75,7 +75,7 @@ export class UpdateVehicleDto {
   
 
   @ApiProperty({ example: "bus" })
-  @IsString() type: string;
+  @IsOptional() @IsString() type: string;
 
   @ApiProperty({ example: 'Toyota' })
   @IsOptional() @IsString() make: string;
