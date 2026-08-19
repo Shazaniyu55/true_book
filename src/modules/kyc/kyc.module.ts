@@ -24,8 +24,9 @@ import { Vehicle } from '@modules/core/entities/vehicle.entity';
 import { SmsFactory } from '@adapters/sms/sms.factory';
 import { BrevoAdapter } from '@adapters/sms/brevo/brevo.adapter';
 import { BrevoProvider } from '@adapters/sms/brevo/providers/brevo.provider';
-import { TermiiAdapter } from '@adapters/sms/termii/termii.adapter';
-import { TermiiProvider } from '@adapters/sms/termii/providers/termii.provider';
+import { TriimoAdapter } from '@adapters/sms/triimo/termii.adapter';
+import {  TriimoProvider } from '@adapters/sms/triimo/providers/termii.provider';
+import { VerifyDriverPhoneUsecase } from './usecase/verifyDriverPhoneUsecase';
 
 @Module({
   imports: [
@@ -55,11 +56,12 @@ import { TermiiProvider } from '@adapters/sms/termii/providers/termii.provider';
     SmsFactory,
         BrevoAdapter,
         BrevoProvider,
-        TermiiAdapter,
-        TermiiProvider,
+        TriimoAdapter,
+    TriimoProvider,
     RandomnessUtil,
 
     GetDriverKycStatusUsecase,
+    VerifyDriverPhoneUsecase,
     LicenseProcessor
 
   

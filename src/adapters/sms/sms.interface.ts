@@ -4,7 +4,7 @@ export interface SmsPayload {
 }
 
 /**
- * Every SMS provider (Dojah, Brevo, Termii, ...) implements this contract so the
+ * Every SMS provider (Dojah, Brevo, Triimo, ...) implements this contract so the
  * SmsFactory can treat them interchangeably when failing over between providers.
  */
 export interface ISmsProvider {

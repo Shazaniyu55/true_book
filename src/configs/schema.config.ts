@@ -110,9 +110,9 @@ export default {
     MONIFY_URL: optionalString,
     YOUVERIFY_API_KEY: optionalString,
     YOUVERIFY_BASEURL: optionalString,
-    TERMII_API_KEY: optionalString,
-    TERMII_SENDER_ID: optionalString,
-    TERMII_BASE_URL: optionalString,
+    TRIIMO_API_KEY: optionalString,
+    TRIIMO_SENDER_ID: optionalString,
+    TRIIMO_BASE_URL: optionalString,
     PLATFORM_FEE_RATE: optionalNumber,
     AGENT_COMMISSION_RATE: optionalNumber,
 

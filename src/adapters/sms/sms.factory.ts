@@ -2,10 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DojahAdapter } from '../kyc/dojah/dojah.adapter';
 import { BrevoAdapter } from './brevo/brevo.adapter';
-import { TermiiAdapter } from './termii/termii.adapter';
+import { TriimoAdapter } from './triimo/termii.adapter';
 import { ISmsProvider, SmsPayload } from './sms.interface';
 
-const DEFAULT_PROVIDER_ORDER = ['dojah', 'brevo', 'termii'];
+const DEFAULT_PROVIDER_ORDER = ['dojah', 'brevo', 'triimo'];
 
 @Injectable()
 export class SmsFactory {
@@ -16,12 +16,12 @@ export class SmsFactory {
     private readonly configService: ConfigService,
     private readonly dojahAdapter: DojahAdapter,
     private readonly brevoAdapter: BrevoAdapter,
-    private readonly termiiAdapter: TermiiAdapter,
+    private readonly triimoAdapter: TriimoAdapter,
   ) {
     const registry: Record<string, ISmsProvider> = {
       dojah: this.dojahAdapter,
       brevo: this.brevoAdapter,
-      termii: this.termiiAdapter,
+      triimo: this.triimoAdapter,
     };
 
     const configuredOrder = (this.configService.get<string>('common.sms.providerOrder') || '')

@@ -2,19 +2,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 import { SmsPayload } from '../../sms.interface';
-import { ITermii } from '../termii.interface';
+import { ITriimo } from '../termii.interface';
 
 @Injectable()
-export class TermiiProvider implements ITermii {
+export class TriimoProvider implements ITriimo {
   private readonly client: AxiosInstance;
-  private readonly logger = new Logger(TermiiProvider.name);
+  private readonly logger = new Logger(TriimoProvider.name);
   private readonly apiKey: string;
   private readonly senderId: string;
 
   constructor(private readonly configService: ConfigService) {
-    const baseUrl = this.configService.get<string>('common.sms.termii.baseUrl') || ' https://server.triimo.com';
-    this.apiKey = this.configService.get<string>('common.termii.apiKey');
-    this.senderId = this.configService.get<string>('common.termii.senderId') || 'TruBooker';
+    const baseUrl = this.configService.get<string>('common.sms.triimo.baseUrl') || 'https://api.triimo.com';
+    this.apiKey = this.configService.get<string>('common.triimo.apiKey');
+    this.senderId = this.configService.get<string>('common.triimo.senderId') || 'TruBooker';
 
     this.client = axios.create({
       baseURL: baseUrl,
@@ -25,7 +25,7 @@ export class TermiiProvider implements ITermii {
 
   async sendSms(payload: SmsPayload): Promise<boolean> {
     try {
-      const { data } = await this.client.post('/api/otp/send', {
+      const { data } = await this.client.post('/v1/sms/otp', {
         to: this.normalize(payload.destination),
         from: this.senderId,
         sms: payload.message,
@@ -36,18 +36,18 @@ export class TermiiProvider implements ITermii {
 
       const ok = data?.code === 'ok' || !!data?.message_id;
       if (ok) {
-        this.logger.log(`Termii SMS sent to ${this.mask(payload.destination)}`);
+        this.logger.log(`Triimo SMS sent to ${this.mask(payload.destination)}`);
       } else {
-        this.logger.warn('Termii SMS response indicates failure', data);
+        this.logger.warn('Triimo SMS response indicates failure', data);
       }
       return ok;
     } catch (error) {
-      this.logger.error('Termii SMS error', error?.response?.data || error?.message);
+      this.logger.error('Triimo SMS error', error?.response?.data || error?.message);
       return false;
     }
   }
 
-  /** Termii expects international format with no leading "+" (e.g. 2348012345678) */
+  /** Triimo expects international format with no leading "+" (e.g. 2348012345678) */
   private normalize(phone: string): string {
     return phone.replace(/^\+/, '').replace(/^0/, '234');
   }

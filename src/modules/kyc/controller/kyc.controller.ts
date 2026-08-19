@@ -14,6 +14,7 @@ import {
 } from '../dtos/kyc.dto';
 import { Broker } from '@broker/broker';
 import { GetDriverKycStatusUsecase } from '../usecase/getDriverKycStatus.usecase';
+import { VerifyDriverPhoneUsecase } from '../usecase/verifyDriverPhoneUsecase';
 
 
 @ApiTags('Driver - KYC')
@@ -26,6 +27,7 @@ export class KycController {
     private readonly broker: Broker,
     private readonly kycService: KycService,
     private readonly getDriverKycStatusUsecase:GetDriverKycStatusUsecase,
+    private readonly verifyDriverUsecase: VerifyDriverPhoneUsecase
 
   
   ) {}
@@ -39,6 +41,16 @@ export class KycController {
   })
   getStatus(@AuthUser() user: any) {
     return this.broker.runUsecases([this.getDriverKycStatusUsecase], {id: user.sub})
+  }
+
+  @DriverOnly()
+  @Post('verify-phone')
+  @ApiOperation({
+    summary: 'verify driver Phone',
+    description: 'verify a driver phone',
+  })
+  verifyDriverPhone(@AuthUser() user: any) {
+    return this.broker.runUsecases([this.verifyDriverUsecase], {id: user.sub})
   }
 
 @DriverOnly()

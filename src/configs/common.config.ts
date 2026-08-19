@@ -158,10 +158,9 @@ export default registerAs('common', () => ({
     apiKey: process.env.YOUVERIFY_API_KEY,
     baseUrl: process.env.YOUVERIFY_BASEURL,
   },
-
-  termii: {
-    apiKey: process.env.TERMII_API_KEY,
-    senderId: process.env.TERMII_SENDER_ID,
+ triimo: {
+    apiKey: process.env.TRIIMO_API_KEY,
+    senderId: process.env.TRIIMO_SENDER_ID,
   },
     sms: {
     providerOrder: process.env.SMS_PROVIDER_ORDER || 'dojah,brevo,termii',
@@ -170,8 +169,8 @@ export default registerAs('common', () => ({
       apiKey: process.env.BREVO_API_KEY,
       sender: process.env.BREVO_SMS_SENDER || 'TruBooker',
     },
-    termii: {
-      baseUrl: process.env.TERMII_BASE_URL || 'https://api.ng.termii.com',
+    triimo: {
+      baseUrl: process.env.TRIIMO_BASE_URL || 'https://api.triimo.com',
     },
   },
 }));

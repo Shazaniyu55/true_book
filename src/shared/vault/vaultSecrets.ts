@@ -36,7 +36,7 @@ const KV_PATHS: Record<string, string> = {
   ENCRYPTION_IV: 'secret/tru-booker/encryption_iv',
 
   // Notifications
-  TERMII_API_KEY: 'secret/tru-booker/termii_api_key',
+  TRIIMO_API_KEY: 'secret/tru-booker/triimo_api_key',
   // Notifications
   BREVO_API_KEY: 'secret/tru-booker/brevo_api_key',
 
