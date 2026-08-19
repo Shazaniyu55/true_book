@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ITriimo } from './termii.interface';
-import { TriimoProvider } from './providers/termii.provider';
+import { ITriimo } from './triimo.interface';
+import { TriimoProvider } from './providers/triimo.provider';
 import { SmsPayload } from '../sms.interface';
 
 @Injectable()

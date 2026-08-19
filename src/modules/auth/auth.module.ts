@@ -49,8 +49,8 @@ import { UpdatePasswordUsecase } from './usecases/updatepassword.usecase';
 import { UpdatePassengerPasswordUsecase } from './usecases/updatepassengerpass.usecase';
 import { BrevoAdapter } from '@adapters/sms/brevo/brevo.adapter';
 import { BrevoProvider } from '@adapters/sms/brevo/providers/brevo.provider';
-import {  TriimoAdapter } from '@adapters/sms/triimo/termii.adapter';
-import { TriimoProvider } from '@adapters/sms/triimo/providers/termii.provider';
+import {  TriimoAdapter } from '@adapters/sms/triimo/triimo.adapter';
+import { TriimoProvider } from '@adapters/sms/triimo/providers/triimo.provider';
 import { SmsFactory } from '@adapters/sms/sms.factory';
 
 @Module({

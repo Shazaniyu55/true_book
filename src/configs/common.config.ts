@@ -170,7 +170,8 @@ export default registerAs('common', () => ({
       sender: process.env.BREVO_SMS_SENDER || 'TruBooker',
     },
     triimo: {
-      baseUrl: process.env.TRIIMO_BASE_URL || 'https://api.triimo.com',
+      baseUrl: process.env.TRIIMO_BASE_URL || 'https://server.triimo.com',
+      orgId: process.env.TRIIMO_ORG_ID,
     },
   },
 }));
