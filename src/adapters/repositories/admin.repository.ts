@@ -1206,8 +1206,8 @@ async addDriverDocuments(
       relations: ['driver'],
     });
     if (!doc) throw new NotFoundException('Document not found');
-    if (doc.status !== DocumentStatus.PENDING)
-      throw new BadRequestException('Document is not pending');
+    if (doc.status === DocumentStatus.APPROVED)
+      throw new BadRequestException('Document is already approve');
 
     await this.entityManager.transaction(async (manager) => {
       doc.status = DocumentStatus.APPROVED;
