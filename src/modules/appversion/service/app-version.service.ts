@@ -34,7 +34,7 @@ private versionKey(appType: string, platform: string) {
   if (cached) return cached;
 
   try {
-    const settings = await this.repo.findOne({ where: { appType, platform } });
+    const settings = await this.repo.findOne({ where: { appType, platform },  order: { createdAt: 'DESC' },});
 
     let result;
     if (!settings) {
