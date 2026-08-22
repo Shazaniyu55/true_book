@@ -87,11 +87,11 @@ if (!vehicle) {
   );
 }
  
-if (!vehicle.isVerified) {
-  throw new BadRequestException(
-    'Your vehicle is pending verification. You can create trips once it is approved.',
-  );
-}
+// if (!vehicle.isVerified) {
+//   throw new BadRequestException(
+//     'Your vehicle is pending verification. You can create trips once it is approved.',
+//   );
+// }
  
     // Validate trip data
     this.validateTripData(dto);
