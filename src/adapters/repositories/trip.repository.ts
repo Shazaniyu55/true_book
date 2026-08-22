@@ -106,13 +106,13 @@ async createTrip(
           );
         }
 
-        if (vehicle.verificationStatus !== DocumentStatus.APPROVED) {
-          throw new BadRequestException(
-            vehicle.verificationStatus === DocumentStatus.REJECTED
-              ? `Your vehicle (${vehicle.plateNumber}) was rejected${vehicle.rejectionReason ? `: ${vehicle.rejectionReason}` : ''}. Please update it and wait for re-approval.`
-              : `Your vehicle (${vehicle.plateNumber}) is still pending admin approval. You can't create a trip until it's approved.`,
-          );
-        }
+        // if (vehicle.verificationStatus !== DocumentStatus.APPROVED) {
+        //   throw new BadRequestException(
+        //     vehicle.verificationStatus === DocumentStatus.REJECTED
+        //       ? `Your vehicle (${vehicle.plateNumber}) was rejected${vehicle.rejectionReason ? `: ${vehicle.rejectionReason}` : ''}. Please update it and wait for re-approval.`
+        //       : `Your vehicle (${vehicle.plateNumber}) is still pending admin approval. You can't create a trip until it's approved.`,
+        //   );
+        // }
 
         const reference = this.randomnessUtil.generateReference('TRP');
 
