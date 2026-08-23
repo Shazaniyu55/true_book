@@ -80,20 +80,74 @@ export class NotificationService {
     return notification;
   }
 
-  async notifyAdmins(base: Omit<NotifyParams, 'userId'>) {
-  let admins;
-  try {
-    admins = await this.adminRepo.find({
-      where: { status: UserStatus.ACTIVE },
-    });
-  } catch (err) {
-    this.logger.error('Failed to load admins for notification', err?.message);
-    return [];
+ async notifyAdmins(base: Omit<NotifyParams, 'userId'>) {
+    let admins;
+    try {
+      admins = await this.adminRepo.find({
+        where: { status: UserStatus.ACTIVE },
+      });
+    } catch (err) {
+      this.logger.error('Failed to load admins for notification', err?.message);
+      return [];
+    }
+ 
+    return Promise.all(
+      admins.map(async (admin) => {
+        // Persist against adminId (NOT userId) so the users FK stays null.
+        let notification;
+        try {
+          notification = await this.notificationRepository.createNotification({
+            adminId: admin.id,
+            userId: null,
+            title: base.title,
+            body: base.body,
+            type: base.type,
+            data: base.data ?? null,
+            isRead: false,
+          });
+        } catch (err) {
+          this.logger.error(
+            `Failed to persist admin notification for ${admin.id}`,
+            err?.message,
+          );
+          return null;
+        }
+ 
+        const payload = {
+          id: notification.id,
+          title: base.title,
+          body: base.body,
+          type: base.type,
+          data: base.data ?? null,
+          isRead: false,
+          createdAt: notification.createdAt,
+        };
+ 
+        // Realtime (best-effort).
+        try {
+          this.gateway.emitToUser(admin.id, payload);
+        } catch (err) {
+          this.logger.warn(`WS emit failed for admin ${admin.id}: ${err?.message}`);
+        }
+ 
+        // Push (best-effort) — admins carry an fcmToken rather than expoToken.
+        try {
+          if (admin.fcmToken) {
+            await this.expoService.sendPushNotification(
+              admin.fcmToken,
+              base.title,
+              base.body,
+              { type: base.type, ...(base.data ?? {}) },
+            );
+          }
+        } catch (err) {
+          this.logger.warn(`Push failed for admin ${admin.id}: ${err?.message}`);
+        }
+ 
+        return notification;
+      }),
+    );
   }
-  return Promise.all(
-    admins.map((a) => this.notify({ ...base, userId: a.id })),
-  );
-}
 
   /** Fan-out to several users (e.g. all passengers on a cancelled trip). */
   async notifyMany(userIds: string[], base: Omit<NotifyParams, 'userId'>) {

@@ -20,7 +20,6 @@ import { Payment } from '@modules/core/entities/payment.entity';
 import { BookingIntent, BookingIntentStatus } from '@modules/core/entities/booking_intent.entity';
 import { Review } from '@modules/core/entities/review.entity';
 import { VehicleType } from '@modules/core/entities/vehicletype.entity';
-import { title } from 'process';
 import { RedisCacheService } from '@modules/cache/redis-cache.service';
 import { CACHE_KEYS } from '@modules/cache/redis-cache.constants';
 
@@ -286,7 +285,78 @@ async createTrip(
 }
     
 
-  
+  async findAlternativeTrips(query: {
+    origin?: string;
+    destination?: string;
+    date?: string;
+    seats?: number;
+    windowDays?: number;
+    limit?: number;
+  }): Promise<any[]> {
+    const { origin, destination, seats } = query;
+    const windowDays = Math.min(30, Math.max(1, Number(query.windowDays) || 7));
+    const limit = Math.min(50, Math.max(1, Number(query.limit) || 10));
+ 
+    const iso = query.date ? this.normalizeDate(query.date) : null;
+    if (!iso) return [];
+ 
+    // Upper bound = requested date + windowDays (computed in JS to stay
+    // driver-agnostic).
+    const fromDate = new Date(`${iso}T00:00:00Z`);
+    const toDate = new Date(fromDate);
+    toDate.setUTCDate(toDate.getUTCDate() + windowDays);
+    const toIso = toDate.toISOString().slice(0, 10);
+ 
+    const qb = this.tripRepository
+      .createQueryBuilder('trip')
+      .leftJoinAndSelect('trip.driver', 'driver')
+      .leftJoinAndSelect('driver.user', 'user')
+      .leftJoinAndSelect('trip.vehicle', 'vehicle');
+ 
+    // Never show trips the driver closed, and only ones whose booking window
+    // is still open.
+    qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+    qb.andWhere(
+      `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+        OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+    );
+ 
+    // Strictly AFTER the requested date, up to and including the window end.
+    qb.andWhere('CAST(trip.departureDate AS DATE) > :fromDate', { fromDate: iso });
+    qb.andWhere('CAST(trip.departureDate AS DATE) <= :toDate', { toDate: toIso });
+ 
+    if (origin) {
+      this.tokenizeLocation(origin).forEach((token, i) => {
+        qb.andWhere(`trip.departureLocation ILIKE :aOriginTok${i}`, {
+          [`aOriginTok${i}`]: `%${token}%`,
+        });
+      });
+    }
+ 
+    if (destination) {
+      this.tokenizeLocation(destination).forEach((token, i) => {
+        qb.andWhere(`CAST(trip.arrivalDestination AS TEXT) ILIKE :aDestTok${i}`, {
+          [`aDestTok${i}`]: `%${token}%`,
+        });
+      });
+    }
+ 
+    if (seats) {
+      qb.andWhere('(trip.totalSeats - COALESCE(trip.bookedSeats, 0)) >= :aSeats', {
+        aSeats: Number(seats),
+      });
+    }
+ 
+    qb.orderBy('trip.departureDate', 'ASC')
+      .addOrderBy('trip.departureTime', 'ASC')
+      .addOrderBy('trip.id', 'ASC');
+ 
+    const rows = await qb.take(limit).getMany();
+    return rows.map((t) => ({
+      ...t,
+      availableSeats: t.totalSeats - (t.bookedSeats ?? 0),
+    }));
+  }
 
     async findByReference(reference: string): Promise<Trip> {
       return this.findOne({ where: { reference }, relations: ['driver', 'vehicle'] });
@@ -595,6 +665,8 @@ async searchTripState(query: {
   // Passengers should never see trips whose bookings the driver closed,
   // or whose booking window has already passed
   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+  qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
+
   qb.andWhere(
     `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
       OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
@@ -602,6 +674,9 @@ async searchTripState(query: {
 
   if (status) {
     qb.andWhere('trip.status = :status', { status });
+  }else{
+      qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
+
   }
 
   if (state) {
@@ -674,7 +749,9 @@ async searchTrips(query: {
  
   // Never show trips the driver explicitly closed.
   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
- 
+
+  
+ qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
   // Booking window. Skipped when the caller asks for a specific date or opts
   // into past trips — otherwise searching a past date can never return a row.
   if (!includePast && !date) {
@@ -686,6 +763,9 @@ async searchTrips(query: {
  
   if (status) {
     qb.andWhere('trip.status = :status', { status });
+  }else{
+  qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
+
   }
  
   // ── Location matching ────────────────────────────────────────────────

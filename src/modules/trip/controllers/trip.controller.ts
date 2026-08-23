@@ -62,6 +62,7 @@ import { TripBookingsQueryDto, TripChartQueryDto, VerifyBookingDto } from '../dt
 import { GetCancellationReasonsUsecase } from '../usecases/getcancelreason.usecase';
 import { SkipThrottle } from '@nestjs/throttler';
 import { GetTripSummaryByIdUsecase } from '../usecases/gettripsummarybyid.usecase';
+import { SearchTripAlterUsecase } from '../usecases/Searchtripalter.usecase';
 
 @ApiTags('Trips')
 @ApiBearerAuth()
@@ -94,7 +95,8 @@ export class TripsController {
     private readonly getTripChartSummaryUsecase:GetTripChartSummaryUsecase,
     private readonly getTripActivityUsecase:GetTripActivityUsecase,
       private readonly getCancellationReasonsUsecase:GetCancellationReasonsUsecase,
-      private readonly getTripSummaryByIdUsecase: GetTripSummaryByIdUsecase
+      private readonly getTripSummaryByIdUsecase: GetTripSummaryByIdUsecase,
+      private readonly searchTripAlterUsecase:SearchTripAlterUsecase
   
   ) {}
 
@@ -111,6 +113,18 @@ export class TripsController {
   })
   searchTrips(@Query() dto: SearchTripsDto) {
     return this.broker.runUsecases([this.searchTripeUsecase], dto)
+  }
+
+
+  @Public()
+  @SkipThrottle()
+  @Get('search-trip-alter')
+  @ApiOperation({
+    summary: 'Search available alternative trips',
+    description: 'Filter by origin, destination, date, seats, price. Publicly accessible.',
+  })
+  searchTripsAlter(@Query() dto: SearchTripsDto) {
+    return this.broker.runUsecases([this.searchTripAlterUsecase], dto)
   }
 
   @Public()

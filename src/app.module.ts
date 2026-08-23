@@ -39,6 +39,7 @@ import { AppVersionModule } from '@modules/appversion/appversion.module';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { TasksModule } from '@modules/task/task.module';
 import { GeocodingModule } from '@modules/geocoding/geocoding.module';
+import { TripRequestModule } from '@modules/trip-request/trip-request.module';
 
 
 
@@ -82,6 +83,7 @@ import { GeocodingModule } from '@modules/geocoding/geocoding.module';
     WebhookModule,
     ContactSupportModule,
     TripsModule,
+    TripRequestModule,
     KycModule,
     ReviewModule,
     VehicleModule,

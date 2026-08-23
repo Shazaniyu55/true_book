@@ -1,0 +1,66 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  MaxLength,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { TripRequestStatus } from '../../../types/enums';
+
+// ─── Passenger creates a trip request ──────────────────────────────────────
+
+export class CreateTripRequestDto {
+  @ApiProperty({ example: 'Abuja' })
+  @IsNotEmpty() @IsString() origin: string;
+
+  @ApiProperty({ example: 'Lagos' })
+  @IsNotEmpty() @IsString() destination: string;
+
+  @ApiProperty({ example: '2025-08-25', description: 'Wanted date. DD-MM-YYYY or YYYY-MM-DD.' })
+  @IsNotEmpty() @IsString() date: string;
+
+  @ApiPropertyOptional({ example: 2, default: 1 })
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) seats?: number;
+
+  @ApiPropertyOptional({ example: 'Prefer a morning departure if possible.' })
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
+}
+
+// ─── Admin list / filter ───────────────────────────────────────────────────
+
+export class TripRequestListQueryDto {
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number = 1;
+
+  @ApiPropertyOptional({ example: 20, default: 20 })
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number = 20;
+
+  @ApiPropertyOptional({ enum: TripRequestStatus, description: 'Filter by status' })
+  @IsOptional() @IsEnum(TripRequestStatus) status?: TripRequestStatus;
+
+  @ApiPropertyOptional({ description: 'Search by origin, destination or requester note' })
+  @IsOptional() @IsString() search?: string;
+}
+
+// ─── Admin approves ────────────────────────────────────────────────────────
+
+export class ApproveTripRequestDto {
+  @ApiPropertyOptional({
+    description: 'Optional trip to attach to this request (marks it fulfilled).',
+  })
+  @IsOptional() @IsString() tripId?: string;
+
+  @ApiPropertyOptional({ example: 'Trip added for the 26th — check the app.' })
+  @IsOptional() @IsString() @MaxLength(500) adminNote?: string;
+}
+
+// ─── Admin declines ────────────────────────────────────────────────────────
+
+export class DeclineTripRequestDto {
+  @ApiProperty({ example: 'No driver available on that route yet.' })
+  @IsNotEmpty() @IsString() @MaxLength(500) reason: string;
+}

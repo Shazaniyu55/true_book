@@ -103,7 +103,18 @@ export enum NotificationType {
   ADMIN_ACTIVITY = 'admin_activity',
   VEHICLE_REGISTRATION = 'vehicle_registration',
   VEHICLE_UPDATED= 'vehicle_updated',
-  VEHICLE_DELETED= 'vehicle_deleted'
+  VEHICLE_DELETED= 'vehicle_deleted',
+
+  TRIP_REQUEST_CREATED = 'trip_request_created',
+  TRIP_REQUEST_APPROVED = 'trip_request_approved',
+  TRIP_REQUEST_DECLINED = 'trip_request_declined',
+}
+
+export enum TripRequestStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  DECLINED = 'declined',
+  FULFILLED = 'fulfilled',
 }
 
 export enum CouponType {

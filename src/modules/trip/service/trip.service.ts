@@ -79,6 +79,41 @@ async activateTrip(userId: string, tripId: string): Promise<Trip> {
     return reasons;
   }
 
+
+  async searchTripsWithAlternatives(query: SearchTripsDto) {
+    const result: any = await this.tripRepository.searchTrips(query);
+    const exactCount = result?.meta?.totalRecords ?? 0;
+ 
+    // Only hunt for alternatives when the caller asked for a SPECIFIC date and
+    // nothing matched it. An undated search already returns the full list.
+    if (query.date && exactCount === 0) {
+      const alternatives = await this.tripRepository.findAlternativeTrips({
+        origin: query.origin,
+        destination: query.destination,
+        date: query.date,
+        seats: query.seats,
+        windowDays: 7,          // look up to a week ahead
+        limit: query.limit ?? 10,
+      });
+ 
+      return {
+        ...result,
+        exactDateAvailable: false,
+        alternatives,
+        // No exact match AND no nearby trips → tell the app to show the
+        // "Request a trip / get notified" button.
+        canRequestTrip: alternatives.length === 0,
+      };
+    }
+ 
+    return {
+      ...result,
+      exactDateAvailable: true,
+      alternatives: [],
+      canRequestTrip: false,
+    };
+  }
+
   // ─── Driver: Complete trip → release escrow ───────────────────────────────
 
   async completeTrip(id: string, dto: CompleteTripDto): Promise<Trip> {
