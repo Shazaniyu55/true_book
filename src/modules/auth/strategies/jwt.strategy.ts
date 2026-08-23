@@ -26,35 +26,63 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    // Try to find admin first
-    let entity: Admin | User | null = await this.adminRepository.findOne({ 
+  let entity: Admin | User | null = await this.adminRepository.findOne({
+    where: { id: payload.sub as any },
+  });
+  let type: 'admin' | 'user' = 'admin';
+
+  if (!entity) {
+    entity = await this.userRepository.findOne({
       where: { id: payload.sub as any },
-       //relations: ['role'],
     });
-    
-    // If not admin, try user
-    if (!entity) {
-      entity = await this.userRepository.findOne({ 
-        where: { id: payload.sub as any } 
-      });
-    }
-    
-    if (!entity) {
-      throw new UnauthorizedException('User not found');
-    }
-      if ((entity as any).status === UserStatus.SUSPENDED) {
-      throw new UnauthorizedException('Account suspended');
-    }
-    
-    const role = 'role' in entity ? entity.role : null;
-    return { 
-      id: entity.id,
-      sub: entity.id, 
-      email: entity.email, 
-      role,
-      roleId: (entity as any).roleId ?? null,
-      roles: role ? [role] : [], 
-    };
+    type = 'user';
   }
+
+  if (!entity) throw new UnauthorizedException('User not found');
+  if ((entity as any).status === UserStatus.SUSPENDED)
+    throw new UnauthorizedException('Account suspended');
+
+  const role = 'role' in entity ? entity.role : null;
+  return {
+    id: entity.id,
+    sub: entity.id,
+    email: entity.email,
+    role,
+    roleId: (entity as any).roleId ?? null,
+    roles: role ? [role] : [],
+    type, // 'admin' | 'user'  ← new
+  };
+}
+  // async validate(payload: JwtPayload) {
+  //   // Try to find admin first
+  //   let entity: Admin | User | null = await this.adminRepository.findOne({ 
+  //     where: { id: payload.sub as any },
+  //      //relations: ['role'],
+  //   });
+    
+  //   // If not admin, try user
+  //   if (!entity) {
+  //     entity = await this.userRepository.findOne({ 
+  //       where: { id: payload.sub as any } 
+  //     });
+  //   }
+    
+  //   if (!entity) {
+  //     throw new UnauthorizedException('User not found');
+  //   }
+  //     if ((entity as any).status === UserStatus.SUSPENDED) {
+  //     throw new UnauthorizedException('Account suspended');
+  //   }
+    
+  //   const role = 'role' in entity ? entity.role : null;
+  //   return { 
+  //     id: entity.id,
+  //     sub: entity.id, 
+  //     email: entity.email, 
+  //     role,
+  //     roleId: (entity as any).roleId ?? null,
+  //     roles: role ? [role] : [], 
+  //   };
+  // }
 }
 

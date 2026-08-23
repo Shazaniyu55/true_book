@@ -19,6 +19,7 @@ import { UserStatus } from '../../../types/enums';
 import { Permission as PermissionEnum } from '../../../types/enums/permission.enums';
 
 import { AssignRoleDto, InviteAdminDto, UpdateRoleDto, UserByRoleQueryDto } from '../dtos/roles.dto';
+import { AcGrantsService } from '@shared/access-control/ac-grants.service';
 
 @Injectable()
 export class RolesService {
@@ -30,6 +31,7 @@ export class RolesService {
     private readonly hashingUtil: HashingUtil,
     private readonly randomnessUtil: RandomnessUtil,
     private readonly emailService: EmailService,
+    private readonly acGrants: AcGrantsService,
   ) {}
 
   // ─── Roles ─────────────────────────────────────────────────────────────────
@@ -64,6 +66,7 @@ export class RolesService {
         throw new ConflictException('A role with this name already exists');
       role.name = dto.name;
       await this.roleRepo.save(role);
+
     }
 
     // Replace the permission set
@@ -79,9 +82,12 @@ export class RolesService {
         this.permissionRepo.create({ name, roleId: role.id, status: true }),
       );
       await this.permissionRepo.save(rows);
+      //await this.permissionRepo.save(rows);
+      await this.acGrants.refresh();
     }
 
     return this.getRoleById(id);
+    
   }
 
   // ─── Permissions ─────────────────────────────────────────────────────────────
@@ -214,16 +220,29 @@ export class RolesService {
 
   // ─── Group users by role (counts) ────────────────────────────────────────────
 
+  // async groupUsersByRole() {
+  //   const roles = await this.roleRepo.find({ order: { name: 'ASC' } });
+  //   return Promise.all(
+  //     roles.map(async (r) => ({
+  //       roleId: r.id,
+  //       role: r.name,
+  //       userCount: await this.userRepo.count({ where: { roleId: r.id } }),
+  //     })),
+  //   );
+  // }
+
   async groupUsersByRole() {
-    const roles = await this.roleRepo.find({ order: { name: 'ASC' } });
-    return Promise.all(
-      roles.map(async (r) => ({
-        roleId: r.id,
-        role: r.name,
-        userCount: await this.userRepo.count({ where: { roleId: r.id } }),
-      })),
-    );
-  }
+  const roles = await this.roleRepo.find({ order: { name: 'ASC' } });
+  return Promise.all(
+    roles.map(async (r) => {
+      const [userCount, adminCount] = await Promise.all([
+        this.userRepo.count({ where: { roleId: r.id } }),
+        this.adminRepo.count({ where: { roleId: r.id } }),
+      ]);
+      return { roleId: r.id, role: r.name, userCount: userCount + adminCount };
+    }),
+  );
+}
 
   // ─── Paginated users (searchable, optional role filter) ──────────────────────
 

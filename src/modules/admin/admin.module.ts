@@ -126,6 +126,7 @@ import {
 } from './usecases/vehicle-verification.usecase';
 import { GetTotalApproveDriverUsecase } from './usecases/gettotalapprove.usecase';
 import { NoVehicleUploadedUsecase } from './usecases/noVehicleUploaded.usecase';
+import { AcGrantsModule } from '@shared/access-control/ac-grants.module';
 
 const USECASES = [
   
@@ -197,6 +198,7 @@ const USECASES = [
   imports: [
     CloudinaryModule,
     DriverModule,
+    AcGrantsModule,
     TypeOrmModule.forFeature([
       
       Admin,
