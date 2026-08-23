@@ -129,6 +129,9 @@ export enum CouponStatus {
   INACTIVE = 'inactive',
   EXPIRED = 'expired',
 }
+export enum Niyu {
+  
+}
 
 export interface AdminNotificationActivityQuery {
   page?: number;
