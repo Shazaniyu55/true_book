@@ -29,12 +29,12 @@ import {
   TripRequestListQueryDto,
 } from '../dtos/trip-request.dto';
 
-import { CreateTripRequestUsecase } from '../usecases/createtriprequest.usecase';
-import { GetMyTripRequestsUsecase } from '../usecases/getmytriprequests.usecase';
-import { ListTripRequestsUsecase } from '../usecases/listtriprequests.usecase';
-import { GetTripRequestUsecase } from '../usecases/gettriprequest.usecase';
-import { ApproveTripRequestUsecase } from '../usecases/approvetriprequest.usecase';
-import { DeclineTripRequestUsecase } from '../usecases/declinetriprequest.usecase';
+import { CreateTripRequestUsecase } from '../usecases/Createtriprequest.usecase';
+import { GetMyTripRequestsUsecase } from '../usecases/Getmytriprequests.usecase';
+import { ListTripRequestsUsecase } from '../usecases/Listtriprequests.usecase';
+import { GetTripRequestUsecase } from '../usecases/Gettriprequest.usecase';
+import { ApproveTripRequestUsecase } from '../usecases/Approvetriprequest.usecase';
+import { DeclineTripRequestUsecase } from '../usecases/Declinetriprequest.usecase';
 
 @ApiTags('Trip Requests')
 @ApiBearerAuth()
