@@ -146,42 +146,45 @@ export class TripRequestRepository extends Repository<TripRequest> {
   }
 
   // ─── Admin: list all requests (trip dashboard) ───────────────────────────
-  async listRequests(
-    query: TripRequestListQueryDto,
-  ): Promise<PagedDto<any>> {
-    const page = Math.max(1, Number(query.page) || 1);
-    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-    const skip = (page - 1) * limit;
+  // ─── Admin: list all requests (trip dashboard) ───────────────────────────
+async listRequests(
+  query: TripRequestListQueryDto,
+): Promise<PagedDto<any>> {
+  const page = Math.max(1, Number(query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+  const skip = (page - 1) * limit;
 
-    const qb = this.tripRequestRepo
-      .createQueryBuilder('req')
-      .leftJoinAndSelect('req.requester', 'requester')
-      .leftJoinAndSelect('req.passenger', 'passenger')
-      .leftJoinAndSelect('req.linkedTrip', 'linkedTrip');
+  const qb = this.tripRequestRepo
+    .createQueryBuilder('req')
+    .leftJoinAndSelect('req.requester', 'requester')
+    .leftJoinAndSelect('req.passenger', 'passenger')
+    .leftJoinAndSelect('req.linkedTrip', 'linkedTrip')
+    .addSelect(
+      'CASE WHEN req.status = :pendingStatus THEN 0 ELSE 1 END',
+      'status_order',
+    )
+    .setParameter('pendingStatus', TripRequestStatus.PENDING);
 
-    if (query.status) {
-      qb.andWhere('req.status = :status', { status: query.status });
-    }
-
-    if (query.search) {
-      qb.andWhere(
-        new Brackets((w) => {
-          w.where('req.origin ILIKE :s', { s: `%${query.search}%` })
-            .orWhere('req.destination ILIKE :s', { s: `%${query.search}%` })
-            .orWhere('req.note ILIKE :s', { s: `%${query.search}%` });
-        }),
-      );
-    }
-
-    // Pending first, then newest.
-    qb.orderBy(
-      `CASE WHEN req.status = '${TripRequestStatus.PENDING}' THEN 0 ELSE 1 END`,
-      'ASC',
-    ).addOrderBy('req.createdAt', 'DESC');
-
-    const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.toPaged(data, total, page, limit, skip);
+  if (query.status) {
+    qb.andWhere('req.status = :status', { status: query.status });
   }
+
+  if (query.search) {
+    qb.andWhere(
+      new Brackets((w) => {
+        w.where('req.origin ILIKE :s', { s: `%${query.search}%` })
+          .orWhere('req.destination ILIKE :s', { s: `%${query.search}%` })
+          .orWhere('req.note ILIKE :s', { s: `%${query.search}%` });
+      }),
+    );
+  }
+
+  // Pending first, then newest.
+  qb.orderBy('status_order', 'ASC').addOrderBy('req.createdAt', 'DESC');
+
+  const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+  return this.toPaged(data, total, page, limit, skip);
+}
 
   // ─── Admin: single request ───────────────────────────────────────────────
   async getRequestById(id: string): Promise<TripRequest> {
