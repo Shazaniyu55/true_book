@@ -8,7 +8,7 @@ import {
   Min,
   MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { TripRequestStatus } from '../../../types/enums';
 
 // ─── Passenger creates a trip request ──────────────────────────────────────
@@ -39,8 +39,22 @@ export class TripRequestListQueryDto {
   @ApiPropertyOptional({ example: 20, default: 20 })
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) limit?: number = 20;
 
-  @ApiPropertyOptional({ enum: TripRequestStatus, description: 'Filter by status' })
-  @IsOptional() @IsEnum(TripRequestStatus) status?: TripRequestStatus;
+  @ApiPropertyOptional({
+    enum: TripRequestStatus,
+    isArray: true,
+    description:
+      'Filter by one or more statuses. Accepts a single value ' +
+      '(?status=approved), a comma-separated list ' +
+      '(?status=approved,fulfilled), or repeated params. Omit to list all.',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    (Array.isArray(value) ? value : String(value).split(','))
+      .map((v) => v.trim())
+      .filter(Boolean),
+  )
+  @IsEnum(TripRequestStatus, { each: true })
+  status?: TripRequestStatus[];
 
   @ApiPropertyOptional({ description: 'Search by origin, destination or requester note' })
   @IsOptional() @IsString() search?: string;
@@ -50,7 +64,7 @@ export class TripRequestListQueryDto {
 
 export class ApproveTripRequestDto {
   @ApiPropertyOptional({
-    description: 'Optional trip to attach to this request (marks it fulfilled).',
+    description: 'Optional trip to attach to this request. Recorded on linkedTripId.',
   })
   @IsOptional() @IsString() tripId?: string;
 

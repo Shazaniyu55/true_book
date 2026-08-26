@@ -56,6 +56,15 @@ export class TripRequestRepository extends Repository<TripRequest> {
     return null;
   }
 
+  /** Normalise the optional status filter to a non-empty array, or undefined. */
+  private statusFilter(
+    status?: TripRequestStatus | TripRequestStatus[],
+  ): TripRequestStatus[] | undefined {
+    if (status == null) return undefined;
+    const arr = Array.isArray(status) ? status : [status];
+    return arr.length ? arr : undefined;
+  }
+
   // ─── Passenger: create a request → notify admins ─────────────────────────
   async createRequest(
     requesterUserId: string,
@@ -135,8 +144,9 @@ export class TripRequestRepository extends Repository<TripRequest> {
       .leftJoinAndSelect('req.linkedTrip', 'linkedTrip')
       .where('req.requesterUserId = :requesterUserId', { requesterUserId });
 
-    if (query.status) {
-      qb.andWhere('req.status = :status', { status: query.status });
+    const statuses = this.statusFilter(query.status);
+    if (statuses) {
+      qb.andWhere('req.status IN (:...statuses)', { statuses });
     }
 
     qb.orderBy('req.createdAt', 'DESC');
@@ -146,89 +156,53 @@ export class TripRequestRepository extends Repository<TripRequest> {
   }
 
   // ─── Admin: list all requests (trip dashboard) ───────────────────────────
-  // ─── Admin: list all requests (trip dashboard) ───────────────────────────
+  async listRequests(
+    query: TripRequestListQueryDto,
+  ): Promise<PagedDto<any>> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
 
-async listRequests(
-  query: TripRequestListQueryDto,
-): Promise<PagedDto<any>> {
-  const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-  const skip = (page - 1) * limit;
+    const qb = this.tripRequestRepo
+      .createQueryBuilder('req')
+      .leftJoinAndSelect('req.requester', 'requester')
+      .leftJoinAndSelect('req.passenger', 'passenger')
+      .leftJoinAndSelect('req.linkedTrip', 'linkedTrip')
+      .addSelect(
+        `CASE
+           WHEN req.status = :pendingStatus   THEN 0
+           WHEN req.status = :approvedStatus  THEN 1
+           WHEN req.status = :fulfilledStatus THEN 2
+           ELSE 3
+         END`,
+        'status_order',
+      )
+      .setParameter('pendingStatus', TripRequestStatus.PENDING)
+      .setParameter('approvedStatus', TripRequestStatus.APPROVED)
+      .setParameter('fulfilledStatus', TripRequestStatus.FULFILLED);
 
-  const qb = this.tripRequestRepo
-    .createQueryBuilder('req')
-    .leftJoinAndSelect('req.requester', 'requester')
-    .leftJoinAndSelect('req.passenger', 'passenger')
-    .leftJoinAndSelect('req.linkedTrip', 'linkedTrip')
-    .addSelect(
-      `CASE
-         WHEN req.status = :pendingStatus  THEN 0
-         WHEN req.status = :approvedStatus THEN 1
-         ELSE 2
-       END`,
-      'status_order',
-    )
-    .setParameter('pendingStatus', TripRequestStatus.PENDING)
-    .setParameter('approvedStatus', TripRequestStatus.APPROVED);
+    const statuses = this.statusFilter(query.status);
+    if (statuses) {
+      qb.andWhere('req.status IN (:...statuses)', { statuses });
+    }
 
-  if (query.status) {
-    qb.andWhere('req.status = :status', { status: query.status });
+    if (query.search) {
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('req.origin ILIKE :s', { s: `%${query.search}%` })
+            .orWhere('req.destination ILIKE :s', { s: `%${query.search}%` })
+            .orWhere('req.note ILIKE :s', { s: `%${query.search}%` });
+        }),
+      );
+    }
+
+    // Pending first, then approved, then fulfilled, then declined —
+    // newest within each group.
+    qb.orderBy('status_order', 'ASC').addOrderBy('req.createdAt', 'DESC');
+
+    const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    return this.toPaged(data, total, page, limit, skip);
   }
-
-  if (query.search) {
-    qb.andWhere(
-      new Brackets((w) => {
-        w.where('req.origin ILIKE :s', { s: `%${query.search}%` })
-          .orWhere('req.destination ILIKE :s', { s: `%${query.search}%` })
-          .orWhere('req.note ILIKE :s', { s: `%${query.search}%` });
-      }),
-    );
-  }
-
-  // Pending first, then approved, then the rest — newest within each.
-  qb.orderBy('status_order', 'ASC').addOrderBy('req.createdAt', 'DESC');
-
-  const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-  return this.toPaged(data, total, page, limit, skip);
-}
-// async listRequests(
-//   query: TripRequestListQueryDto,
-// ): Promise<PagedDto<any>> {
-//   const page = Math.max(1, Number(query.page) || 1);
-//   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
-//   const skip = (page - 1) * limit;
-
-//   const qb = this.tripRequestRepo
-//     .createQueryBuilder('req')
-//     .leftJoinAndSelect('req.requester', 'requester')
-//     .leftJoinAndSelect('req.passenger', 'passenger')
-//     .leftJoinAndSelect('req.linkedTrip', 'linkedTrip')
-//     .addSelect(
-//       'CASE WHEN req.status = :pendingStatus THEN 0 ELSE 1 END',
-//       'status_order',
-//     )
-//     .setParameter('pendingStatus', TripRequestStatus.PENDING);
-
-//   if (query.status) {
-//     qb.andWhere('req.status = :status', { status: query.status });
-//   }
-
-//   if (query.search) {
-//     qb.andWhere(
-//       new Brackets((w) => {
-//         w.where('req.origin ILIKE :s', { s: `%${query.search}%` })
-//           .orWhere('req.destination ILIKE :s', { s: `%${query.search}%` })
-//           .orWhere('req.note ILIKE :s', { s: `%${query.search}%` });
-//       }),
-//     );
-//   }
-
-//   // Pending first, then newest.
-//   qb.orderBy('status_order', 'ASC').addOrderBy('req.createdAt', 'DESC');
-
-//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-//   return this.toPaged(data, total, page, limit, skip);
-// }
 
   // ─── Admin: single request ───────────────────────────────────────────────
   async getRequestById(id: string): Promise<TripRequest> {
@@ -264,9 +238,11 @@ async listRequests(
       linkedTripId = trip.id;
     }
 
-    req.status = linkedTripId
-      ? TripRequestStatus.FULFILLED
-      : TripRequestStatus.APPROVED;
+    // An approved request is APPROVED regardless of whether a trip is attached.
+    // Whether it's been fulfilled by a real trip is recorded on linkedTripId,
+    // NOT by overloading the status — otherwise trip-linked approvals never
+    // appear in an ?status=approved dashboard view.
+    req.status = TripRequestStatus.APPROVED;
     req.linkedTripId = linkedTripId;
     req.adminNote = dto.adminNote ?? null;
     req.processedByAdminId = adminId;
