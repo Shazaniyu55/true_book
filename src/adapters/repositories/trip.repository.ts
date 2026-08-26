@@ -803,7 +803,7 @@ async searchTrips(query: {
    * location) appears in EITHER the departure or arrival field — a broad
    * "search anywhere" instead of the directional origin→destination search.
    */
-  matchAny?: boolean | string;
+  strict?: boolean | string;
   /** Pass true to include trips whose booking window has already closed. */
   includePast?: boolean | string;
 }): Promise<PagedDto<any>> {
@@ -824,6 +824,8 @@ async searchTrips(query: {
   const skip = (page - 1) * limit;
 
   const includePast = query.includePast === true || query.includePast === 'true';
+    const strict = query.strict === true || query.strict === 'true';
+
 
   const qb = this.tripRepository
     .createQueryBuilder('trip')
@@ -861,13 +863,16 @@ async searchTrips(query: {
   //     Abuja OR Kaduna, in any direction.
   // In both modes "Nigeria" is treated as noise (see LOCATION_STOPWORDS),
   // otherwise it would match literally every trip in the country.
-  const matchAny = query.matchAny === true || query.matchAny === 'true';
 
-  if (matchAny) {
+
+
+     if (!strict) {
     const placeTokens = [
-      ...(origin ? this.meaningfulLocationTokens(origin) : []),
-      ...(destination ? this.meaningfulLocationTokens(destination) : []),
-      ...(location ? this.meaningfulLocationTokens(location) : []),
+      ...new Set([
+        ...(origin ? this.meaningfulLocationTokens(origin) : []),
+        ...(destination ? this.meaningfulLocationTokens(destination) : []),
+        ...(location ? this.meaningfulLocationTokens(location) : []),
+      ]),
     ];
 
     if (placeTokens.length) {
@@ -888,26 +893,15 @@ async searchTrips(query: {
     if (origin) {
       this.applyLocationMatch(qb, 'trip.departureLocation', origin, 'originTok');
     }
-
     if (destination) {
-      this.applyLocationMatch(
-        qb,
-        'CAST(trip.arrivalDestination AS TEXT)',
-        destination,
-        'destTok',
-      );
+      this.applyLocationMatch(qb, 'CAST(trip.arrivalDestination AS TEXT)', destination, 'destTok');
     }
-
     if (location) {
       this.applyLocationMatch(qb, 'trip.departureLocation', location, 'locTok');
     }
   }
 
-  // ── Date ─────────────────────────────────────────────────────────────
-  // Trips departing ON OR AFTER the requested day. A passenger searching for
-  // 1 Sep wants the 1st and everything later, not ONLY the 1st — an exact
-  // match is the usual reason a search "returns nothing". Switch `>=` back to
-  // `=` if you truly need a single-day filter.
+  // ── Date: trips departing ON OR AFTER the requested day ──────────────
   if (date) {
     const iso = this.normalizeDate(date);
     if (!iso) {
@@ -2002,10 +1996,12 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
 
 private tokenizeLocation(value: string): string[] {
   return value
-    .split(/[,/|]+/)
+    .toLowerCase()
+    .split(/[\s,/|]+/)
     .map((t) => t.trim())
     .filter((t) => t.length > 0);
 }
+
  
 /**
  * Accepts DD-MM-YYYY, DD/MM/YYYY or YYYY-MM-DD; returns YYYY-MM-DD.
@@ -2036,8 +2032,15 @@ private normalizeDate(input: string): string | null {
  * requiring "Nigeria" as an AND term used to return zero rows.
  */
 private static readonly LOCATION_STOPWORDS = new Set([
+  // country
   'nigeria', 'ng', 'nga',
+  // generic address / place descriptors
+  'street', 'st', 'road', 'rd', 'avenue', 'ave', 'way', 'close', 'crescent',
+  'lane', 'drive', 'junction', 'jct', 'roundabout', 'bus', 'stop', 'park',
+  'terminal', 'garage', 'city', 'town', 'centre', 'center', 'central', 'area',
+  'district', 'state', 'territory', 'capital', 'federal', 'fct', 'phase', 'gra',
 ]);
+
 
 /**
  * Meaningful tokens = comma-separated tokens minus country/noise stopwords.
@@ -2046,9 +2049,12 @@ private static readonly LOCATION_STOPWORDS = new Set([
  */
 private meaningfulLocationTokens(value: string): string[] {
   const tokens = this.tokenizeLocation(value).filter(
-    (t) => !TripRepository.LOCATION_STOPWORDS.has(t.toLowerCase()),
+    (t) =>
+      t.length >= 3 &&
+      !/^\d+$/.test(t) &&
+      !TripRepository.LOCATION_STOPWORDS.has(t),
   );
-  return tokens.length ? tokens : this.tokenizeLocation(value);
+  return [...new Set(tokens.length ? tokens : this.tokenizeLocation(value))];
 }
 
 

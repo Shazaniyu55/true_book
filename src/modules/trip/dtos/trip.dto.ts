@@ -154,13 +154,13 @@ export class SearchTripsDto {
   @IsOptional() @IsString() location?: string;
 
   @ApiPropertyOptional({
-    example: true,
+    example: false,
     description:
-      'Broad search: match trips touching ANY origin/destination place token in either field, in any direction.',
+      'Strict directional search (origin→destination). Default is broad: matches any trip touching any origin/destination place token in either field.',
   })
   @IsOptional()
   @Transform(({ value }) => value === true || value === 'true')
-  matchAny?: boolean;
+  strict?: boolean;
 }
 
 // ─── Cancel booking ────────────────────────────────────────────────────────
