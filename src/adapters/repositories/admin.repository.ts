@@ -536,6 +536,27 @@ async toggleAgentStatus(id: string) {
 }
 
 /** Admin approves a pending agent — this is the gate that unblocks agent login. */
+// async approveAgent(id: string) {
+//   const agent = await this.agentRepo.findOne({ where: { id }, relations: ['user'] });
+//   if (!agent) throw new NotFoundException('Agent not found');
+//   if (agent.status !== UserStatus.PENDING)
+//     throw new BadRequestException(`Only pending agents can be approved (current status: ${agent.status})`);
+
+//   agent.status = UserStatus.ACTIVE;
+//   await this.agentRepo.save(agent);
+
+//   if (agent.user?.id) {
+//     await this.notificationService.notify({
+//       userId: agent.user.id,
+//       title: 'Agent Account Approved',
+//       body: 'Your agent account has been approved. You can now log in.',
+//       type: NotificationType.BROADCAST,
+//       data: { agentId: agent.id },
+//     });
+//   }
+
+//   return agent;
+// }
 async approveAgent(id: string) {
   const agent = await this.agentRepo.findOne({ where: { id }, relations: ['user'] });
   if (!agent) throw new NotFoundException('Agent not found');
@@ -544,6 +565,11 @@ async approveAgent(id: string) {
 
   agent.status = UserStatus.ACTIVE;
   await this.agentRepo.save(agent);
+
+  if (agent.user) {
+    agent.user.status = UserStatus.ACTIVE;
+    await this.userRepo.save(agent.user);
+  }
 
   if (agent.user?.id) {
     await this.notificationService.notify({

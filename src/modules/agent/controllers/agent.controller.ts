@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '@shared/guards/jwt-auth.guard';
 import { RolesGuard } from '@shared/guards/roles.guard';
 import { AgentOnly } from '@shared/decorators/roles.decorator';
@@ -20,6 +20,7 @@ import { GetAgentProfileUsecase } from '../usecases/getagentprofile.usecase';
 import { UpdateAgentProfileUsecase } from '../usecases/updateagentprofile.usecase';
 import { CreateTransactionPinUsecase } from '../usecases/createtransaction.usecase';
 import { UpdateAgentPasswordUsecase } from '../usecases/updateagentpassword.usecase';
+import { NotificationService } from '@modules/notification/services/notification.service';
 
 
 @ApiTags('Agent')
@@ -36,7 +37,9 @@ export class AgentController {
     private readonly getAgentProfileUsecase:GetAgentProfileUsecase,
     private readonly updateAgentProfileUsecase:UpdateAgentProfileUsecase,
     private readonly createTransactionPinUsecase:CreateTransactionPinUsecase,
-    private readonly updateAgentPasswordUsecase:UpdateAgentPasswordUsecase
+    private readonly updateAgentPasswordUsecase:UpdateAgentPasswordUsecase,
+        private readonly notificationService: NotificationService,
+    
 
   ) {}
 
@@ -92,6 +95,15 @@ export class AgentController {
   createReferral(@AuthUser() user: any, @Body() dto: AgentRefer) {
     return this.broker.runUsecases([this.referDriverUsecase], { agentId: user.sub, driverId: dto.driverId, referralCode: dto.referralCode })
   }
+
+
+    @Get('anoucements')
+    @ApiOperation({ summary: 'Get all announcements' })
+    @ApiResponse({ status: 200, description: 'Announcements fetched successfully' })
+    async getAllAnnouncements() {
+      return this.notificationService.getAllAnnouncements();
+    }
+  
 
   // ─── DashBoard ─────────────────────────────────────────────────────────────────
 
