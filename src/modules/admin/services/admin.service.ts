@@ -164,9 +164,13 @@ async getPassengers(query: {
     return await this.adminRepo.toggleDriverStatus(id)
   }
 // -------------------------
-  async getFinancialReport(query: { page?: number; limit?: number }){
-      return await this.adminRepo.getFinancialReport(query)
-  }
+async getFinancialReport(query: {
+  page?: number;
+  limit?: number;
+  filter_by?: 'daily' | 'monthly' | 'yearly';
+}) {
+  return await this.adminRepo.getFinancialReport(query);
+}
 
   async getRevenueGraph(){
     return await this.adminRepo.getRevenueGraph()

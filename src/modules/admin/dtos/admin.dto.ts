@@ -13,6 +13,12 @@ import {
 import { CouponType, DocumentStatus } from '../../../types/enums';
 import { Type } from 'class-transformer';
 
+export enum ReportFilter {
+  DAILY = 'daily',
+  MONTHLY = 'monthly',
+  YEARLY = 'yearly',
+}
+
 export class SuspendUserDto {
   @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
 }
@@ -62,6 +68,11 @@ export class AdminListQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() search?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() status?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() role?: string;
+
+  @ApiPropertyOptional({ enum: ReportFilter, default: ReportFilter.MONTHLY })
+  @IsOptional()
+  @IsEnum(ReportFilter)
+  filter_by?: ReportFilter;
 }
 
 export class UpdateAdminProfileDto {

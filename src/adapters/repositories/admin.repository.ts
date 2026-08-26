@@ -28,7 +28,7 @@ import { Agent } from '@modules/core/entities/agent.entity';
 import { AddDriverDocumentsDto, UploadDriverDocumentDto } from '@modules/admin/dtos/adddoc.dto';
 import { Beneficiary } from '@modules/core/entities/beneficiary.entity';
 import { Vehicle } from '@modules/core/entities/vehicle.entity';
-import { startOfDay, endOfDay, subDays, format } from 'date-fns';
+import { startOfDay, endOfDay, subDays, format,startOfMonth, endOfMonth, startOfYear, endOfYear} from 'date-fns';
 import { Review } from '@modules/core/entities/review.entity';
 import { AgentReferral } from '@modules/core/entities/agent-referral.entity';
 import { Referral } from '@modules/core/entities/referal.entity';
@@ -196,47 +196,40 @@ if (search) {
   return pagedDto;
 }
 
-  async getRevenue() {
-  const today = endOfDay(new Date());
-  const startOfWeek = startOfDay(subDays(new Date(), 6));
+ // ─── Revenue (gross passenger payments) for the selected period ────────────
+async getRevenue(filter: 'daily' | 'monthly' | 'yearly' = 'monthly') {
+  const { start, end } = this.getReportRange(filter);
 
-  const revenueResult = await this.bookingRepo
+  // Total for the SELECTED period (was hardcoded to last 7 days before)
+  const totalResult = await this.bookingRepo
     .createQueryBuilder('b')
-    .select('SUM(b.amountPaid)', 'total')
+    .select('COALESCE(SUM(b.amountPaid), 0)', 'total')
     .where('b.paymentStatus = :s', { s: 'success' })
-    .andWhere('b.createdAt BETWEEN :start AND :end', {
-      start: startOfWeek,
-      end: today,
-    })
+    .andWhere('b.createdAt BETWEEN :start AND :end', { start, end })
     .getRawOne();
 
-  const dailyGraph = await this.bookingRepo
+  // Trend line across ALL time at the chosen granularity, so the graph is useful
+  const groupExpr =
+    filter === 'yearly' ? "TO_CHAR(b.createdAt, 'YYYY')"
+    : filter === 'daily' ? "TO_CHAR(b.createdAt, 'YYYY-MM-DD')"
+    : "TO_CHAR(b.createdAt, 'YYYY-MM')";
+
+  const graph = await this.bookingRepo
     .createQueryBuilder('b')
-    .select("TO_CHAR(b.createdAt, 'YYYY-MM-DD')", 'day')
-    .addSelect('SUM(b.amountPaid)', 'total')
+    .select(groupExpr, 'period')
+    .addSelect('COALESCE(SUM(b.amountPaid), 0)', 'total')
     .where('b.paymentStatus = :s', { s: 'success' })
-    .andWhere('b.createdAt BETWEEN :start AND :end', {
-      start: startOfWeek,
-      end: today,
-    })
-    .groupBy('day')
-    .orderBy('day', 'ASC')
+    .groupBy('period')
+    .orderBy('period', 'ASC')
     .getRawMany();
 
-  const graphMap = new Map(dailyGraph.map((g) => [g.day, parseFloat(g.total ?? '0')]));
-  const graphData = Array.from({ length: 7 }, (_, i) => {
-    const date = format(subDays(new Date(), 6 - i), 'yyyy-MM-dd');
-    const dayName = format(subDays(new Date(), 6 - i), 'EEEE'); // e.g. "Monday"
-    return {
-      day: dayName,
-      date,
-      revenue: graphMap.get(date) ?? 0,
-    };
-  });
-
   return {
-    total_revenue: parseFloat(revenueResult?.total ?? '0'),
-    graph_data: graphData,
+    // amountPaid is decimal(10,2) → already naira. NO /100.
+    total_revenue: Number(totalResult?.total ?? 0),
+    graph_data: graph.map((g) => ({
+      period: g.period,
+      revenue: Number(g.total ?? 0),
+    })),
   };
 }
 
@@ -1601,58 +1594,56 @@ async updatePassword(
 
 
 
-async getFinancialReport(query: { page?: number; limit?: number } = {}) {
-  const { page = 1, limit = 50 } = query;
+async getFinancialReport(query: {
+  page?: number;
+  limit?: number;
+  filter_by?: 'daily' | 'monthly' | 'yearly';
+} = {}) {
+  const { page = 1, limit = 50, filter_by = 'monthly' } = query;
   const skip = (page - 1) * limit;
+  const { start, end } = this.getReportRange(filter_by);
 
-  // Pending withdrawal counts by type
+  // SCALING NOTE:
+  //  - bookings.amountPaid & escrow.platformFee are decimal(10,2) → treated as naira (no /100)
+  //  - payouts.amount is stored in kobo → still /100 below
+  // Confirm against a real DB row and flip if your data differs.
+
+  // Pending withdrawals are point-in-time (current), so NOT date-filtered.
   const [
     totalAgentPendingWithdrawals,
     totalDriverPendingWithdrawals,
     totalPassengerPendingWithdrawals,
   ] = await Promise.all([
-    this.payoutRepo.count({
-      where: { status: PayoutStatus.PENDING, payoutableType: 'agent' },
-    }),
-    this.payoutRepo.count({
-      where: { status: PayoutStatus.PENDING, payoutableType: 'driver' },
-    }),
-    this.payoutRepo.count({
-      where: { status: PayoutStatus.PENDING, payoutableType: 'passenger' },
-    }),
+    this.payoutRepo.count({ where: { status: PayoutStatus.PENDING, payoutableType: 'agent' } }),
+    this.payoutRepo.count({ where: { status: PayoutStatus.PENDING, payoutableType: 'driver' } }),
+    this.payoutRepo.count({ where: { status: PayoutStatus.PENDING, payoutableType: 'passenger' } }),
   ]);
 
-  // Pending withdrawal amounts by type
   const [agentAmountResult, driverAmountResult, passengerAmountResult] = await Promise.all([
-    this.payoutRepo
-      .createQueryBuilder('p')
-      .select('SUM(p.amount)', 'total')
+    this.payoutRepo.createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
       .where('p.status = :status', { status: PayoutStatus.PENDING })
-      .andWhere('p.payoutableType = :type', { type: 'agent' })
-      .getRawOne(),
-    this.payoutRepo
-      .createQueryBuilder('p')
-      .select('SUM(p.amount)', 'total')
+      .andWhere('p.payoutableType = :type', { type: 'agent' }).getRawOne(),
+    this.payoutRepo.createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
       .where('p.status = :status', { status: PayoutStatus.PENDING })
-      .andWhere('p.payoutableType = :type', { type: 'driver' })
-      .getRawOne(),
-    this.payoutRepo
-      .createQueryBuilder('p')
-      .select('SUM(p.amount)', 'total')
+      .andWhere('p.payoutableType = :type', { type: 'driver' }).getRawOne(),
+    this.payoutRepo.createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'total')
       .where('p.status = :status', { status: PayoutStatus.PENDING })
-      .andWhere('p.payoutableType = :type', { type: 'passenger' })
-      .getRawOne(),
+      .andWhere('p.payoutableType = :type', { type: 'passenger' }).getRawOne(),
   ]);
 
-  // Platform earnings (sum of all successful booking platform fees)
+  // Platform earnings for the SELECTED period (was all-time before → mismatched revenue).
+  // Filter by releasedAt because the fee is realized when escrow is released.
   const platformEarningResult = await this.escroRepository
-    .createQueryBuilder('b')
-    .select('SUM(b.platformFee)', 'total')
-    .where('b.status = :s', { s: 'released' })
+    .createQueryBuilder('e')
+    .select('COALESCE(SUM(e.platformFee), 0)', 'total')
+    .where('e.status = :s', { s: 'released' })
+    .andWhere('e.releasedAt BETWEEN :start AND :end', { start, end })
     .getRawOne();
 
-  // Live gateway balance from Paystack — don't let a Paystack outage
-  // break the whole report, just report it as unavailable.
+  // Live gateway balance — don't let a Paystack outage break the report.
   let gatewayBalance: { balance: number; currency: string } | null = null;
   try {
     gatewayBalance = await this.paystackAdapter.checkBalance();
@@ -1660,7 +1651,6 @@ async getFinancialReport(query: { page?: number; limit?: number } = {}) {
     gatewayBalance = null;
   }
 
-  // Recent payouts (last 50)
   const recentPayouts = await this.payoutRepo.find({
     relations: ['driver.user', 'agent.user', 'beneficiary'],
     order: { createdAt: 'DESC' },
@@ -1671,7 +1661,7 @@ async getFinancialReport(query: { page?: number; limit?: number } = {}) {
   const allPayouts = recentPayouts.map((p) => ({
     id: p.id,
     type: 'payout',
-    amount: Number(p.amount ?? 0) / 100,
+    amount: Number(p.amount ?? 0) / 100, // payouts stored in kobo
     status: p.status,
     reference: p.reference,
     transfer_code: p.transferCode,
@@ -1699,16 +1689,19 @@ async getFinancialReport(query: { page?: number; limit?: number } = {}) {
     updated_at: p.updatedAt,
   }));
 
-  const revenue = await this.getRevenue();
+  const revenue = await this.getRevenue(filter_by);
 
   return {
+    filter_by,
+    period: { start, end },
     total_agent_pending_withdrawals: totalAgentPendingWithdrawals,
     total_driver_pending_withdrawals: totalDriverPendingWithdrawals,
     total_passenger_pending_withdrawals: totalPassengerPendingWithdrawals,
-    total_agent_pending_withdrawals_amount: parseFloat(agentAmountResult?.total ?? '0') / 100,
-    total_driver_pending_withdrawals_amount: parseFloat(driverAmountResult?.total ?? '0') / 100,
-    total_passenger_pending_withdrawals_amount: parseFloat(passengerAmountResult?.total ?? '0') / 100,
-    platform_earnings: parseFloat(platformEarningResult?.total ?? '0'),
+    // pending amounts: payouts are kobo → /100
+    total_agent_pending_withdrawals_amount: Number(agentAmountResult?.total ?? 0) / 100,
+    total_driver_pending_withdrawals_amount: Number(driverAmountResult?.total ?? 0) / 100,
+    total_passenger_pending_withdrawals_amount: Number(passengerAmountResult?.total ?? 0) / 100,
+    platform_earnings: Number(platformEarningResult?.total ?? 0), // decimal → naira, no /100
     all_payouts: allPayouts,
     revenue,
     gateway_balance: gatewayBalance?.balance ?? null,
@@ -1974,7 +1967,7 @@ async getDriversEarnings(query: {
     .leftJoinAndSelect('trip.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle')
-    .where('trip.status = :status', { status: TripStatus.PENDING })
+    .where('trip.status = :status', { status: TripStatus.COMPLETED })
     .orderBy('trip.createdAt', 'DESC')
     .skip(skip)
     .take(limit);
@@ -2001,9 +1994,9 @@ async getDriversEarnings(query: {
     data.map(async (trip) => {
       const earningsResult = await this.bookingRepo
         .createQueryBuilder('b')
-        .select('SUM(b.amountPaid)', 'total')
+        .select("COALESCE(SUM((b.metadata->>'netDriverAmount')::numeric), 0)", 'total')
         .where('b.tripId = :tripId', { tripId: trip.id })
-        .andWhere('b.paymentStatus = :s', { s: 'success' })
+        .andWhere("(b.metadata->>'driverCredited')::boolean IS TRUE")
         .getRawOne();
 
       return {
@@ -2087,6 +2080,12 @@ async getAgentsEarnings(query: { page?: number; limit?: number }) {
 
 
 
+private getReportRange(filter: 'daily' | 'monthly' | 'yearly' = 'monthly') {
+  const now = new Date();
+  if (filter === 'daily')  return { start: startOfDay(now),   end: endOfDay(now) };
+  if (filter === 'yearly') return { start: startOfYear(now),  end: endOfYear(now) };
+  return { start: startOfMonth(now), end: endOfMonth(now) }; // monthly (default)
+}
 
 
 }
