@@ -10,8 +10,8 @@ export class UpdateAgentProfileUsecase extends Usecase {
 
   async execute(
     _em: EntityManager,
-    args: { userId: string; dto: UpdateAgentProfileDto },
+    args: { userId: string; dto: UpdateAgentProfileDto; file?: Express.Multer.File },
   ) {
-    return this.agentService.updateProfile(args.userId, args.dto);
+    return this.agentService.updateProfile(args.userId, args.dto, args.file);
   }
 }

@@ -256,7 +256,7 @@ export class TripRequestRepository extends Repository<TripRequest> {
         title: 'Your trip request was approved',
         body: linkedTripId
           ? `A trip for ${saved.origin} → ${saved.destination} is now available. Tap to book.`
-          : `Good news — we're arranging ${saved.origin} → ${saved.destination}. ${saved.adminNote ?? ''}`.trim(),
+          : `Your requested trip is now available for booking ${saved.origin} → ${saved.destination}. ${saved.adminNote ?? ''}`.trim(),
         type: NotificationType.TRIP_REQUEST_APPROVED,
         data: {
           tripRequestId: saved.id,
