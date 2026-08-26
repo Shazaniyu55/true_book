@@ -1298,7 +1298,7 @@ async addDriverDocuments(
               reason: reason,
         });
       }
-               await this.expoService.sendPushNotification(driver.user.expoToken, "Rejected ", `Your document has been rejected: ${doc.documentType}`, { userId: driver.id })
+               await this.expoService.sendPushNotification(driver.user.expoToken, "Rejected ", `${driver.user.firstName}Your document has been rejected: ${doc.documentType}`, { userId: driver.id })
 
     }
 
