@@ -15,7 +15,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform  } from 'class-transformer';
 import { TripStatus, VehicleType } from '../../../types/enums';
 import { IQuery, Order } from '@shared/interface/query.interface';
 
@@ -152,6 +152,15 @@ export class SearchTripsDto {
 
   @ApiPropertyOptional({ example: 'Ikeja', description: 'Filter trips by city/location' })
   @IsOptional() @IsString() location?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Broad search: match trips touching ANY origin/destination place token in either field, in any direction.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  matchAny?: boolean;
 }
 
 // ─── Cancel booking ────────────────────────────────────────────────────────
