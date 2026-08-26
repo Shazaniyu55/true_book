@@ -153,14 +153,6 @@ export class SearchTripsDto {
   @ApiPropertyOptional({ example: 'Ikeja', description: 'Filter trips by city/location' })
   @IsOptional() @IsString() location?: string;
 
-  @ApiPropertyOptional({
-    example: false,
-    description:
-      'Strict directional search (origin→destination). Default is broad: matches any trip touching any origin/destination place token in either field.',
-  })
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  strict?: boolean;
 }
 
 // ─── Cancel booking ────────────────────────────────────────────────────────
