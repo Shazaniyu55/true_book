@@ -785,7 +785,7 @@ async searchTripState(query: {
 }
 
 
-
+//case1
 // async searchTrips(query: {
 //   page?: number;
 //   limit?: number;
@@ -964,6 +964,177 @@ async searchTripState(query: {
 
 
 
+//case2
+// async searchTrips(query: {
+//   page?: number;
+//   limit?: number;
+//   origin?: string;
+//   destination?: string;
+//   date?: string;
+//   seats?: number;
+//   maxPrice?: number;
+//   sortBy?: string;
+//   status?: string;
+//   state?: string;
+//   location?: string;
+//   /** Pass true to include trips whose booking window has already closed. */
+//   includePast?: boolean | string;
+// }): Promise<PagedDto<any>> {
+//   const {
+//     origin,
+//     destination,
+//     date,
+//     seats,
+//     maxPrice,
+//     sortBy,
+//     status,
+//     location,
+//   } = query;
+ 
+//   // Query-string values arrive as strings — coerce and clamp.
+//   const page = Math.max(1, Number(query.page) || 1);
+//   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+//   const skip = (page - 1) * limit;
+ 
+//   const includePast = query.includePast === true || query.includePast === 'true';
+ 
+//   const qb = this.tripRepository
+//     .createQueryBuilder('trip')
+//     .leftJoinAndSelect('trip.driver', 'driver')
+//     .leftJoinAndSelect('driver.user', 'user')
+//     .leftJoinAndSelect('trip.vehicle', 'vehicle');
+ 
+//   // Never show trips the driver explicitly closed.
+//   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+
+  
+//  qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
+//   // Booking window. Skipped when the caller asks for a specific date or opts
+//   // into past trips — otherwise searching a past date can never return a row.
+//   if (!includePast && !date) {
+//     qb.andWhere(
+//       `(trip.bookingClosingDate IS NULL OR trip.bookingClosingTime IS NULL
+//         OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
+//     );
+//   }
+ 
+//   if (status) {
+//     qb.andWhere('trip.status = :status', { status });
+//   }else{
+//   qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
+
+//   }
+ 
+//   // ── Location matching ────────────────────────────────────────────────
+//   // Each comma-separated token must appear somewhere in the stored value.
+//   // Tolerates "Benin City, Edo, Nigeria" vs "Benin city,Edo,Nigeria" and
+//   // works on the text form of a jsonb column regardless of key order.
+ 
+//   // if (origin) {
+//   //   this.tokenizeLocation(origin).forEach((token, i) => {
+//   //     qb.andWhere(`trip.departureLocation ILIKE :originTok${i}`, {
+//   //       [`originTok${i}`]: `%${token}%`,
+//   //     });
+//   //   });
+//   // }
+
+//     if (origin) {
+//     this.applyLocationMatch(qb, 'trip.departureLocation', origin, 'originTok');
+//   }
+//   if (destination) {
+//     this.applyLocationMatch(
+//       qb,
+//       'CAST(trip.arrivalDestination AS TEXT)',
+//       destination,
+//       'destTok',
+//     );
+//   }
+
+//   if (location) {
+//     this.applyLocationMatch(qb, 'trip.departureLocation', location, 'locTok');
+//   }
+ 
+//   // if (destination) {
+//   //   this.tokenizeLocation(destination).forEach((token, i) => {
+//   //     qb.andWhere(`CAST(trip.arrivalDestination AS TEXT) ILIKE :destTok${i}`, {
+//   //       [`destTok${i}`]: `%${token}%`,
+//   //     });
+//   //   });
+//   // }
+ 
+//   // if (location) {
+//   //   this.tokenizeLocation(location).forEach((token, i) => {
+//   //     qb.andWhere(`trip.departureLocation ILIKE :locTok${i}`, {
+//   //       [`locTok${i}`]: `%${token}%`,
+//   //     });
+//   //   });
+//   // }
+ 
+//   // ── Date ─────────────────────────────────────────────────────────────
+//   if (date) {
+//     const iso = this.normalizeDate(date);
+//     if (!iso) {
+//       throw new BadRequestException(
+//         'Invalid date format. Use DD-MM-YYYY or YYYY-MM-DD.',
+//       );
+//     }
+//     // ::date guards against departureDate being stored as a timestamp.
+//     //qb.andWhere('trip.departureDate::date = :date', { date: iso });
+//     qb.andWhere('CAST(trip.departureDate AS DATE) = :departureDateParam', {
+//       departureDateParam: iso,
+//     });
+//   }
+ 
+//   if (seats) {
+//     qb.andWhere('(trip.totalSeats - COALESCE(trip.bookedSeats, 0)) >= :seats', {
+//       seats: Number(seats),
+//     });
+//   }
+
+
+//   if (maxPrice) {
+//     qb.andWhere('CAST(trip.price AS NUMERIC) <= :maxPriceParam', {
+//       maxPriceParam: Number(maxPrice),
+//     });
+//   }
+ 
+//   // ── Sorting ──────────────────────────────────────────────────────────
+//   // Order by the expression itself, not a SELECT alias: skip/take makes
+//   // TypeORM wrap the query in a DISTINCT subquery where addSelect aliases
+//   // aren't visible to the outer ORDER BY.
+//   switch (sortBy) {
+//     case 'price':
+//       qb.orderBy('CAST(trip.price AS NUMERIC)', 'ASC');
+//       break;
+//     case 'seats':
+//       qb.orderBy('(trip.totalSeats - COALESCE(trip.bookedSeats, 0))', 'DESC');
+//       break;
+//     default:
+//       qb.orderBy('trip.departureDate', 'ASC')
+//         .addOrderBy('trip.departureTime', 'ASC');
+//   }
+//   qb.addOrderBy('trip.id', 'ASC'); // stable tiebreak so pages don't shuffle
+ 
+//   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
+ 
+//   const pagedDto = new PagedDto();
+//   pagedDto.data = data.map((t) => ({
+//     ...t,
+//     availableSeats: t.totalSeats - (t.bookedSeats ?? 0),
+//   }));
+ 
+//   pagedDto.meta = {
+//     page,
+//     limit,
+//     count: data.length,
+//     previousPage: page > 1 ? page - 1 : false,
+//     nextPage: skip + limit < total ? page + 1 : false,
+//     pageCount: Math.ceil(total / limit),
+//     totalRecords: total,
+//   };
+ 
+//   return pagedDto;
+// }
 
 async searchTrips(query: {
   page?: number;
@@ -990,25 +1161,24 @@ async searchTrips(query: {
     status,
     location,
   } = query;
- 
+
   // Query-string values arrive as strings — coerce and clamp.
   const page = Math.max(1, Number(query.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
   const skip = (page - 1) * limit;
- 
+
   const includePast = query.includePast === true || query.includePast === 'true';
- 
+
   const qb = this.tripRepository
     .createQueryBuilder('trip')
     .leftJoinAndSelect('trip.driver', 'driver')
     .leftJoinAndSelect('driver.user', 'user')
     .leftJoinAndSelect('trip.vehicle', 'vehicle');
- 
+
   // Never show trips the driver explicitly closed.
   qb.andWhere("(trip.bookingStatus IS NULL OR trip.bookingStatus != 'closed')");
+  qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
 
-  
- qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
   // Booking window. Skipped when the caller asks for a specific date or opts
   // into past trips — otherwise searching a past date can never return a row.
   if (!includePast && !date) {
@@ -1017,59 +1187,47 @@ async searchTrips(query: {
         OR (trip.bookingClosingDate + trip.bookingClosingTime) > NOW())`,
     );
   }
- 
+
   if (status) {
     qb.andWhere('trip.status = :status', { status });
-  }else{
-  qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
-
+  } else {
+    qb.andWhere("trip.status != :cancelledStatus", { cancelledStatus: 'cancelled' });
   }
- 
-  // ── Location matching ────────────────────────────────────────────────
-  // Each comma-separated token must appear somewhere in the stored value.
-  // Tolerates "Benin City, Edo, Nigeria" vs "Benin city,Edo,Nigeria" and
-  // works on the text form of a jsonb column regardless of key order.
- 
-  // if (origin) {
-  //   this.tokenizeLocation(origin).forEach((token, i) => {
-  //     qb.andWhere(`trip.departureLocation ILIKE :originTok${i}`, {
-  //       [`originTok${i}`]: `%${token}%`,
-  //     });
-  //   });
-  // }
 
-    if (origin) {
+  // ── Location matching ────────────────────────────────────────────────
+  // departureLocation is a plain string ("Amufi Rd, Benin City 301111, Edo,
+  // Nigeria") — city + state both live in it, so a token ILIKE is fine.
+  // arrivalDestination is jsonb: [{ name, state, address, lat, long }] — match
+  // ONLY state + address (city lives in address) so we don't accidentally
+  // match lat/long or the place name.
+  if (origin) {
     this.applyLocationMatch(qb, 'trip.departureLocation', origin, 'originTok');
   }
   if (destination) {
-    this.applyLocationMatch(
-      qb,
-      'CAST(trip.arrivalDestination AS TEXT)',
-      destination,
-      'destTok',
-    );
+    this.applyArrivalMatch(qb, destination, 'destTok');
   }
-
   if (location) {
     this.applyLocationMatch(qb, 'trip.departureLocation', location, 'locTok');
   }
- 
-  // if (destination) {
-  //   this.tokenizeLocation(destination).forEach((token, i) => {
-  //     qb.andWhere(`CAST(trip.arrivalDestination AS TEXT) ILIKE :destTok${i}`, {
-  //       [`destTok${i}`]: `%${token}%`,
-  //     });
-  //   });
-  // }
- 
-  // if (location) {
-  //   this.tokenizeLocation(location).forEach((token, i) => {
-  //     qb.andWhere(`trip.departureLocation ILIKE :locTok${i}`, {
-  //       [`locTok${i}`]: `%${token}%`,
-  //     });
-  //   });
-  // }
- 
+
+  // Explicit state filter — matches either endpoint's state.
+  if (query.state) {
+    const stateTokens = this.meaningfulLocationTokens(query.state);
+    if (stateTokens.length) {
+      qb.andWhere(
+        new Brackets((w) => {
+          stateTokens.forEach((token, i) => {
+            w.orWhere(`trip.departureLocation ILIKE :stateTok${i}`, {
+              [`stateTok${i}`]: `%${token}%`,
+           }).orWhere(`"trip"."arrivalDestination"->0->>'state' ILIKE :stateTok${i}`, {
+              [`stateTok${i}`]: `%${token}%`,
+            });
+          });
+        }),
+      );
+    }
+  }
+
   // ── Date ─────────────────────────────────────────────────────────────
   if (date) {
     const iso = this.normalizeDate(date);
@@ -1078,33 +1236,24 @@ async searchTrips(query: {
         'Invalid date format. Use DD-MM-YYYY or YYYY-MM-DD.',
       );
     }
-    // ::date guards against departureDate being stored as a timestamp.
-    //qb.andWhere('trip.departureDate::date = :date', { date: iso });
     qb.andWhere('CAST(trip.departureDate AS DATE) = :departureDateParam', {
       departureDateParam: iso,
     });
   }
- 
+
   if (seats) {
     qb.andWhere('(trip.totalSeats - COALESCE(trip.bookedSeats, 0)) >= :seats', {
       seats: Number(seats),
     });
   }
- 
-  // if (maxPrice) {
-  //   qb.andWhere('trip.price::numeric <= :maxPrice', { maxPrice: Number(maxPrice) });
-  // }
 
   if (maxPrice) {
     qb.andWhere('CAST(trip.price AS NUMERIC) <= :maxPriceParam', {
       maxPriceParam: Number(maxPrice),
     });
   }
- 
+
   // ── Sorting ──────────────────────────────────────────────────────────
-  // Order by the expression itself, not a SELECT alias: skip/take makes
-  // TypeORM wrap the query in a DISTINCT subquery where addSelect aliases
-  // aren't visible to the outer ORDER BY.
   switch (sortBy) {
     case 'price':
       qb.orderBy('CAST(trip.price AS NUMERIC)', 'ASC');
@@ -1117,15 +1266,15 @@ async searchTrips(query: {
         .addOrderBy('trip.departureTime', 'ASC');
   }
   qb.addOrderBy('trip.id', 'ASC'); // stable tiebreak so pages don't shuffle
- 
+
   const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
- 
+
   const pagedDto = new PagedDto();
   pagedDto.data = data.map((t) => ({
     ...t,
     availableSeats: t.totalSeats - (t.bookedSeats ?? 0),
   }));
- 
+
   pagedDto.meta = {
     page,
     limit,
@@ -1135,10 +1284,9 @@ async searchTrips(query: {
     pageCount: Math.ceil(total / limit),
     totalRecords: total,
   };
- 
+
   return pagedDto;
 }
-
 
   async getTripById(tripId: string) {
   const trip = await this.tripRepository.findOne({
@@ -1997,6 +2145,33 @@ private async refundBookingEscrow(booking: Booking, manager: EntityManager) {
   await manager.save(Escrow, escrow);
 }
 
+/**
+ * Location filter for the jsonb arrivalDestination column
+ * ([{ name, state, address, lat, long }]). Matches a token against the
+ * destination's state OR address (city lives inside address, e.g.
+ * "Gwagwalada"). Deliberately ignores name / lat / long so a search for a
+ * city/state never matches a place name or coordinate substring.
+ */
+private applyArrivalMatch(
+  qb: SelectQueryBuilder<Trip>,
+  value: string,
+  paramPrefix: string,
+): void {
+  const tokens = this.meaningfulLocationTokens(value);
+  if (!tokens.length) return;
+
+  qb.andWhere(
+    new Brackets((w) => {
+      tokens.forEach((token, i) => {
+        w.orWhere(`"trip"."arrivalDestination"->0->>'state' ILIKE :${paramPrefix}${i}`, {
+          [`${paramPrefix}${i}`]: `%${token}%`,
+        }).orWhere(`"trip"."arrivalDestination"->0->>'address' ILIKE :${paramPrefix}${i}`, {
+          [`${paramPrefix}${i}`]: `%${token}%`,
+        });
+      });
+    }),
+  );
+}
 
 private tokenizeLocation(value: string): string[] {
   return value
