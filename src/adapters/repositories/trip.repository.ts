@@ -105,6 +105,8 @@ async createTrip(
           );
         }
 
+        this.assertSeatsWithinCapacity(vehicle, dto.totalSeats);
+
         // if (vehicle.verificationStatus !== DocumentStatus.APPROVED) {
         //   throw new BadRequestException(
         //     vehicle.verificationStatus === DocumentStatus.REJECTED
@@ -468,6 +470,16 @@ async createTrip(
           'Cannot edit a trip that already has confirmed bookings',
         );
       }
+      // If the driver is changing the seat count, it still can't exceed the
+// vehicle's approved capacity (they can only reduce it).
+      if (dto.totalSeats != null) {
+  const vehicle = await manager.findOne(Vehicle, {
+    where: { id: trip.vehicleId as any },
+  });
+  if (vehicle) {
+    this.assertSeatsWithinCapacity(vehicle, dto.totalSeats);
+  }
+}
 
       // Update trip fields
       Object.assign(trip, dto);
@@ -2237,6 +2249,19 @@ private meaningfulLocationTokens(value: string): string[] {
 }
 
 
+/**
+ * A trip can never offer more seats than the vehicle's admin-approved
+ * capacity. Drivers MAY offer fewer (e.g. to keep a seat free), but the
+ * total can never exceed what the vehicle was approved for.
+ */
+private assertSeatsWithinCapacity(vehicle: Vehicle, totalSeats: number): void {
+  if (totalSeats > vehicle.capacity) {
+    throw new BadRequestException(
+      `This vehicle is approved for ${vehicle.capacity} seat(s), so you can't offer ${totalSeats}. ` +
+        `Please set the number of seats to ${vehicle.capacity} or fewer.`,
+    );
+  }
+}
 
 /**
  * Adds a forgiving location filter to `qb`. A trip matches when ANY meaningful
