@@ -108,6 +108,9 @@ export enum NotificationType {
   TRIP_REQUEST_CREATED = 'trip_request_created',
   TRIP_REQUEST_APPROVED = 'trip_request_approved',
   TRIP_REQUEST_DECLINED = 'trip_request_declined',
+
+  TRIP_REQUEST_BOARD = 'trip_request_board',       // pooled request pushed to drivers
+  TRIP_REQUEST_CLAIMED = 'trip_request_claimed',   // a driver claimed a pooled request
 }
 
 export enum TripRequestStatus {
@@ -115,6 +118,14 @@ export enum TripRequestStatus {
   APPROVED = 'approved',
   DECLINED = 'declined',
   FULFILLED = 'fulfilled',
+}
+
+export enum TripPoolStatus {
+  MATCHING = 'matching', // grouped, waiting for its dispatch window
+  BOARD = 'board',       // pushed to the driver trip-request board
+  CLAIMED = 'claimed',   // a driver picked it up
+  FULFILLED = 'fulfilled', // a real trip now serves it
+  EXPIRED = 'expired',   // departure passed with no driver
 }
 
 export enum CouponType {
@@ -176,6 +187,17 @@ export interface PriceControlDto {
   driverEarningRate: number;      // % driver earns per booking
   minTripPrice: number;           // minimum price for a trip
   maxTripPrice: number;           // maximum price for a trip
+
+  // ── Fare recommendation model (all optional; sensible defaults applied) ──
+  // Used to recommend a fair per-seat price to drivers so they don't
+  // exaggerate, and to show passengers an estimated cost when no trip exists.
+  baseFare?: number;              // flat NGN added to every route
+  perKmRate?: number;             // NGN charged per km of route distance
+  interStateMultiplier?: number;  // multiply the distance rate for inter-state trips (e.g. 1.15)
+  priceBandPercent?: number;      // how far above/below the recommendation a driver may price (e.g. 15 = ±15%)
+  fallbackPricePerKm?: number;    // used only when distance is known but rates are unset
+  defaultIntraStateFare?: number; // recommendation when distance can't be computed for an intra-state trip
+  defaultInterStateFare?: number; // recommendation when distance can't be computed for an inter-state trip
 }
 
 export interface ReferralProgramDto {
@@ -205,6 +227,7 @@ export interface ContactSupportQueryDto {
   status?: ContactSupportStatus;
   userType?: UserRole;
 }
+
 
 // export enum UserRole {
 //   PASSENGER = 'passenger',
@@ -237,6 +260,7 @@ export interface ContactSupportQueryDto {
 // export enum TripStatus {
 //   PENDING = 'upcoming',
 //   ACTIVE = 'active',
+//   STARTED = 'started',
 //   COMPLETED = 'completed',
 //   CANCELLED = 'cancelled',
 //   CLOSED = 'closed',
@@ -294,8 +318,10 @@ export interface ContactSupportQueryDto {
 // export enum NotificationType {
 //   TRIP_CREATED= 'trip_created',
 //   TRIP_BOOKED = 'trip_booked',
+//   TRIP_STARTED = 'trip_started',
 //   TRIP_CANCELLED = 'trip_cancelled',
 //   TRIP_COMPLETED = 'trip_completed',
+//   BOOKING_VERIFIED = 'booking_verified',
 //   PAYMENT_SUCCESS = 'payment_success',
 //   PAYMENT_FAILED = 'payment_failed',
 //   PAYOUT_APPROVED = 'payout_approved',
@@ -305,6 +331,21 @@ export interface ContactSupportQueryDto {
 //   BROADCAST = 'broadcast',
 //   ANNOUNCEMENT = 'announcement',
 //   OTP = 'otp',
+//   ADMIN_ACTIVITY = 'admin_activity',
+//   VEHICLE_REGISTRATION = 'vehicle_registration',
+//   VEHICLE_UPDATED= 'vehicle_updated',
+//   VEHICLE_DELETED= 'vehicle_deleted',
+
+//   TRIP_REQUEST_CREATED = 'trip_request_created',
+//   TRIP_REQUEST_APPROVED = 'trip_request_approved',
+//   TRIP_REQUEST_DECLINED = 'trip_request_declined',
+// }
+
+// export enum TripRequestStatus {
+//   PENDING = 'pending',
+//   APPROVED = 'approved',
+//   DECLINED = 'declined',
+//   FULFILLED = 'fulfilled',
 // }
 
 // export enum CouponType {
@@ -318,6 +359,20 @@ export interface ContactSupportQueryDto {
 //   ACTIVE = 'active',
 //   INACTIVE = 'inactive',
 //   EXPIRED = 'expired',
+// }
+// export enum Niyu {
+  
+// }
+
+// export interface AdminNotificationActivityQuery {
+//   page?: number;
+//   limit?: number;
+//   role?: UserRole; // driver | passenger | agent
+//   type?: NotificationType;
+//   search?: string;
+//   isRead?: boolean;
+//   startDate?: string;
+//   endDate?: string;
 // }
 
 // export enum TransactionType {
@@ -381,3 +436,4 @@ export interface ContactSupportQueryDto {
 //   status?: ContactSupportStatus;
 //   userType?: UserRole;
 // }
+

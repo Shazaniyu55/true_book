@@ -4,6 +4,7 @@ import { User } from './user.entity';
 import { Passenger } from './passenger.entity';
 import { Admin } from './admin.entity';
 import { Trip } from './trip.entity';
+import { TripRequestPool } from './trip-request-pool.entity';
 import { TripRequestStatus } from 'src/types/enums';
 
 /**
@@ -42,8 +43,25 @@ export class TripRequest extends BaseEntity {
   @Column({ type: 'integer', default: 1 })
   seats: number;
 
+  /** Passenger's preferred departure time (HH:mm[:ss]). Drives pool scheduling. */
+  @Column({ type: 'time', nullable: true })
+  preferredTime: string | null;
+
   @Column({ type: 'varchar', nullable: true })
   note: string | null;
+
+  // ── Matching ───────────────────────────────────────────────────────────
+  /** Set once this request is grouped into a pool with others on the same route/date. */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  poolId: string | null;
+
+  @ManyToOne(() => TripRequestPool, (pool) => pool.requests, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'poolId' })
+  pool: TripRequestPool;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
   @Index()
