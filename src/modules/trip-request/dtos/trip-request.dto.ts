@@ -9,8 +9,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { TripRequestStatus } from '../../../types/enums';
-
+import { TripRequestStatus,PreferredTime } from '../../../types/enums';
 // ─── Passenger creates a trip request ──────────────────────────────────────
 
 export class CreateTripRequestDto {
@@ -26,13 +25,22 @@ export class CreateTripRequestDto {
   @ApiPropertyOptional({ example: 2, default: 1 })
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) seats?: number;
 
-  @ApiPropertyOptional({
-    example: '06:30',
+@ApiPropertyOptional({
+    enum: PreferredTime,
+    example: PreferredTime.MORNING,
     description:
-      'Preferred departure time (HH:mm or HH:mm:ss). Used to group you with other ' +
-      'passengers on the same route/date and to schedule when drivers are notified.',
+      'Preferred time of day to depart: morning, afternoon or evening. Used to ' +
+      'group you with other passengers on the same route/date and to schedule ' +
+      'when drivers are notified.',
   })
-  @IsOptional() @IsString() preferredTime?: string;
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsEnum(PreferredTime, {
+    message: 'preferredTime must be one of: morning, afternoon, evening',
+  })
+  preferredTime?: PreferredTime;
 
   @ApiPropertyOptional({ example: 'Prefer a morning departure if possible.' })
   @IsOptional() @IsString() @MaxLength(500) note?: string;

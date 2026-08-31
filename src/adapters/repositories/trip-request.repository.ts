@@ -13,7 +13,8 @@ import { Trip } from '@modules/core/entities/trip.entity';
 
 import { NotificationService } from '@modules/notification/services/notification.service';
 import { PagedDto } from '@shared/interface/paged.interface';
-import { NotificationType, TripRequestStatus } from '../../types/enums';
+import { NotificationType, TripRequestStatus, PREFERRED_TIME_SLOT_TO_TIME,
+ } from '../../types/enums';
 
 import {
   ApproveTripRequestDto,
@@ -96,6 +97,10 @@ export class TripRequestRepository extends Repository<TripRequest> {
     });
     if (existing) return existing;
 
+       const preferredTime = dto.preferredTime
+      ? PREFERRED_TIME_SLOT_TO_TIME[dto.preferredTime]
+      : null;
+
     const entity = manager.create(TripRequest, {
       requesterUserId,
       passengerId: passenger?.id ?? null,
@@ -103,9 +108,12 @@ export class TripRequestRepository extends Repository<TripRequest> {
       destination: dto.destination,
       requestedDate: iso,
       seats: dto.seats ?? 1,
-      preferredTime: dto.preferredTime ?? null,
+      preferredTime,
       note: dto.note ?? null,
       status: TripRequestStatus.PENDING,
+      metadata: dto.preferredTime
+        ? { preferredSlot: dto.preferredTime }
+        : null,
     });
 
     const saved = await manager.save(TripRequest, entity);
