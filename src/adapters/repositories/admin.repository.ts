@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, ILike, Repository } from 'typeorm';
+import { EntityManager, ILike, In, Repository } from 'typeorm';
 import { Admin } from '@modules/core/entities/admin.entity';
 import { User } from '@modules/core/entities/user.entity';
 import { Driver } from '@modules/core/entities/driver.entity';
@@ -1310,34 +1310,75 @@ async addDriverDocuments(
 
   // ─── Trip Management ─────────────────────────────────────────────────────────
 
-  async listTrips(query: { page?: number; limit?: number; status?: string }): Promise<PagedDto<any>> {
-    const { page = 1, limit = 20, status } = query;
-    const skip = (page - 1) * limit;
-    const where: any = {};
-    if (status) where.status = status;
+  
+async listTrips(query: { page?: number; limit?: number; status?: string }): Promise<PagedDto<any>> {
+  const { page = 1, limit = 20, status } = query;
+  const skip = (page - 1) * limit;
+  const where: any = {};
 
-    const [data, total] = await this.tripRepo.findAndCount({
-      where,
-      skip,
-      take: limit,
-      relations: ['driver.user'],
-      order: { createdAt: 'DESC' },
-    });
-
-    const pagedDto = new PagedDto();
-    pagedDto.data = data;
-    pagedDto.meta = {
-      page,
-      limit,
-      count: data.length,
-      previousPage: page > 1 ? page - 1 : false,
-      nextPage: skip + limit < total ? page + 1 : false,
-      pageCount: Math.ceil(total / limit),
-      totalRecords: total,
+  if (status) {
+    // "past" is a category, not a stored status — expand it into the concrete
+    // TripStatus values that represent a finished trip. Every real status
+    // (including "upcoming", the literal value of PENDING) still filters
+    // by exact match exactly as before.
+    const categories: Record<string, TripStatus[]> = {
+      past: [TripStatus.COMPLETED, TripStatus.CANCELLED, TripStatus.CLOSED],
     };
 
-    return pagedDto;
+    where.status = categories[status] ? In(categories[status]) : status;
   }
+
+  const [data, total] = await this.tripRepo.findAndCount({
+    where,
+    skip,
+    take: limit,
+    relations: ['driver.user'],
+    order: { createdAt: 'DESC' },
+  });
+
+  const pagedDto = new PagedDto();
+  pagedDto.data = data;
+  pagedDto.meta = {
+    page,
+    limit,
+    count: data.length,
+    previousPage: page > 1 ? page - 1 : false,
+    nextPage: skip + limit < total ? page + 1 : false,
+    pageCount: Math.ceil(total / limit),
+    totalRecords: total,
+  };
+
+  return pagedDto;
+}
+
+  // async listTrips(query: { page?: number; limit?: number; status?: string }): Promise<PagedDto<any>> {
+  //   const { page = 1, limit = 20, status } = query;
+  //   const skip = (page - 1) * limit;
+  //   const where: any = {};
+  //   if (status) where.status = status;
+
+  //   const [data, total] = await this.tripRepo.findAndCount({
+  //     where,
+  //     skip,
+  //     take: limit,
+  //     relations: ['driver.user'],
+  //     order: { createdAt: 'DESC' },
+  //   });
+
+  //   const pagedDto = new PagedDto();
+  //   pagedDto.data = data;
+  //   pagedDto.meta = {
+  //     page,
+  //     limit,
+  //     count: data.length,
+  //     previousPage: page > 1 ? page - 1 : false,
+  //     nextPage: skip + limit < total ? page + 1 : false,
+  //     pageCount: Math.ceil(total / limit),
+  //     totalRecords: total,
+  //   };
+
+  //   return pagedDto;
+  // }
 
   async getTrip(id: string) {
     const trip = await this.tripRepo.findOne({

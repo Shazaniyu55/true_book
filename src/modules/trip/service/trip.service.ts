@@ -43,34 +43,19 @@ async createTrip(
   entityManager?: EntityManager,
 ): Promise<Trip> {
 
-  // Anti-exaggeration guard: the driver's per-seat price must sit within the
-  // recommended band for this route. Drivers may still pick any price around
-  // the recommendation — they just can't go above the cap (or below the floor).
-  const evaluation = await this.fareService.evaluatePrice(
-    dto.origin,
-    dto.destination,
-    dto.pricePerSeat,
-  );
-
-  if (!evaluation.ok) {
-    throw new BadRequestException(evaluation.reason);
-  }
-
-  // Stamp the recommendation onto the trip so the decision is auditable and the
-  // app can show "priced within recommended range" without recomputing.
-  const rec = evaluation.recommendation;
+  // Recommend a fare (distance × admin rate/km) and stamp it on the trip for
+  // reference. The driver's chosen price is not restricted.
+  const rec = await this.fareService.recommendPrice(dto.origin, dto.destination);
   const dtoWithPriceMeta: CreateTripDto = {
     ...dto,
     metadata: {
       ...(dto.metadata ?? {}),
       fareRecommendation: {
         recommendedPricePerSeat: rec.recommendedPricePerSeat,
-        minPricePerSeat: rec.minPricePerSeat,
-        maxPricePerSeat: rec.maxPricePerSeat,
-        isInterState: rec.isInterState,
+        perKmRate: rec.perKmRate,
         distanceKm: rec.distanceKm,
+        isInterState: rec.isInterState,
         basis: rec.basis,
-        withinBand: true,
         evaluatedAt: new Date().toISOString(),
       },
     },
