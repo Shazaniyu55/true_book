@@ -40,7 +40,7 @@ export class TripMatchingController {
   ) {}
 
   @DriverOnly()
-  @Get()
+  @Get('get-board')
   @ApiOperation({
     summary: 'Driver: Trip request board',
     description:
