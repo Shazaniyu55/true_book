@@ -114,29 +114,63 @@ export class FareService {
 
   // ── Passenger-facing estimate for 1–N seats ───────────────────────────────
 
-  async estimateForPassengers(
-    origin: string,
-    destination: string,
-    maxSeats = 4,
-  ): Promise<{
-    recommendation: PriceRecommendation;
-    perSeat: number | null;
-    seats: PassengerFareEstimate[];
-  }> {
-    const recommendation = await this.recommendPrice(origin, destination);
-    const perSeat = recommendation.recommendedPricePerSeat;
-    const cap = clamp(Math.floor(maxSeats), 1, 10);
+//   async estimateForPassengers(
+//     origin: string,
+//     destination: string,
+//     maxSeats = 4,
+//   ): Promise<{
+//     recommendation: PriceRecommendation;
+//     perSeat: number | null;
+//     seats: PassengerFareEstimate[];
+//   }> {
+//     const recommendation = await this.recommendPrice(origin, destination);
+//     const perSeat = recommendation.recommendedPricePerSeat;
+//     const cap = clamp(Math.floor(maxSeats), 1, 10);
 
-    const seats: PassengerFareEstimate[] =
-      perSeat == null
-        ? []
-        : Array.from({ length: cap }, (_, i) => {
-            const s = i + 1;
-            return { seats: s, pricePerSeat: perSeat, total: perSeat * s };
-          });
+//     const seats: PassengerFareEstimate[] =
+//       perSeat == null
+//         ? []
+//         : Array.from({ length: cap }, (_, i) => {
+//             const s = i + 1;
+//             return { seats: s, pricePerSeat: perSeat, total: perSeat * s };
+//           });
 
-    return { recommendation, perSeat, seats };
-  }
+//     return { recommendation, perSeat, seats };
+//   }
+// }
+
+async estimateForPassengers(
+  origin: string,
+  destination: string,
+  maxSeats = 4,
+): Promise<{
+  recommendation: PriceRecommendation;
+  perSeat: number | null;
+  seats: PassengerFareEstimate[];
+  maxSeats: number;
+  maxTotal: number | null;
+}> {
+  const recommendation = await this.recommendPrice(origin, destination);
+  const perSeat = recommendation.recommendedPricePerSeat;
+  const cap = clamp(Math.floor(maxSeats), 1, 10);
+
+  const seats: PassengerFareEstimate[] =
+    perSeat == null
+      ? []
+      : Array.from({ length: cap }, (_, i) => {
+          const s = i + 1;
+          return { seats: s, pricePerSeat: perSeat, total: perSeat * s };
+        });
+
+  return {
+    recommendation,
+    perSeat,
+    seats,
+    maxSeats: cap,
+    maxTotal: perSeat == null ? null : perSeat * cap,
+  };
+}
+
 }
 
 // ── small helpers ─────────────────────────────────────────────────────────────
