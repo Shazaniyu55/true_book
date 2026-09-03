@@ -19,6 +19,8 @@ import {
   NotificationType,
   TripPoolStatus,
   TripRequestStatus,
+  PreferredTime,
+  PREFERRED_TIME_SLOT_TO_TIME,
 } from 'src/types/enums';
 import {
   isInterStateTrip,
@@ -145,8 +147,10 @@ export class TripMatchingService {
     const requestedDate = sample.requestedDate;
 
     // Earliest preferred time wins (default 06:00 when nobody stated one).
+    // The concrete clock time comes from each member's chosen slot; the raw
+    // `preferredTime` field now holds a display range, not a parseable time.
     const earliestTime = members
-      .map((m) => this.normalizeTime(m.preferredTime))
+      .map((m) => this.slotDepartureTime(m))
       .filter(Boolean)
       .sort()[0] ?? DEFAULT_DEPARTURE_TIME;
 
@@ -441,6 +445,19 @@ export class TripMatchingService {
     const m = String(t).trim().match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
     if (!m) return null;
     return `${m[1]}:${m[2]}:${m[3] ?? '00'}`;
+  }
+
+  /**
+   * Concrete HH:mm:ss departure time for pool scheduling. Preferred source is
+   * the chosen slot in metadata; falls back to a raw clock value in
+   * `preferredTime` for rows created before it became a display range.
+   */
+  private slotDepartureTime(req: TripRequest): string | null {
+    const slot = req.metadata?.preferredSlot as PreferredTime | undefined;
+    if (slot && PREFERRED_TIME_SLOT_TO_TIME[slot]) {
+      return PREFERRED_TIME_SLOT_TO_TIME[slot];
+    }
+    return this.normalizeTime(req.preferredTime);
   }
 
   private toPaged(
@@ -745,22 +762,22 @@ export class TripMatchingService {
 //       const userIds = drivers.map((d) => d.userId).filter(Boolean);
 //       if (!userIds.length) return;
 
-//       // await this.notificationService.notifyMany(userIds, {
-//       //   title: 'New trip request on the board',
-//       //   body:
-//       //     `${pool.totalSeats} passenger(s) want ${pool.origin} → ${pool.destination} ` +
-//       //     `on ${pool.requestedDate}. Tap to claim.`,
-//       //   type: NotificationType.TRIP_REQUEST_BOARD,
-//       //   data: {
-//       //     poolId: pool.id,
-//       //     origin: pool.origin,
-//       //     destination: pool.destination,
-//       //     requestedDate: pool.requestedDate,
-//       //     departureTime: pool.departureTime,
-//       //     totalSeats: pool.totalSeats,
-//       //     isInterState: pool.isInterState,
-//       //   },
-//       // });
+//       await this.notificationService.notifyMany(userIds, {
+//         title: 'New trip request on the board',
+//         body:
+//           `${pool.totalSeats} passenger(s) want ${pool.origin} → ${pool.destination} ` +
+//           `on ${pool.requestedDate}. Tap to claim.`,
+//         type: NotificationType.TRIP_REQUEST_BOARD,
+//         data: {
+//           poolId: pool.id,
+//           origin: pool.origin,
+//           destination: pool.destination,
+//           requestedDate: pool.requestedDate,
+//           departureTime: pool.departureTime,
+//           totalSeats: pool.totalSeats,
+//           isInterState: pool.isInterState,
+//         },
+//       });
 //     } catch (err) {
 //       this.logger.warn(`Failed to notify drivers for pool ${pool.id}: ${err?.message}`);
 //     }
@@ -783,11 +800,22 @@ export class TripMatchingService {
 //     if (query.scope === 'intra') qb.andWhere('pool.isInterState = false');
 //     if (query.scope === 'inter') qb.andWhere('pool.isInterState = true');
 
+//     // Combined: origin OR destination in the given state.
 //     if (query.state) {
 //       qb.andWhere(
 //         '(pool.originState ILIKE :st OR pool.destinationState ILIKE :st)',
 //         { st: `%${query.state}%` },
 //       );
+//     }
+
+//     // Direction-specific: leaving a state, and/or heading to a state.
+//     if (query.originState) {
+//       qb.andWhere('pool.originState ILIKE :os', { os: `%${query.originState}%` });
+//     }
+//     if (query.destinationState) {
+//       qb.andWhere('pool.destinationState ILIKE :ds', {
+//         ds: `%${query.destinationState}%`,
+//       });
 //     }
 
 //     qb.orderBy('pool.departureAt', 'ASC').addOrderBy('pool.id', 'ASC');
@@ -920,3 +948,4 @@ export class TripMatchingService {
 //     return paged;
 //   }
 // }
+
