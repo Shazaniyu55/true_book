@@ -278,22 +278,22 @@ export class TripMatchingService {
       const userIds = drivers.map((d) => d.userId).filter(Boolean);
       if (!userIds.length) return;
 
-      await this.notificationService.notifyMany(userIds, {
-        title: 'New trip request on the board',
-        body:
-          `${pool.totalSeats} passenger(s) want ${pool.origin} → ${pool.destination} ` +
-          `on ${pool.requestedDate}. Tap to claim.`,
-        type: NotificationType.TRIP_REQUEST_BOARD,
-        data: {
-          poolId: pool.id,
-          origin: pool.origin,
-          destination: pool.destination,
-          requestedDate: pool.requestedDate,
-          departureTime: pool.departureTime,
-          totalSeats: pool.totalSeats,
-          isInterState: pool.isInterState,
-        },
-      });
+      // await this.notificationService.notifyMany(userIds, {
+      //   title: 'New trip request on the board',
+      //   body:
+      //     `${pool.totalSeats} passenger(s) want ${pool.origin} → ${pool.destination} ` +
+      //     `on ${pool.requestedDate}. Tap to claim.`,
+      //   type: NotificationType.TRIP_REQUEST_BOARD,
+      //   data: {
+      //     poolId: pool.id,
+      //     origin: pool.origin,
+      //     destination: pool.destination,
+      //     requestedDate: pool.requestedDate,
+      //     departureTime: pool.departureTime,
+      //     totalSeats: pool.totalSeats,
+      //     isInterState: pool.isInterState,
+      //   },
+      // });
     } catch (err) {
       this.logger.warn(`Failed to notify drivers for pool ${pool.id}: ${err?.message}`);
     }
