@@ -21,6 +21,7 @@ import {
   TripRequestStatus,
   PreferredTime,
   PREFERRED_TIME_SLOT_TO_TIME,
+  PREFERRED_TIME_SLOT_TO_RANGE,
 } from 'src/types/enums';
 import {
   isInterStateTrip,
@@ -341,7 +342,26 @@ export class TripMatchingService {
     qb.orderBy('pool.departureAt', 'ASC').addOrderBy('pool.id', 'ASC');
 
     const [data, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.toPaged(data, total, page, limit, skip);
+
+    // Surface the human departure window (e.g. "5:00 PM - 7:00 PM") alongside
+    // the pool's concrete departureTime, so drivers see the same label
+    // passengers picked.
+    const enriched = data.map((pool) => ({
+      ...pool,
+      preferredTime: this.rangeForTime(pool.departureTime),
+    }));
+
+    return this.toPaged(enriched, total, page, limit, skip);
+  }
+
+  /** Map a concrete HH:mm:ss departure time back to its display window. */
+  private rangeForTime(time?: string | null): string | null {
+    const hhmm = this.normalizeTime(time);
+    if (!hhmm) return null;
+    const slot = (Object.keys(PREFERRED_TIME_SLOT_TO_TIME) as PreferredTime[]).find(
+      (s) => PREFERRED_TIME_SLOT_TO_TIME[s] === hhmm,
+    );
+    return slot ? PREFERRED_TIME_SLOT_TO_RANGE[slot] : null;
   }
 
   /** A driver claims a pooled request; optionally attaches a trip they own. */
@@ -503,6 +523,8 @@ export class TripMatchingService {
 //   NotificationType,
 //   TripPoolStatus,
 //   TripRequestStatus,
+//   PreferredTime,
+//   PREFERRED_TIME_SLOT_TO_TIME,
 // } from 'src/types/enums';
 // import {
 //   isInterStateTrip,
@@ -629,8 +651,10 @@ export class TripMatchingService {
 //     const requestedDate = sample.requestedDate;
 
 //     // Earliest preferred time wins (default 06:00 when nobody stated one).
+//     // The concrete clock time comes from each member's chosen slot; the raw
+//     // `preferredTime` field now holds a display range, not a parseable time.
 //     const earliestTime = members
-//       .map((m) => this.normalizeTime(m.preferredTime))
+//       .map((m) => this.slotDepartureTime(m))
 //       .filter(Boolean)
 //       .sort()[0] ?? DEFAULT_DEPARTURE_TIME;
 
@@ -925,6 +949,19 @@ export class TripMatchingService {
 //     const m = String(t).trim().match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
 //     if (!m) return null;
 //     return `${m[1]}:${m[2]}:${m[3] ?? '00'}`;
+//   }
+
+//   /**
+//    * Concrete HH:mm:ss departure time for pool scheduling. Preferred source is
+//    * the chosen slot in metadata; falls back to a raw clock value in
+//    * `preferredTime` for rows created before it became a display range.
+//    */
+//   private slotDepartureTime(req: TripRequest): string | null {
+//     const slot = req.metadata?.preferredSlot as PreferredTime | undefined;
+//     if (slot && PREFERRED_TIME_SLOT_TO_TIME[slot]) {
+//       return PREFERRED_TIME_SLOT_TO_TIME[slot];
+//     }
+//     return this.normalizeTime(req.preferredTime);
 //   }
 
 //   private toPaged(
