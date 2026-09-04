@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -9,7 +10,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { TripRequestStatus,PreferredTime } from '../../../types/enums';
+import { TripRequestStatus, PREFERRED_TIME_RANGES } from '../../../types/enums';
 // ─── Passenger creates a trip request ──────────────────────────────────────
 
 export class CreateTripRequestDto {
@@ -26,21 +27,24 @@ export class CreateTripRequestDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) seats?: number;
 
 @ApiPropertyOptional({
-    enum: PreferredTime,
-    example: PreferredTime.MORNING,
+    enum: PREFERRED_TIME_RANGES,
+    example: '7:00 AM - 9:00 AM',
     description:
-      'Preferred time of day to depart: morning, afternoon or evening. Used to ' +
-      'group you with other passengers on the same route/date and to schedule ' +
-      'when drivers are notified.',
+      'Preferred departure window. One of: "7:00 AM - 9:00 AM", ' +
+      '"12:00 PM - 2:00 PM", "5:00 PM - 7:00 PM". Used to group you with other ' +
+      'passengers on the same route/date and to schedule when drivers are notified.',
   })
   @IsOptional()
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().toLowerCase() : value,
+    typeof value === 'string'
+      ? value.trim().replace(/\s+/g, ' ').toUpperCase()
+      : value,
   )
-  @IsEnum(PreferredTime, {
-    message: 'preferredTime must be one of: morning, afternoon, evening',
+  @IsIn(PREFERRED_TIME_RANGES, {
+    message:
+      'preferredTime must be one of: 7:00 AM - 9:00 AM, 12:00 PM - 2:00 PM, 5:00 PM - 7:00 PM',
   })
-  preferredTime?: PreferredTime;
+  preferredTime?: string;
 
   @ApiPropertyOptional({ example: 'Prefer a morning departure if possible.' })
   @IsOptional() @IsString() @MaxLength(500) note?: string;
