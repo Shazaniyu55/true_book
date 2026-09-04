@@ -362,13 +362,17 @@ export class TripMatchingService {
     }
 
     // Surface the human departure window (e.g. "5:00 PM - 7:00 PM") alongside
-    // the pool's concrete departureTime, plus the passengers' notes, so drivers
-    // see the same label passengers picked and any context they added.
-    const enriched = data.map((pool) => ({
-      ...pool,
-      preferredTime: this.rangeForTime(pool.departureTime),
-      notes: notesByPool.get(pool.id) ?? [],
-    }));
+    // the pool's concrete departureTime, plus the passenger note, so drivers
+    // see the same label passengers picked and any context they added. When a
+    // pool has several passengers their notes are joined into one string.
+    const enriched = data.map((pool) => {
+      const poolNotes = notesByPool.get(pool.id);
+      return {
+        ...pool,
+        preferredTime: this.rangeForTime(pool.departureTime),
+        note: poolNotes?.length ? poolNotes.join(' | ') : null,
+      };
+    });
 
     return this.toPaged(enriched, total, page, limit, skip);
   }
