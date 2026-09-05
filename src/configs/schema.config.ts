@@ -28,7 +28,7 @@ export default {
     SWAGGER_API_ROOT: requiredString,
 
     // Database
-    DATABASE_TYPE: Joi.string().default('postgres'),
+    DB_TYPE: Joi.string().default('postgres'),
     DATABASE_LOGGING: Joi.boolean().default(false),
     DATABASE_RETRY_ATTEMPTS: Joi.number().default(DEFAULT_DATABASE_RETRY_ATTEMPTS),
     DB_HOST: requiredString,
