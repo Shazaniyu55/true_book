@@ -16,7 +16,7 @@ export const dataSource = {
   password: process.env.DB_PASS,
   autoLoadEntities: true,
   synchronize: false,
-  type: process.env.DB_TYPE,
+  type: 'postgres',
   logging: process.env.DATABASE_LOGGING === 'true',
   migrationsTransactionMode: 'each',
   entities: ['dist/**/*.entity.{js,ts}'],
